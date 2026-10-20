@@ -1,16 +1,24 @@
 /* Bom & Yeon SajuEngine v1 - plain JS, no deps. Attaches window.SajuEngine (also module.exports for node tests).
  * Conventions (see INTEGRATION.md):
- *  - Clock time = KST (UTC+9) fixed; no local-mean-time (-32 min) or historical DST correction.
+ *  - Solar terms are stored as KST (UTC+9) minutes. The birth moment is local civil time at the birthplace; pass
+ *    o.utcOffset (minutes east of UTC at that moment, e.g. 120 for CEST, -300 for EST) and term comparisons convert
+ *    it to KST first. Missing utcOffset = 540 (Korea). The day pillar always uses the local civil date.
+ *    No local-mean-time (-32 min) correction.
  *  - Year starts at the exact Ipchun moment, month at exact jie moment (solar_terms.json, minute precision).
- *  - Ja-si: 23:00-23:59 belongs to the NEXT day (day pillar and hour stem both use next day) = classic "jeongjasi" rule.
+ *  - Ja-si: 23:00-23:59 belongs to the NEXT day (day pillar and hour stem both use next day) = the 통자시 (tongjasi) rule
+ *    most Korean apps use. Other schools (야자시) keep the same day; disclosed on the site.
  *  - Unknown hour: chart has 3 pillars; the birth moment for term comparisons is taken as 12:00.
  *  - Luck direction: yang year stem + male or yin year stem + female = forward. gender 'other'/missing -> treated as female (UI asks neutrally).
  *  - Luck start age = days to next jie (forward) / previous jie (backward) / 3, rounded, clamped 1..10.
  *  - Season (v2): from the MONTH BRANCH, which already follows the solar terms (jie), not the calendar month:
  *      寅卯辰 spring, 巳午未 summer, 申酉戌 autumn, 亥子丑 winter. Element in command: spring Wood, summer Fire,
  *      autumn Metal, winter Water. 辰未戌丑 (last month of each season) carry Earth as their main qi (seasonEarth=true).
+ *  - Earth phase (v3, 토왕용사 土旺用事): in the last ~18 days of 辰未戌丑 months (sun 297/27/117/207 deg, approximated as
+ *    computed from the apparent solar longitude) Earth is in command: seasonKey='earth', commandEl=Earth.
+ *    Otherwise the command element is the season element (spring Wood, summer Fire, autumn Metal, winter Water).
+ *    The same commandEl drives both the season text and the 得令 strength test, so they always agree.
  *  - Day Master strength (v2, binary strong/weak, field dmStrength). Classical three tests, main hidden stems only:
- *      得令 season:  month branch main qi is the DM's own element or its resource element   -> 3 points
+ *      得令 season:  command element (see Earth phase) is the DM's own element or its resource element -> 3 points
  *      得地 roots:   day branch main qi same/resource -> 2; year branch -> 1; hour branch (if known) -> 1
  *      得勢 helpers: year stem, month stem, hour stem (if known) same/resource -> 1 each (the DM stem itself is not counted)
  *    max = 8 with three pillars (10 with hour). strong if score > max/2, weak if score < max/2.
@@ -54,6 +62,14 @@
   function rel(a, b) { return mod(b - a, 5) === 0 ? 0 : mod(b - a, 5) === 1 ? 1 : mod(b - a, 5) === 2 ? 2 : mod(b - a, 5) === 3 ? 3 : 4; }
   function tenGod(dm, s) { return rel(stemEl(dm), stemEl(s)) * 2 + ((dm & 1) === (s & 1) ? 0 : 1); }
 
+  // Apparent solar longitude (deg) for t = KST minutes (Meeus low-precision, ~0.01 deg). Used for the Earth phase.
+  function sunLongitude(t) {
+    var jd = (t - 540) / 1440 - 0.5, T = (jd - 2451545.0) / 36525, r = Math.PI / 180;
+    var L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T * T, M = 357.52911 + 35999.05029 * T - 0.0001537 * T * T;
+    var C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * Math.sin(M * r) + (0.019993 - 0.000101 * T) * Math.sin(2 * M * r) + 0.000289 * Math.sin(3 * M * r);
+    var om = 125.04 - 1934.136 * T;
+    return mod(L0 + C - 0.00569 - 0.00478 * Math.sin(om * r), 360);
+  }
   var TERMS = null;
   function setTerms(t) { TERMS = t; }
   // all jie moments (minutes) for year y, index 0 = Sohan
@@ -99,7 +115,9 @@
     // o: {year, month, day, hour (0-23 or null), minute, gender:'female'|'male'|'other'}
     var y = o.year, m = o.month, d = o.day, hasHour = o.hour !== null && o.hour !== undefined && o.hour !== '';
     var h = hasHour ? +o.hour : 12, mi = hasHour ? (+o.minute || 0) : 0;
-    var t = mins(y, m, d, h, mi);
+    var off = (o.utcOffset === null || o.utcOffset === undefined || o.utcOffset === '' || isNaN(+o.utcOffset)) ? 540 : +o.utcOffset;
+    var shift = 540 - off; // local minutes -> KST minutes
+    var t = mins(y, m, d, h, mi) + shift;
     var ym = yearMonth(t, y);
     var dj = jdn(y, m, d) + (hasHour && h >= 23 ? 1 : 0); // jeongjasi: 23:00 starts next day
     var day = pillar(mod(dj + 9, 10), mod(dj + 1, 12));
@@ -136,9 +154,13 @@
     // v2: season + binary strength
     var mbr = ym.month.branch, SEASONS = ['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter'];
     var season = SEASONS[mbr], seasonEl = { spring: 0, summer: 1, autumn: 3, winter: 4 }[season];
+    var isEarthMonth = [1, 4, 7, 10].indexOf(mbr) >= 0;
+    var lam = sunLongitude(t), earthPhase = isEarthMonth && [297, 27, 117, 207].some(function (a) { return mod(lam - a, 360) < 18; });
+    var commandEl = earthPhase ? 2 : seasonEl, seasonKey = earthPhase ? 'earth' : season;
     var parts = [], sScore = 0, sMax = 0;
-    function test(label, w, s) { var ok = sup(stemEl(s)); sMax += w; if (ok) sScore += w; parts.push({ part: label, w: w, ok: ok, el: ELEMENTS[stemEl(s)] }); }
-    test('season', 3, HIDDEN[mbr][0]);
+    function testEl(label, w, e) { var ok = sup(e); sMax += w; if (ok) sScore += w; parts.push({ part: label, w: w, ok: ok, el: ELEMENTS[e] }); }
+    function test(label, w, s) { testEl(label, w, stemEl(s)); }
+    testEl('season', 3, commandEl);
     test('day_branch', 2, HIDDEN[pillars.day.branch][0]);
     test('year_branch', 1, HIDDEN[pillars.year.branch][0]);
     if (hourP) test('hour_branch', 1, HIDDEN[hourP.branch][0]);
@@ -162,19 +184,23 @@
     var maxGod = 0; godW.forEach(function (w, i) { if (w > godW[maxGod]) maxGod = i; });
     var strongestEl = 0, weakestEl = 0;
     counts.forEach(function (c, i) { if (c > counts[strongestEl]) strongestEl = i; if (c < counts[weakestEl]) weakestEl = i; });
-    var missing = []; plain.forEach(function (c, i) { if (!c) missing.push(i); });
+    // v3: an element is "missing" only when it is absent from the visible AND hidden stems of the pillars we have
+    var missing = []; counts.forEach(function (c, i) { if (c < 0.05) missing.push(i); });
+    var missingVisible = []; plain.forEach(function (c, i) { if (!c) missingVisible.push(i); });
 
     var res = {
       input: o, hasHour: hasHour, pillars: pillars, dayMaster: dm, dayMasterEl: dmEl,
       dayMasterName: STEM_KO[dm] + ' ' + STEMS[dm] + ' (' + (dm & 1 ? 'Yin ' : 'Yang ') + ELEMENTS[dmEl] + ')',
-      counts: counts, plainCounts: plain, strongest: strongestEl, weakest: weakestEl, missing: missing,
+      counts: counts, plainCounts: plain, strongest: strongestEl, weakest: weakestEl, missing: missing, missingVisible: missingVisible,
       strength: strength, strengthIndex: { strong: 0, balanced: 1, weak: 2 }[strength], supportRatio: Math.round(ratio * 100) / 100,
       yongsin: ys, yongsinEl: ELEMENTS[ys], yongsinWhy: ysWhy,
       godWeights: godW.map(function (w) { return Math.round(w * 10) / 10; }), dominantGod: maxGod, dominantGodName: TEN_GODS[maxGod],
       zodiac: ANIMALS[ym.year.branch], sajuYear: ym.sajuYear,
-      season: season, seasonEl: seasonEl, seasonElName: ELEMENTS[seasonEl], seasonEarth: [1, 4, 7, 10].indexOf(mbr) >= 0,
+      season: season, seasonKey: seasonKey, earthPhase: earthPhase, seasonEl: seasonEl, commandEl: commandEl,
+      seasonElName: ELEMENTS[commandEl], seasonBaseElName: ELEMENTS[seasonEl], seasonEarth: isEarthMonth,
       seasonInCommand: parts[0].ok, dmStrength: dmStrength, strengthScore: sScore, strengthMax: sMax, strengthParts: parts,
-      readingCode: readingCode(pillars, dm, season, dmStrength)
+      utcOffset: off, termDay: hasHour ? null : termDay(y, m, d, shift, t, ym),
+      readingCode: readingCode(pillars, dm, seasonKey, dmStrength)
     };
     res.daeun = luck(res, ym, t, o.gender);
     return res;
@@ -187,8 +213,25 @@
     for (var i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
     var A = '23456789ABCDEFGHJKMNPQRSTUVWXYZ', tail = '';
     for (var k = 0; k < 4; k++) { tail += A.charAt(h % A.length); h = Math.floor(h / A.length); }
-    return 'BY-' + STEMS[dm] + '-' + { spring: '春', summer: '夏', autumn: '秋', winter: '冬' }[season] + '-' + (str === 'strong' ? 'S' : 'W') + '-' + tail;
+    return 'BY-' + STEMS[dm] + '-' + { spring: '春', summer: '夏', autumn: '秋', winter: '冬', earth: '土' }[season] + '-' + (str === 'strong' ? 'S' : 'W') + '-' + tail;
   }
+
+  // Solar-term day check (only when the birth hour is unknown and noon is assumed): if one of the 12 jie falls on the
+  // local birth date, the month (and on Ipchun the year) pillar depends on the birth time.
+  function termDay(y, m, d, shift, t, ym) {
+    var day = jdn(y, m, d), hit = null;
+    [y - 1, y, y + 1].forEach(function (yy) { jieList(yy).forEach(function (k, i) {
+      var loc = k - shift; if (Math.floor(loc / 1440) === day) hit = { k: k, loc: loc, idx: i };
+    }); });
+    if (!hit) return null;
+    var minOfDay = hit.loc - day * 1440, hh = Math.floor(minOfDay / 60), mm = minOfDay % 60;
+    var after = t >= hit.k; // noon reading falls after the term moment
+    var alt = yearMonth(after ? hit.k - 1 : hit.k + 1, y);
+    return { term: TERM_KO[hit.idx], termIndex: hit.idx, time: ('0' + hh).slice(-2) + ':' + ('0' + mm).slice(-2), readAsAfter: after,
+      month: ym.month.label, year: ym.year.label, altMonth: alt.month.label, altYear: alt.year.label, altAnimal: ANIMALS[alt.year.branch],
+      altSeason: SEASONS_OF[alt.month.branch], yearChanges: alt.year.label !== ym.year.label };
+  }
+  var SEASONS_OF = ['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter'];
 
   function luck(c, ym, t, gender) {
     var yang = (ym.year.stem & 1) === 0, male = gender === 'male';
@@ -239,28 +282,46 @@
     return out;
   }
 
-  function compat(a, b) { // two charts
+  // v3 compatibility: ONE symmetric number per Day Master pair. The score comes from the pair table that the
+  // compatibility pages use (setPairScores, a 10x10 symmetric matrix); without a table, a symmetric fallback by relation.
+  // Day branches (spouse palace) and element complement are reported as flags/notes and never change the number.
+  var PAIR_SCORES = null;
+  function setPairScores(m) { PAIR_SCORES = m; }
+  function pairRelation(x, y) { // stem indices -> 'combo' | 'clash' | 'same_stem' | 'same_element' | 'generating' | 'controlling'
+    if (mod(x - y, 10) === 5) return 'combo';
+    if (x === y) return 'same_stem';
+    var ex = stemEl(x), ey = stemEl(y);
+    if (ex === ey) return 'same_element';
+    var r = rel(ex, ey);
+    if (r === 1 || r === 4) return 'generating';
+    if ((x & 1) === (y & 1) && (r === 2 || r === 3) && [0, 1, 2, 3].indexOf(Math.min(x, y)) >= 0 && Math.abs(x - y) === 6) return 'clash';
+    return 'controlling';
+  }
+  var FALLBACK = { combo: 89, generating: 77, same_element: 66, same_stem: 60, controlling: 53, clash: 49 };
+  function pairScore(x, y) {
+    if (PAIR_SCORES && PAIR_SCORES[x] && PAIR_SCORES[x][y] != null) return PAIR_SCORES[x][y];
+    return FALLBACK[pairRelation(x, y)];
+  }
+  function compat(a, b) { // two charts; symmetric: compat(a,b).score === compat(b,a).score
     var ds = a.dayMaster, os = b.dayMaster, flags = [];
-    if (mod(ds - os, 10) === 5) flags.push('stem_combo');
-    var bi = branchInteraction(a.pillars.day.branch, b.pillars.day.branch);
+    var relation = pairRelation(ds, os);
+    if (relation === 'combo') flags.push('stem_combo');
+    if (relation === 'clash') flags.push('stem_clash');
+    var bi = a.pillars && b.pillars ? branchInteraction(a.pillars.day.branch, b.pillars.day.branch) : 'neutral';
     if (bi === 'combo') flags.push('branch_harmony'); if (bi === 'clash') flags.push('branch_clash');
     if (b.strongest === a.yongsin || a.strongest === b.yongsin) flags.push('element_complement');
     if (a.dayMasterEl === b.dayMasterEl) flags.push('same_element');
-    var r = rel(a.dayMasterEl, b.dayMasterEl); // their element relative to mine
-    var verdict = ['same', 'you_feed', 'you_control', 'they_control', 'they_feed'][r];
-    var score = 60 + (flags.indexOf('stem_combo') >= 0 ? 15 : 0) + (bi === 'combo' ? 12 : bi === 'clash' ? -15 : 0)
-      + (flags.indexOf('element_complement') >= 0 ? 10 : 0) + (r === 4 ? 6 : r === 1 ? 3 : r === 3 ? -6 : 0);
-    return { flags: flags, verdict: verdict, score: Math.max(15, Math.min(98, score)) };
+    return { flags: flags, relation: relation, verdict: relation, branch: bi, score: pairScore(ds, os) };
   }
 
   function analyze(o, partner) {
     var c = chart(o);
     c.y2026 = annual(c, 2026); c.y2027 = annual(c, 2027); c.months2027 = months(c, 2027);
-    if (partner && partner.year) { var p = chart({ year: partner.year, month: partner.month, day: partner.day, hour: null, gender: 'female' }); c.partner = p; c.compat = compat(c, p); }
+    if (partner && partner.year) { var p = chart({ year: partner.year, month: partner.month, day: partner.day, hour: null, gender: 'female', utcOffset: partner.utcOffset }); c.partner = p; c.compat = compat(c, p); }
     return c;
   }
 
-  var api = { setTerms: setTerms, chart: chart, analyze: analyze, annual: annual, months: months, compat: compat,
+  var api = { sunLongitude: sunLongitude, setTerms: setTerms, setPairScores: setPairScores, pairScore: pairScore, pairRelation: pairRelation, chart: chart, analyze: analyze, annual: annual, months: months, compat: compat,
     branchInteraction: branchInteraction, tenGod: tenGod, jdn: jdn, jdnToDate: jdnToDate,
     STEMS: STEMS, STEM_KO: STEM_KO, BRANCHES: BRANCHES, BRANCH_KO: BRANCH_KO, ANIMALS: ANIMALS, ELEMENTS: ELEMENTS,
     TEN_GODS: TEN_GODS, HIDDEN: HIDDEN, REL: REL, readingCode: readingCode };

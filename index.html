@@ -3,23 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Bom &amp; Yeon: your Korean saju personality type, like MBTI but older</title>
+<title>Bom &amp; Yeon: your Korean saju personality type, like MBTI</title>
 <meta name="description" content="Enter your birthday and meet your Korean saju soul type in ten seconds. Your traits, red flags, crush match and readings by Bom and Yeon.">
 <link rel="canonical" href="https://bomandyeon.com/">
 
 <meta name="theme-color" content="#0E0F1A">
 <meta property="og:site_name" content="Bom &amp; Yeon">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Bom &amp; Yeon: your Korean saju personality type, like MBTI but older">
+<meta property="og:title" content="Bom &amp; Yeon: your Korean saju personality type, like MBTI">
 <meta property="og:description" content="Enter your birthday and meet your Korean saju soul type in ten seconds. Your traits, red flags, crush match and readings by Bom and Yeon.">
 <meta property="og:url" content="https://bomandyeon.com/">
 <meta property="og:image" content="https://bomandyeon.com/assets/img/og-home.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Bom &amp; Yeon: your Korean saju personality type, like MBTI">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23C8443C'/%3E%3Ctext x='32' y='42' font-size='26' text-anchor='middle' fill='%23fff4e8' font-family='serif'%3E%EB%B4%84%EC%97%B0%3C/text%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Inter:wght@400;500;600;700&family=Noto+Serif+KR:wght@700&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=e6effca5">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/gowun-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/fonts.css?v=6fb4c80a">
+<link rel="stylesheet" href="/assets/css/site.css?v=cf8c7819">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Bom & Yeon","url":"https://bomandyeon.com/","description":"Korean saju personality types, compatibility and readings."},{"@type":"Organization","name":"Bom & Yeon","url":"https://bomandyeon.com/","email":"yeon@bomandyeon.com"}]}</script>
 </head>
 <body>
@@ -39,7 +44,7 @@
  <div class="hero__art"><picture><source media="(min-width: 700px)" srcset="/assets/img/hero-home.webp"><img src="/assets/img/hero-home-m.webp" alt="Bom and Yeon on a hanok veranda under a full moon, plum blossoms drifting" width="800" height="719" fetchpriority="high"></picture></div>
  <div class="wrap"><div class="hero__body">
   <p class="kicker">Korean saju · 사주</p>
-  <h1>Your Korean personality type. <em>Like MBTI,</em> but 2,000 years older.</h1>
+  <h1>Your Korean personality type. <em>Like MBTI,</em> but a thousand years older.</h1>
   <p class="sub">Saju turns the day you were born into one of 10 souls. Your type, your red flags, your match. Free, ten seconds.</p>
   <form class="hero__form" id="birthForm" novalidate>
    <div class="selects" role="group" aria-label="Your birthday"><label><span class="sr">Your birthday month</span><select name="bm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Your birthday day</span><select name="bd" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Your birthday year</span><select name="by" data-kind="y" required><option value="">Year</option></select></label></div>
@@ -63,7 +68,8 @@
     <ul class="chips" id="rvChips"></ul>
     <div class="say say--bom"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Bom</b><span id="rvBom"></span></p></div>
     <div class="say say--yeon"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b><span id="rvYeon"></span></p></div>
-    <div class="actions"><button class="btn" type="button" id="shareSoul">Share my soul</button><a class="btn btn--ghost" id="rvMore" href="/souls/">Read more</a></div>
+    <div class="bio-row"><p class="bio-line" id="rvBio"></p><button class="btn btn--ghost btn--sm" type="button" id="copyBio">Copy for bio</button></div>
+    <div class="actions"><button class="btn" type="button" id="shareSoul">Share my soul</button><a class="btn btn--ghost" id="rvMore" href="/souls/">All 10 souls</a></div>
    </article>
    <div class="door door--l" aria-hidden="true"><span class="door__shadow" id="dsL"></span></div>
    <div class="door door--r" aria-hidden="true"><span class="door__shadow" id="dsR"></span></div>
@@ -128,6 +134,7 @@
   <label><span class="sr">Email address</span><input class="input" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" required></label>
   <button class="btn" type="submit">Send me the Daily Soul</button>
   <p class="err" role="alert"></p>
+  <p class="note consent">By signing up you agree to get the Daily Soul by email, plus occasional news about new readings. We send your email, Day Master and birth date to Kit, our email provider. Unsubscribe any time. For readers 18 and over. <a href="/privacy/">Privacy</a></p>
  </form>
 </div></div></section>
 <div class="fox-div" aria-hidden="true"><img src="/assets/img/fox.webp" alt="" width="64" height="60" loading="lazy"></div>
@@ -165,7 +172,7 @@
   <div class="foot__grid">
    <div>
     <a class="brand" href="/"><span class="seal" aria-hidden="true">봄연</span>Bom &amp; Yeon</a>
-    <p class="muted small" style="margin-top:12px">Korean saju as a personality language. Like MBTI, but 2,000 years older. Bom tells you your strengths. Yeon tells you the rest.</p>
+    <p class="muted small" style="margin-top:12px">Korean saju as a personality language. Like MBTI, with about a thousand years of practice behind it. Bom tells you your strengths. Yeon tells you the rest.</p>
     <div class="foot-meet"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span></div>
    </div>
    <div><h4>Explore</h4><ul>
@@ -178,9 +185,9 @@
   <p class="ent">For entertainment and self-reflection. Not advice about health, money, law or life decisions. © 2026 Bom &amp; Yeon</p>
  </div>
 </footer>
-<script src="/assets/js/legacy-data.js?v=6228cc79"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=9f9d31d8"></script>
-<script src="/assets/js/site.js?v=ef91e734"></script>
+<script src="/assets/js/legacy-data.js?v=43ed1650"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=f77dcdf7"></script><script src="/assets/js/pair-data.js?v=8b71a9f9"></script>
+<script src="/assets/js/site.js?v=9065a5ca"></script>
 
-<script src="/assets/js/compat-lines.js?v=0c588ec6"></script><script src="/assets/js/home.js?v=f5fea8f4"></script>
+<script src="/assets/js/compat-lines.js?v=edcd0d76"></script><script src="/assets/js/home.js?v=88259436"></script>
 </body>
 </html>
