@@ -17,6 +17,9 @@
     "will-your-ex-come-back": { url: "https://rok8678.gumroad.com/l/will-your-ex-come-back", pid: "S3HQgkOpj0zFweiQPtvYMg==" }
   };
   var OFFER = "FOUNDING100";
+  /* FREE = founding period: readings open straight away on the site, no Gumroad, no license key.
+     Set false at paid launch (then the Gumroad checkout + unlock below is used). */
+  var FREE = true;
   var STRIPE_LINKS = {}; // legacy, unused
 
   var BY = window.BY, D = window.BY_DATA, P = window.BY_PRODUCT, $ = BY.$, esc = BY.esc, PL = window.BYPlan, PAIRS = window.BY_PAIRS || {}, A4 = window.BYAssembleV4;
@@ -95,6 +98,66 @@
   function chapterHTML(title, text, kicker, pre) { return '<section class="rise chap">' + (kicker ? '<p class="kicker">' + esc(kicker) + "</p>" : "") + "<h3>" + esc(title) + "</h3>" + (pre || "") + textHTML(text) + "</section>"; }
   /* one assembled v4 chapter -> [webtoon, text] (art cycles through all panel images) */
   function v4Panels(ch, artAt) { return webtoon(ch.panels.map(function (p) { return panel(ARTS[artAt() % ARTS.length], p, p.nar || null); })); }
+  /* ---------- comic chapters: the chapter's own scene stays pinned while the text scrolls over it in caption boxes ---------- */
+  var SC = window.BY_SCENES || {};
+  function sceneFor(chId, R) {
+    var k = chId === "season" ? "season/" + R.season : chId === "strength" ? "soul/" + D.SOULS[R.dayMaster].slug : P.slug + "/" + chId;
+    if (!SC[k] && chId === "pair") k = "soul/" + D.SOULS[(R.partner || R).dayMaster].slug;
+    return SC[k] ? { src: "/assets/img/scenes/" + k + ".webp", w: SC[k][0], h: SC[k][1] } : null;
+  }
+  /* text -> beats: paragraphs, long ones split at a sentence near the middle; "### X" becomes the beat's label */
+  function beats(t) {
+    var out = [];
+    String(t || "").split(/\n\s*\n/).forEach(function (b) {
+      b = b.trim(); if (!b) return;
+      var lab = null, m = /^### (.+?)(?:\n([\s\S]*))?$/.exec(b);
+      if (m) { lab = m[1].trim(); b = (m[2] || "").trim(); if (!b) { out.push({ label: lab, text: "" }); return; } }
+      var w = b.split(/\s+/).length;
+      if (w > 75) {
+        var sents = b.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) || [b], half = w / 2, acc = 0, a = [], c = [];
+        sents.forEach(function (x) { (acc < half ? a : c).push(x); acc += x.split(/\s+/).length; });
+        if (a.length && c.length) { out.push({ label: lab, text: a.join("").trim() }); out.push({ label: null, text: c.join("").trim() }); return; }
+      }
+      out.push({ label: lab, text: b });
+    });
+    return out;
+  }
+  var EL_TINT = { Wood: "#3E8E5A", Fire: "#C8443C", Earth: "#B08A4A", Metal: "#B9BCC8", Water: "#3B6FB0" };
+  function comicChapter(ch, R, artAt, opts) {
+    opts = opts || {};
+    var sc = sceneFor(ch.id, R), s = D.SOULS[R.dayMaster], sec = document.createElement("section");
+    sec.className = "comic" + (sc ? "" : " comic--plain");
+    sec.style.setProperty("--tint", EL_TINT[s.el] || "#C9A45C");
+    var head = '<header class="comic__title"><p class="kicker">' + esc(ch.kicker || "") + "</p><h3>" + esc(ch.title || "") + "</h3></header>";
+    var stage = sc ? '<div class="comic__stage" aria-hidden="true"><div class="comic__img" style="background-image:url(' + sc.src + ')"></div><span class="comic__tint"></span><span class="comic__seal hz">' + s.hanja + "</span></div>" : "";
+    var html2 = head + stage + '<div class="comic__beats">';
+    (ch.panels || []).forEach(function (p) {
+      if (p.nar) html2 += '<div class="beat beat--nar"><p>' + esc(p.nar) + "</p></div>";
+      var sp = who(p.speaker);
+      html2 += '<div class="beat beat--say beat--' + sp.toLowerCase() + '"><span class="av av--' + sp.toLowerCase() + '"><img src="/assets/img/av-' + sp.toLowerCase() + '.webp" alt="" width="44" height="44"></span><p class="bubble"><b>' + sp + "</b>" + esc(p.text) + "</p></div>";
+    });
+    if (opts.pre) html2 += '<div class="beat beat--cap beat--note"><p>' + opts.pre + "</p></div>";
+    var list = opts.blocks ? [] : beats(ch.text);
+    if (opts.blocks) opts.blocks.forEach(function (b) { beats(b.t).forEach(function (x, i) { list.push({ label: i ? x.label : b.h, text: x.text }); }); if (b.note) list.push({ label: null, text: b.note, note: true }); });
+    list.forEach(function (b, i) {
+      html2 += '<div class="beat beat--cap' + (b.note ? " beat--note" : "") + '" data-i="' + i + '">' + (b.label ? '<h4>' + esc(b.label) + "</h4>" : "") + (b.text ? "<p>" + esc(b.text) + "</p>" : "") + "</div>";
+    });
+    html2 += "</div>" + (opts.tail || "");
+    sec.innerHTML = html2;
+    [].forEach.call(sec.querySelectorAll(".beat, .comic__title"), function (b) { b.classList.add("rise"); });
+    if (sc) panBeats(sec);
+    return sec;
+  }
+  /* slow camera move: each caption that reaches the middle of the screen moves the pinned scene a step */
+  var POS = ["50% 20%", "30% 45%", "70% 55%", "50% 80%", "40% 30%", "60% 65%"];
+  function panBeats(sec) {
+    if (!("IntersectionObserver" in window) || BY.reduced) return;
+    var img = sec.querySelector(".comic__img");
+    var io = new IntersectionObserver(function (ents) {
+      ents.forEach(function (en) { if (en.isIntersecting) { var i = +(en.target.getAttribute("data-i") || 0); img.style.backgroundPosition = POS[i % POS.length]; img.style.transform = "scale(" + (1.08 + (i % 3) * 0.06) + ")"; } });
+    }, { rootMargin: "-45% 0px -45% 0px" });
+    [].forEach.call(sec.querySelectorAll(".beat--cap"), function (b) { io.observe(b); });
+  }
   function counter() { var i = 0; return function () { return i++; }; }
   var TYPE_NAMES = { season: "Your season", strength: "Your strength, and what steadies you", pair: "You and them" };
   function planTitle(c) { return c.title || TYPE_NAMES[c.type] || c.id; }
@@ -152,16 +215,15 @@
           rest.map(function (c) { return "<li>" + esc(planTitle(c)) + "</li>"; }).join("") + "</ul>" +
           '<button class="btn" type="button" data-buy>' + buyLabel() + "</button>" + giftNote() + haveKey() + "</div>";
         asm.chapters.forEach(function (ch, i) {
-          out.appendChild(v4Panels(ch, art));
-          out.appendChild(html(chapterHTML(ch.title, ch.text, ch.kicker) + (i === asm.chapters.length - 1 ? lockHTML : "")));
+          out.appendChild(comicChapter(ch, R, art, i === asm.chapters.length - 1 ? { tail: lockHTML } : null));
         });
         BY.watch(out);
         if (scroll) out.scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth", block: "start" });
       }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and press the button again.</p>'; });
     }
-    function buyLabel() { return GUMROAD[P.slug] ? (OFFER ? "Get it free · founding reader" : "Get the full reading · $" + P.price) : "Open the full reading"; }
-    function haveKey() { return GUMROAD[P.slug] && !BY.load("lic_" + P.slug) ? '<p class="muted small"><a href="' + P.readUrl + '" data-havekey>Already have a license key? Open your reading</a></p>' : ""; }
-    function giftNote() { return GUMROAD[P.slug] && !OFFER ? "" : '<p class="gift"><b>Founding reader gift</b>This reading is $' + P.price + ". Our first readers get it free" + (GUMROAD[P.slug] ? ": the code is already applied at checkout, no card needed." : ". No card, no charge.") + "</p>"; }
+    function buyLabel() { return FREE ? "Open my full reading · free" : GUMROAD[P.slug] ? (OFFER ? "Get it free · founding reader" : "Get the full reading · $" + P.price) : "Open the full reading"; }
+    function haveKey() { return !FREE && GUMROAD[P.slug] && !BY.load("lic_" + P.slug) ? '<p class="muted small"><a href="' + P.readUrl + '" data-havekey>Already have a license key? Open your reading</a></p>' : ""; }
+    function giftNote() { if (FREE) return '<p class="gift"><b>Founding reader gift</b>This reading is $' + P.price + ". Our first readers get it free. No checkout, no card, no email.</p>"; return GUMROAD[P.slug] && !OFFER ? "" : '<p class="gift"><b>Founding reader gift</b>This reading is $' + P.price + ". Our first readers get it free" + (GUMROAD[P.slug] ? ": the code is already applied at checkout, no card needed." : ". No card, no charge.") + "</p>"; }
     document.addEventListener("click", function (e) {
       if (!e.target.closest("[data-buy]")) return;
       e.preventDefault();
@@ -169,7 +231,7 @@
         $("pvErr").textContent = PAIR === "required" ? "Add both birthdays first, so the reading is written for the two of you." : "Add your birthday first, so the reading is written for you.";
         $("preview").scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth" }); form.querySelector("select").focus({ preventScroll: true }); return;
       }
-      var g = GUMROAD[P.slug];
+      var g = FREE ? null : GUMROAD[P.slug];
       if (!g || BY.load("lic_" + P.slug)) { location.href = readUrl(); return; }
       BY.store("pending_" + P.slug, readUrl());
       BY.track("checkout-" + P.slug, "Checkout opened: " + P.slug);
@@ -189,7 +251,7 @@
       out.innerHTML = '<div class="card center"><h1 style="font-size:28px">This reading opens after checkout</h1><p class="muted">Get it from the reading page.</p><a class="btn" href="' + P.productUrl + '">Go to the reading</a></div>';
       return;
     }
-    var G = GUMROAD[P.slug], LIC_KEY = "lic_" + P.slug;
+    var G = FREE ? null : GUMROAD[P.slug], LIC_KEY = "lic_" + P.slug;
     if (G && !BY.load(LIC_KEY)) { licenseGate(); return; }
     start();
     function licenseGate() {
@@ -298,15 +360,9 @@
         var pi = -1; J.plan.forEach(function (c, i) { if (c.type === "pair") pi = i; });
         var afterId = PAIR === "optional" && !them && pi > 0 ? J.plan[pi - 1].id : null;
         asm.chapters.forEach(function (ch) {
-          out.appendChild(v4Panels(ch, art));
-          var h;
-          if (ch.id === "balance" && ch.blocks) {
-            h = '<section class="rise chap"><p class="kicker">' + esc(ch.kicker) + "</p><h3>" + esc(ch.title) + "</h3>" + ch.blocks.map(function (b) {
-              return "<h4>" + esc(b.h) + "</h4>" + textHTML(b.t) + (b.note ? '<p class="muted small">' + esc(b.note) + "</p>" : "");
-            }).join("") + "</section>";
-          } else if (ch.id === "strength") h = chapterHTML(ch.title, ch.text, ch.kicker, '<p class="muted small">' + esc(strengthHow(R)) + "</p>");
-          else h = chapterHTML(ch.title, ch.text, ch.kicker);
-          out.appendChild(html(h));
+          if (ch.id === "balance" && ch.blocks) out.appendChild(comicChapter(ch, R, art, { blocks: ch.blocks }));
+          else if (ch.id === "strength") out.appendChild(comicChapter(ch, R, art, { pre: esc(strengthHow(R)) }));
+          else out.appendChild(comicChapter(ch, R, art));
           if (afterId && ch.id === afterId) {
             out.appendChild(html('<div class="card rise no-print add-their"><p class="kicker">One more chapter</p><p>Add their birthday and Bom and Yeon write a chapter on how your two patterns meet.</p>' +
               '<form id="addTheir" class="form-stack" novalidate>' + document.querySelector("#rdForm .selects[aria-label^='Their']").outerHTML + '<p class="err" id="atErr" role="alert"></p><button class="btn" type="submit">Add the chapter</button></form></div>'));
