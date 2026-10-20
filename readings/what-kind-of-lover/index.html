@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Inter:wght@400;500;600;700&family=Noto+Serif+KR:wght@700&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=e189cc1d">
+<link rel="stylesheet" href="/assets/css/site.css?v=e6effca5">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is this based on my zodiac sign?","acceptedAnswer":{"@type":"Answer","text":"No. It uses Korean saju, which reads your Day Master: the element of the day you were born, calculated with the traditional solar calendar. It's a different system from Western astrology, and much older."}},{"@type":"Question","name":"Do I need my birth time?","acceptedAnswer":{"@type":"Answer","text":"No. Your Day Master comes from your birth date. Adding a birth hour gives a fuller element balance, which slightly changes the extra notes at the end."}},{"@type":"Question","name":"Is this an attachment style test?","acceptedAnswer":{"@type":"Answer","text":"Not a clinical one. We describe patterns that feel similar to attachment styles, through the lens of your element. It's for self-reflection and fun, not a diagnosis."}},{"@type":"Question","name":"Can I read it for my partner or crush?","acceptedAnswer":{"@type":"Answer","text":"You can enter any birthday, but the reading is written for the person it belongs to. It's most useful about yourself. For two people, try the compatibility pages."}},{"@type":"Question","name":"Will it tell me if someone is right for me?","acceptedAnswer":{"@type":"Answer","text":"It tells you what you tend to need and repeat. Who's right for you is still your call. Bom and Yeon just give you better questions."}}]},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://bomandyeon.com/"},{"@type":"ListItem","position":2,"name":"What Kind of Lover Are You?","item":"https://bomandyeon.com/readings/what-kind-of-lover/"}]}]}</script>
 </head>
 <body>
@@ -59,6 +59,20 @@
   <div class="say say--bom rise"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Bom</b>Why do you fall the way you fall, and why does it keep going the same way?</p></div>
  </div>
 </section>
+<section id="personal">
+ <div class="wrap read">
+  <p class="kicker">What's personal</p>
+  <h2>What makes it yours</h2>
+  <p class="lede">Built from your day, month and year pillars, your season, your element balance.</p>
+  <ul class="perso"><li><b>Your Day Master</b><span>One of 10 souls, from your day pillar. 6 chapters and six webtoon panels written for it.</span></li><li><b>Your season</b><span>Spring, summer, autumn or winter, set by the solar terms on your birth date, not the calendar month. A season chapter and its own panel.</span></li><li><b>Your strength</b><span>Strong or weak, worked out from your day, month and year pillars. A section on the blind spot that comes with it.</span></li><li><b>Your element balance</b><span>What your chart has too much of and what it lacks. Notes and two panels for your mix.</span></li></ul>
+  <p class="muted small">10 souls × 4 seasons × 2 strengths = 80 core versions, then your element balance on top. Two people with the same Day Master can still get a different reading.</p>
+  <div class="code-card">
+   <p class="kicker">Your reading code</p>
+   <p class="code" id="pvCode">BY-甲-冬-S-7K2Q</p>
+   <p class="muted small" id="pvCodeNote">Example. Yours appears after you add your birthday: your Day Master, your season (春 spring, 夏 summer, 秋 autumn, 冬 winter), S for strong or W for weak, and a tag for your three pillars. Same code, same reading. Compare it with a friend.</p>
+  </div>
+ </div>
+</section>
 <section id="preview">
  <div class="wrap read">
   <div class="card">
@@ -66,10 +80,11 @@
    <h2>Read the first two chapters</h2>
    <p class="muted">Your birthday picks your Day Master. The chapters are written for it.</p>
    <form id="pvForm" class="form-stack" novalidate>
-    <div class="selects" role="group" aria-label="Your birthday"><label><span class="sr">Your birthday month</span><select name="bm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Your birthday day</span><select name="bd" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Your birthday year</span><select name="by" data-kind="y" required><option value="">Year</option></select></label></div>
+    <span class="field-label">Your birthday</span><div class="selects" role="group" aria-label="Your birthday"><label><span class="sr">Your birthday month</span><select name="bm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Your birthday day</span><select name="bd" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Your birthday year</span><select name="by" data-kind="y" required><option value="">Year</option></select></label></div>
+    <label class="name-field"><span class="field-label">Your first name <small>(optional, printed on your cover)</small></span><input class="input" type="text" name="nm" maxlength="24" autocomplete="given-name" placeholder="e.g. Mina"></label>
     <p class="err" id="pvErr" role="alert"></p>
     <button class="btn btn--block" type="submit">Show my preview</button>
-    <p class="note">Your birthday stays in your browser. We don't store it.</p>
+    <p class="note">Your birthday and name stay in your browser. We don't store them.</p>
    </form>
   </div>
   <div id="pvOut" class="preview-out" aria-live="polite"></div>
@@ -79,7 +94,7 @@
  <div class="wrap read">
   <p class="kicker">Inside</p><h2>Chapters</h2>
   <ol class="chapters"><li><div><b>How you fall</b><span>Fast, slow, sideways or all at once. The way your soul actually falls for someone.</span></div></li><li><div><b>Your flirting style</b><span>What you think you&#x27;re doing, what they think you&#x27;re doing, and the one move that lands.</span></div></li><li><div><b>Your attachment pattern</b><span>Clingy, cool, steady or somewhere in between. How you hold on when you care.</span></div></li><li><div><b>Jealousy and your trigger</b><span>The exact thing that sets you off, and what you do instead of saying it.</span></div></li><li><div><b>Yeon&#x27;s red flag report</b><span>The love habit you keep repeating. Yeon does not soften this chapter.</span></div></li><li><div><b>What you actually need</b><span>Not your type. Your match. The kind of person and love that lets you relax.</span></div></li></ol>
-  <p class="muted small" style="margin-top:12px">6 chapters, about 12 minutes. Opens as a vertical webtoon with Bom and Yeon, then the chapters.</p>
+  <p class="muted small" style="margin-top:12px">6 chapters, about 12 minutes, plus your season, strength and balance sections. Opens as a vertical webtoon with Bom and Yeon.</p>
  </div>
 </section>
 <section>
@@ -115,9 +130,9 @@
   <p class="ent">For entertainment and self-reflection. Not advice about health, money, law or life decisions. © 2026 Bom &amp; Yeon</p>
  </div>
 </footer>
-<script src="/assets/js/legacy-data.js?v=6228cc79"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=661a3493"></script>
+<script src="/assets/js/legacy-data.js?v=6228cc79"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=9f9d31d8"></script>
 <script src="/assets/js/site.js?v=ef91e734"></script>
-<script>window.BY_PRODUCT={"mode":"product","slug":"what-kind-of-lover","price":9.99,"two":false,"art":[1,4,3,7,10,12],"dataUrl":"/readings/what-kind-of-lover/data.json","readUrl":"/readings/what-kind-of-lover/read/"};</script>
-<script src="/assets/js/product.js?v=33ceb82d"></script>
+<script>window.BY_PRODUCT={"mode":"product","slug":"what-kind-of-lover","price":9.99,"two":false,"pair":"","art":[1,4,3,7,10,12],"dataUrl":"/readings/what-kind-of-lover/preview.json","readUrl":"/readings/what-kind-of-lover/read/"};</script>
+<script src="/assets/js/product.js?v=01ab882d"></script>
 </body>
 </html>
