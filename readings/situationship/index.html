@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Inter:wght@400;500;600;700&family=Noto+Serif+KR:wght@700&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=e189cc1d">
+<link rel="stylesheet" href="/assets/css/site.css?v=e6effca5">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why does it ask for two birthdays?","acceptedAnswer":{"@type":"Answer","text":"Your birthday drives the reading. Theirs adds a note on how your two elements meet. It doesn't tell you what they feel or what they'll do. Nothing honest can."}},{"@type":"Question","name":"Will it tell me if they like me?","acceptedAnswer":{"@type":"Answer","text":"No. Nobody can read another person's feelings from a date. This reading helps you see why you stay, what you actually want, how you read mixed signals, and how to ask for clarity in a way that suits you."}},{"@type":"Question","name":"What if I don't know their birthday?","acceptedAnswer":{"@type":"Answer","text":"You can still read the whole thing. Every chapter is built from your own Day Master and element balance."}},{"@type":"Question","name":"Is this fortune telling?","acceptedAnswer":{"@type":"Answer","text":"No. We use saju as a personality language for self-reflection, a bit like MBTI with 2,000 years of history. For entertainment and self-reflection."}},{"@type":"Question","name":"Does it tell me when to have the talk?","acceptedAnswer":{"@type":"Answer","text":"It doesn't give dates or deadlines. It helps you choose your own moment and your own words."}}]},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://bomandyeon.com/"},{"@type":"ListItem","position":2,"name":"The Situationship Reading","item":"https://bomandyeon.com/readings/situationship/"}]}]}</script>
 </head>
 <body>
@@ -59,6 +59,20 @@
   <div class="say say--bom rise"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Bom</b>What is this, actually? And what do you want it to be?</p></div>
  </div>
 </section>
+<section id="personal">
+ <div class="wrap read">
+  <p class="kicker">What's personal</p>
+  <h2>What makes it yours</h2>
+  <p class="lede">Built from your day, month and year pillars, your season, your element balance, and both birthdays.</p>
+  <ul class="perso"><li><b>Your Day Master</b><span>One of 10 souls, from your day pillar. 6 chapters and six webtoon panels written for it.</span></li><li><b>Your season</b><span>Spring, summer, autumn or winter, set by the solar terms on your birth date, not the calendar month. A season chapter and its own panel.</span></li><li><b>Your strength</b><span>Strong or weak, worked out from your day, month and year pillars. A section on the blind spot that comes with it.</span></li><li><b>Your element balance</b><span>What your chart has too much of and what it lacks. Notes and two panels for your mix.</span></li><li><b>The two of you</b><span>Your soul and theirs, one of 55 pairings. A chapter and three panels on how your two patterns meet.</span></li></ul>
+  <p class="muted small">10 souls × 4 seasons × 2 strengths = 80 core versions, then your element balance and your pairing on top. Two people with the same Day Master can still get a different reading.</p>
+  <div class="code-card">
+   <p class="kicker">Your reading code</p>
+   <p class="code" id="pvCode">BY-甲-冬-S-7K2Q</p>
+   <p class="muted small" id="pvCodeNote">Example. Yours appears after you add your birthday: your Day Master, your season (春 spring, 夏 summer, 秋 autumn, 冬 winter), S for strong or W for weak, and a tag for your three pillars. Same code, same reading. Compare it with a friend.</p>
+  </div>
+ </div>
+</section>
 <section id="preview">
  <div class="wrap read">
   <div class="card">
@@ -67,9 +81,10 @@
    <p class="muted">Both birthdays, so Bom and Yeon can read the two of you.</p>
    <form id="pvForm" class="form-stack" novalidate>
     <span class="field-label">Your birthday</span><div class="selects" role="group" aria-label="Your birthday"><label><span class="sr">Your birthday month</span><select name="bm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Your birthday day</span><select name="bd" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Your birthday year</span><select name="by" data-kind="y" required><option value="">Year</option></select></label></div><span class="field-label" style="margin-top:10px">Their birthday</span><div class="selects" role="group" aria-label="Their birthday"><label><span class="sr">Their birthday month</span><select name="tm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Their birthday day</span><select name="td" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Their birthday year</span><select name="ty" data-kind="y" required><option value="">Year</option></select></label></div>
+    <label class="name-field"><span class="field-label">Your first name <small>(optional, printed on your cover)</small></span><input class="input" type="text" name="nm" maxlength="24" autocomplete="given-name" placeholder="e.g. Mina"></label>
     <p class="err" id="pvErr" role="alert"></p>
     <button class="btn btn--block" type="submit">Show my preview</button>
-    <p class="note">Your birthday stays in your browser. We don't store it.</p>
+    <p class="note">Your birthday and name stay in your browser. We don't store them.</p>
    </form>
   </div>
   <div id="pvOut" class="preview-out" aria-live="polite"></div>
@@ -79,7 +94,7 @@
  <div class="wrap read">
   <p class="kicker">Inside</p><h2>Chapters</h2>
   <ol class="chapters"><li><div><b>Why you&#x27;re still in it</b><span>The real reason your soul keeps saying &#x27;let&#x27;s see where it goes&#x27;.</span></div></li><li><div><b>What you actually want</b><span>Not what sounds chill. What you&#x27;d ask for if you weren&#x27;t worried.</span></div></li><li><div><b>How you read mixed signals</b><span>Your decoding habit, and a better way to get information.</span></div></li><li><div><b>The talk, your way</b><span>How to ask &#x27;what are we&#x27; in words that fit your soul.</span></div></li><li><div><b>Your line</b><span>The one thing you shouldn&#x27;t keep accepting.</span></div></li><li><div><b>Either way, you&#x27;re okay</b><span>What comes next, whatever answer you get.</span></div></li></ol>
-  <p class="muted small" style="margin-top:12px">6 chapters, about 12 minutes. Opens as a vertical webtoon with Bom and Yeon, then the chapters.</p>
+  <p class="muted small" style="margin-top:12px">6 chapters, about 12 minutes, plus your season, strength and balance sections and the chapter on the two of you. Opens as a vertical webtoon with Bom and Yeon.</p>
  </div>
 </section>
 <section>
@@ -115,9 +130,9 @@
   <p class="ent">For entertainment and self-reflection. Not advice about health, money, law or life decisions. © 2026 Bom &amp; Yeon</p>
  </div>
 </footer>
-<script src="/assets/js/legacy-data.js?v=6228cc79"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=661a3493"></script>
+<script src="/assets/js/legacy-data.js?v=6228cc79"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=9f9d31d8"></script>
 <script src="/assets/js/site.js?v=ef91e734"></script>
-<script>window.BY_PRODUCT={"mode":"product","slug":"situationship","price":12.99,"two":true,"art":[1,4,7,3,11,12],"dataUrl":"/readings/situationship/data.json","readUrl":"/readings/situationship/read/"};</script>
-<script src="/assets/js/product.js?v=33ceb82d"></script>
+<script>window.BY_PRODUCT={"mode":"product","slug":"situationship","price":12.99,"two":true,"pair":"required","art":[1,4,7,3,11,12],"dataUrl":"/readings/situationship/preview.json","readUrl":"/readings/situationship/read/"};</script>
+<script src="/assets/js/product.js?v=01ab882d"></script>
 </body>
 </html>
