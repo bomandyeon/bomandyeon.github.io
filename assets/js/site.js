@@ -48,7 +48,40 @@
     var h = form.querySelector('[name="bh"]'), mi = form.querySelector('[name="bmi"]'), z = form.querySelector('[name="bz"]');
     if (!h) return;
     BY.store("btime", h.value === "" ? null : { h: +h.value, mi: mi && mi.value !== "" ? +mi.value : 0 });
-    if (z) BY.store("bzone", z.value || null);
+    if (z) {
+      var q = form.querySelector('[name="bzq"]');
+      if (q) { var hit = BY.zoneFromText(q.value); z.value = hit ? hit[1] : ""; BY.store("bzlabel", hit ? hit[0] : null); }
+      BY.store("bzone", z.value || null);
+    }
+  };
+  /* birthplace picker: a text field with a datalist of every country (regions for multi-zone countries) and big cities,
+     window.BY_ZONES = [[label, IANA zone]] from js/zones.js. The hidden name="bz" keeps the zone. Empty = where I am now. */
+  BY.zoneFromText = function (t) {
+    var Z = window.BY_ZONES || [], s = String(t || "").trim().toLowerCase(), i;
+    if (!s || /^where i am now/.test(s)) return null;
+    for (i = 0; i < Z.length; i++) if (Z[i][0].toLowerCase() === s) return Z[i];
+    for (i = 0; i < Z.length; i++) if (Z[i][1].toLowerCase().replace(/_/g, " ") === s.replace(/_/g, " ")) return [Z[i][1].replace(/_/g, " "), Z[i][1]];
+    for (i = 0; i < Z.length; i++) if (Z[i][0].toLowerCase().indexOf(s) === 0) return Z[i];
+    for (i = 0; i < Z.length; i++) if (Z[i][0].toLowerCase().indexOf(s) >= 0) return Z[i];
+    return null;
+  };
+  BY.wireZone = function (form) {
+    var q = form.querySelector('[name="bzq"]'), z = form.querySelector('[name="bz"]'); if (!q || !z || q.getAttribute("data-wired")) return;
+    q.setAttribute("data-wired", "1");
+    var dl = document.getElementById(q.getAttribute("list")), hint = form.querySelector("[data-bzhint]");
+    if (dl && !dl.options.length && window.BY_ZONES) {
+      var dz = BY.deviceZone(), h = ['<option value="Where I am now (' + BY.esc(BY.zoneLabel(dz)) + ')"></option>'];
+      window.BY_ZONES.forEach(function (x) { h.push('<option value="' + BY.esc(x[0]) + '"></option>'); });
+      dl.innerHTML = h.join("");
+    }
+    function sync(final) {
+      var hit = BY.zoneFromText(q.value), empty = !q.value.trim() || /^where i am now/i.test(q.value.trim());
+      z.value = hit ? hit[1] : "";
+      if (hint) hint.textContent = empty ? "" : hit ? "Time zone: " + hit[1].replace(/_/g, " ") : (final ? "We couldn't find that place. Pick a country or region from the list, or leave it empty for where you are now." : "");
+    }
+    q.addEventListener("input", function () { sync(false); });
+    q.addEventListener("change", function () { sync(true); });
+    q.addEventListener("blur", function () { sync(true); });
   };
   BY.fillExtras = function (form) {
     var h = form.querySelector('[name="bh"]'); if (!h) return;
@@ -58,7 +91,16 @@
       h.insertAdjacentHTML("beforeend", o.join(""));
     }
     if (mi && mi.options.length < 3) { var q = []; for (var k = 5; k < 60; k += 5) q.push('<option value="' + k + '">:' + ("0" + k).slice(-2) + "</option>"); mi.insertAdjacentHTML("beforeend", q.join("")); }
-    if (z) { var dz = BY.deviceZone(), first = z.querySelector('option[value=""]'); if (first) first.textContent = "Where I am now (" + BY.zoneLabel(dz) + ")"; z.value = bz || ""; }
+    if (z && z.tagName === "SELECT") { var dz = BY.deviceZone(), first = z.querySelector('option[value=""]'); if (first) first.textContent = "Where I am now (" + BY.zoneLabel(dz) + ")"; z.value = bz || ""; }
+    else if (z) {
+      var q = form.querySelector('[name="bzq"]'); BY.wireZone(form); z.value = bz || "";
+      if (q) {
+        q.placeholder = "Where I am now (" + BY.zoneLabel(BY.deviceZone()) + ")";
+        var lab = BY.load("bzlabel"), Z = window.BY_ZONES || [], m = null;
+        if (bz) { Z.forEach(function (x) { if (!m && x[0] === lab && x[1] === bz) m = x; }); Z.forEach(function (x) { if (!m && x[1] === bz) m = x; }); }
+        q.value = m ? m[0] : (bz ? bz.replace(/_/g, " ") : "");
+      }
+    }
     if (bt) { h.value = bt.h; if (mi) mi.value = Math.round((bt.mi || 0) / 5) * 5 % 60; }
     if (bt || bz) { var det = form.querySelector("details.extras"); if (det) det.open = true; }
   };
@@ -157,20 +199,38 @@
         return { ok: false };
       }).catch(function () { return { ok: false }; });
   };
+  BY.MIN_AGE = 18; // site terms (18+); this also covers the GDPR Art. 8 under-16 limit
+  BY.ageOn = function (b, now) {
+    now = now || new Date();
+    var age = now.getFullYear() - b.year, m = now.getMonth() + 1;
+    if (m < b.month || (m === b.month && now.getDate() < b.day)) age--;
+    return age;
+  };
   function wireDaily() {
     [].forEach.call(doc.querySelectorAll("form[data-daily]"), function (f) {
+      var box = f.querySelector(".daily-bday");
+      // no saved birthday: ask for it here (Day Master for the email + age check)
+      if (box && !BY.load("birth")) { BY.fillSelects(box); box.hidden = false; }
       f.addEventListener("submit", function (e) {
         e.preventDefault();
         var inp = f.querySelector('input[type="email"]'), err = f.querySelector(".err"), v = inp.value.trim();
         if (!BY.EMAIL_RE.test(v)) { err.textContent = "Please enter a valid email."; inp.focus(); return; }
         var b = BY.load("birth");
-        if (b && b.year > BY.MAX_YEAR) { err.textContent = "The Daily Soul is for readers 18 and over."; return; }
+        if (box && !box.hidden) {
+          var r = BY.readDate(f, "ds");
+          if (r.error) { err.textContent = r.error; return; }
+          b = r;
+        }
+        if (!b) { err.textContent = "Pick your birthday first, so the email is about you."; return; }
+        if (BY.ageOn(b) < BY.MIN_AGE) { err.textContent = "Sorry, the Daily Soul is only for readers 18 and over."; return; }
+        if (box && !box.hidden) BY.store("birth", b);
         err.textContent = "";
         var btn = f.querySelector("button"); btn.disabled = true; btn.textContent = "Sending…";
         BY.subscribe(v, f.getAttribute("data-daily") || "daily_soul").then(function (res) {
           if (res.ok) BY.track(res.check ? "kit-signup-check" : "kit-signup", res.check ? "Daily Soul signup (Kit check step)" : "Daily Soul signup");
-          if (res.ok && !res.check) { f.innerHTML = '<p class="ok" role="status">You\'re signed up. If a confirmation email arrives, tap the link in it.</p>'; return; }
+          if (res.ok && !res.check) { f.innerHTML = '<p class="ok" role="status">Almost done. Check your inbox and tap the confirm link from Kit. No confirm, no Daily Soul.</p>'; return; }
           if (res.ok && res.check) {
+            // Kit's bot guard: a normal link the reader taps (a user gesture), never window.open after the fetch
             f.innerHTML = '<p class="ok" role="status">Almost there. Our email provider wants one quick check that you\'re a person.</p><p><a class="btn btn--ghost" href="' + BY.esc(res.check) + '" target="_blank" rel="noopener">Do the quick check</a></p>';
             return;
           }
