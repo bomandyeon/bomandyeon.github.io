@@ -6,6 +6,16 @@
  *  - Unknown hour: chart has 3 pillars; the birth moment for term comparisons is taken as 12:00.
  *  - Luck direction: yang year stem + male or yin year stem + female = forward. gender 'other'/missing -> treated as female (UI asks neutrally).
  *  - Luck start age = days to next jie (forward) / previous jie (backward) / 3, rounded, clamped 1..10.
+ *  - Season (v2): from the MONTH BRANCH, which already follows the solar terms (jie), not the calendar month:
+ *      寅卯辰 spring, 巳午未 summer, 申酉戌 autumn, 亥子丑 winter. Element in command: spring Wood, summer Fire,
+ *      autumn Metal, winter Water. 辰未戌丑 (last month of each season) carry Earth as their main qi (seasonEarth=true).
+ *  - Day Master strength (v2, binary strong/weak, field dmStrength). Classical three tests, main hidden stems only:
+ *      得令 season:  month branch main qi is the DM's own element or its resource element   -> 3 points
+ *      得地 roots:   day branch main qi same/resource -> 2; year branch -> 1; hour branch (if known) -> 1
+ *      得勢 helpers: year stem, month stem, hour stem (if known) same/resource -> 1 each (the DM stem itself is not counted)
+ *    max = 8 with three pillars (10 with hour). strong if score > max/2, weak if score < max/2.
+ *    Exact tie (4 of 8): decided by the full hidden-stem weighted support ratio (supportRatio, month counted double) >= 0.45.
+ *    The older 3-way field `strength` (strong/balanced/weak) is kept unchanged for yongsin and the home page.
  */
 (function (root) {
   var STEMS = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
@@ -123,6 +133,18 @@
     counts = counts.map(function (c) { return Math.round(c * 10) / 10; });
     var ratio = support / total;
     var strength = ratio >= 0.5 ? 'strong' : ratio < 0.33 ? 'weak' : 'balanced';
+    // v2: season + binary strength
+    var mbr = ym.month.branch, SEASONS = ['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter'];
+    var season = SEASONS[mbr], seasonEl = { spring: 0, summer: 1, autumn: 3, winter: 4 }[season];
+    var parts = [], sScore = 0, sMax = 0;
+    function test(label, w, s) { var ok = sup(stemEl(s)); sMax += w; if (ok) sScore += w; parts.push({ part: label, w: w, ok: ok, el: ELEMENTS[stemEl(s)] }); }
+    test('season', 3, HIDDEN[mbr][0]);
+    test('day_branch', 2, HIDDEN[pillars.day.branch][0]);
+    test('year_branch', 1, HIDDEN[pillars.year.branch][0]);
+    if (hourP) test('hour_branch', 1, HIDDEN[hourP.branch][0]);
+    test('year_stem', 1, pillars.year.stem); test('month_stem', 1, pillars.month.stem);
+    if (hourP) test('hour_stem', 1, hourP.stem);
+    var dmStrength = sScore * 2 > sMax ? 'strong' : sScore * 2 < sMax ? 'weak' : (ratio >= 0.45 ? 'strong' : 'weak');
     var dmEl = stemEl(dm);
     var byRel = function (r) { return mod(dmEl + [0, 1, 2, -2, -1][r], 5); };
     // useful element (yongsin), simple rule
@@ -149,10 +171,23 @@
       strength: strength, strengthIndex: { strong: 0, balanced: 1, weak: 2 }[strength], supportRatio: Math.round(ratio * 100) / 100,
       yongsin: ys, yongsinEl: ELEMENTS[ys], yongsinWhy: ysWhy,
       godWeights: godW.map(function (w) { return Math.round(w * 10) / 10; }), dominantGod: maxGod, dominantGodName: TEN_GODS[maxGod],
-      zodiac: ANIMALS[ym.year.branch], sajuYear: ym.sajuYear
+      zodiac: ANIMALS[ym.year.branch], sajuYear: ym.sajuYear,
+      season: season, seasonEl: seasonEl, seasonElName: ELEMENTS[seasonEl], seasonEarth: [1, 4, 7, 10].indexOf(mbr) >= 0,
+      seasonInCommand: parts[0].ok, dmStrength: dmStrength, strengthScore: sScore, strengthMax: sMax, strengthParts: parts,
+      readingCode: readingCode(pillars, dm, season, dmStrength)
     };
     res.daeun = luck(res, ym, t, o.gender);
     return res;
+  }
+
+  // "Your reading code": BY-<DM hanja>-<season hanja>-<S|W>-<4 chars>. The tail is a hash of the three pillars
+  // (year/month/day), so two people with the same chart share a code; it does not spell out the birth date.
+  function readingCode(p, dm, season, str) {
+    var key = p.year.label + p.month.label + p.day.label, h = 2166136261;
+    for (var i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    var A = '23456789ABCDEFGHJKMNPQRSTUVWXYZ', tail = '';
+    for (var k = 0; k < 4; k++) { tail += A.charAt(h % A.length); h = Math.floor(h / A.length); }
+    return 'BY-' + STEMS[dm] + '-' + { spring: '春', summer: '夏', autumn: '秋', winter: '冬' }[season] + '-' + (str === 'strong' ? 'S' : 'W') + '-' + tail;
   }
 
   function luck(c, ym, t, gender) {
@@ -228,7 +263,7 @@
   var api = { setTerms: setTerms, chart: chart, analyze: analyze, annual: annual, months: months, compat: compat,
     branchInteraction: branchInteraction, tenGod: tenGod, jdn: jdn, jdnToDate: jdnToDate,
     STEMS: STEMS, STEM_KO: STEM_KO, BRANCHES: BRANCHES, BRANCH_KO: BRANCH_KO, ANIMALS: ANIMALS, ELEMENTS: ELEMENTS,
-    TEN_GODS: TEN_GODS, HIDDEN: HIDDEN, REL: REL };
+    TEN_GODS: TEN_GODS, HIDDEN: HIDDEN, REL: REL, readingCode: readingCode };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SajuEngine = api;
 })(typeof window !== 'undefined' ? window : null);
