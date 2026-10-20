@@ -1,4 +1,4 @@
-/* Bom & Yeon shared behaviour: nav, ambient sky, scroll reveals, buttons, birthday storage, Kit signup, webtoon panels. */
+/* Bom & Yeon shared behavior: nav, ambient sky, scroll reveals, buttons, birthday storage, Kit signup, webtoon panels. */
 (function () {
   "use strict";
   var doc = document, root = doc.documentElement;
@@ -12,12 +12,59 @@
 
   /* ---------- engine ---------- */
   if (window.SajuEngine && window.SAJU_TERMS) window.SajuEngine.setTerms(window.SAJU_TERMS);
+  if (window.SajuEngine && window.BY_PAIR_MATRIX) window.SajuEngine.setPairScores(window.BY_PAIR_MATRIX);
+
+  /* ---------- birth time zone + optional birth time ---------- */
+  BY.deviceZone = function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; } };
+  // minutes east of UTC in `zone` at local wall time y-m-d h:mi (historical DST included, via the browser's tz data)
+  BY.tzOffset = function (zone, y, m, d, h, mi) {
+    if (!zone || !window.Intl) return null;
+    try {
+      var f = new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric" });
+      var off = function (ts) {
+        var p = {}; f.formatToParts(new Date(ts)).forEach(function (x) { p[x.type] = x.value; });
+        var dt = new Date(0); dt.setUTCFullYear(+p.year, +p.month - 1, +p.day); dt.setUTCHours((+p.hour) % 24, +p.minute, 0, 0); var u = dt.getTime();
+        return Math.round((u - ts) / 60000);
+      };
+      var g = new Date(0); g.setUTCFullYear(y, m - 1, d); g.setUTCHours(h, mi, 0, 0);
+      var o1 = off(g.getTime()); return off(g.getTime() - o1 * 60000);
+    } catch (e) { return null; }
+  };
+  BY.birthZone = function () { return BY.load("bzone") || BY.deviceZone(); };
+  BY.zoneLabel = function (z) { return (z || "").replace(/_/g, " ").split("/").pop() || "your time zone"; };
   BY.analyze = function (b, partner, opts) {
     opts = opts || {};
-    return window.SajuEngine.analyze({ year: b.year, month: b.month, day: b.day, hour: opts.hour == null ? null : opts.hour, minute: 0, gender: opts.flow || "female" }, partner || null);
+    var mine = BY.load("birth"), same = mine && b && BY.iso(mine) === BY.iso(b), bt = same ? BY.load("btime") : null;
+    var hour = opts.hour != null ? opts.hour : (bt && bt.h != null ? bt.h : null), minute = opts.minute != null ? opts.minute : (bt && bt.mi != null ? bt.mi : 0);
+    var zone = opts.zone || BY.birthZone(); // b is always the reader's own birthday; their birthplace zone applies
+    var off = BY.tzOffset(zone, b.year, b.month, b.day, hour == null ? 12 : hour, hour == null ? 0 : minute);
+    var p = null;
+    if (partner) { var dz = BY.deviceZone(); p = { year: partner.year, month: partner.month, day: partner.day, utcOffset: BY.tzOffset(dz, partner.year, partner.month, partner.day, 12, 0) }; }
+    var R = window.SajuEngine.analyze({ year: b.year, month: b.month, day: b.day, hour: hour, minute: minute, gender: opts.flow || "female", utcOffset: off }, p);
+    R.zone = zone; return R;
+  };
+  /* optional birth-time fields inside a form: bh (hour, "" = I don't know), bmi (minute), bz (zone, "" = this device) */
+  BY.readExtras = function (form) {
+    var h = form.querySelector('[name="bh"]'), mi = form.querySelector('[name="bmi"]'), z = form.querySelector('[name="bz"]');
+    if (!h) return;
+    BY.store("btime", h.value === "" ? null : { h: +h.value, mi: mi && mi.value !== "" ? +mi.value : 0 });
+    if (z) BY.store("bzone", z.value || null);
+  };
+  BY.fillExtras = function (form) {
+    var h = form.querySelector('[name="bh"]'); if (!h) return;
+    var mi = form.querySelector('[name="bmi"]'), z = form.querySelector('[name="bz"]'), bt = BY.load("btime"), bz = BY.load("bzone");
+    if (h.options.length < 3) {
+      var o = []; for (var i = 0; i < 24; i++) o.push('<option value="' + i + '">' + ("0" + i).slice(-2) + ":00 to " + ("0" + i).slice(-2) + ":59</option>");
+      h.insertAdjacentHTML("beforeend", o.join(""));
+    }
+    if (mi && mi.options.length < 3) { var q = []; for (var k = 5; k < 60; k += 5) q.push('<option value="' + k + '">:' + ("0" + k).slice(-2) + "</option>"); mi.insertAdjacentHTML("beforeend", q.join("")); }
+    if (z) { var dz = BY.deviceZone(), first = z.querySelector('option[value=""]'); if (first) first.textContent = "Where I am now (" + BY.zoneLabel(dz) + ")"; z.value = bz || ""; }
+    if (bt) { h.value = bt.h; if (mi) mi.value = Math.round((bt.mi || 0) / 5) * 5 % 60; }
+    if (bt || bz) { var det = form.querySelector("details.extras"); if (det) det.open = true; }
   };
 
   /* ---------- birthdays ---------- */
+  BY.MAX_YEAR = 2008; // 18+ (site terms)
   BY.validDate = function (y, m, d) {
     if (!y || !m || !d) return false;
     var dt = new Date(y, m - 1, d);
@@ -29,8 +76,9 @@
       var kind = sel.getAttribute("data-kind"), out = [], i;
       if (kind === "m") for (i = 1; i <= 12; i++) out.push('<option value="' + i + '">' + MONTHS[i - 1] + "</option>");
       if (kind === "d") for (i = 1; i <= 31; i++) out.push('<option value="' + i + '">' + i + "</option>");
-      if (kind === "y") for (i = 2026; i >= 1925; i--) out.push('<option value="' + i + '">' + i + "</option>");
+      if (kind === "y") for (i = BY.MAX_YEAR; i >= 1925; i--) out.push('<option value="' + i + '">' + i + "</option>");
       sel.insertAdjacentHTML("beforeend", out.join(""));
+      if (kind === "y" && sel.name === "by" && !sel.value) sel.value = "2000"; // most visitors are born around 2000: the wheel opens there
     });
   };
   BY.readDate = function (form, prefix) {
@@ -60,12 +108,15 @@
     params.append("fields[day_master]", dm);
     params.append("fields[birth_date]", BY.iso(b));
     params.append("fields[source]", source || "daily_soul");
+    // resolves {ok:true} | {ok:true, check:url} (Kit's bot guard wants one click) | {ok:false}. Never opens a popup.
     return fetch(KIT_URL, { method: "POST", headers: { Accept: "application/json" }, body: params })
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        if (j && j.status === "quarantined" && j.url) { var w = window.open(j.url, "_blank", "noopener"); if (!w) location.href = j.url; }
-        return true;
-      }).catch(function () { return false; });
+      .then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }); })
+      .then(function (x) {
+        var j = x.j || {};
+        if (j.status === "success") return { ok: true };
+        if (j.status === "quarantined" && j.url && /^https:\/\/app\.kit\.com\//.test(j.url)) return { ok: true, check: j.url };
+        return { ok: false };
+      }).catch(function () { return { ok: false }; });
   };
   function wireDaily() {
     [].forEach.call(doc.querySelectorAll("form[data-daily]"), function (f) {
@@ -73,10 +124,18 @@
         e.preventDefault();
         var inp = f.querySelector('input[type="email"]'), err = f.querySelector(".err"), v = inp.value.trim();
         if (!BY.EMAIL_RE.test(v)) { err.textContent = "Please enter a valid email."; inp.focus(); return; }
+        var b = BY.load("birth");
+        if (b && b.year > BY.MAX_YEAR) { err.textContent = "The Daily Soul is for readers 18 and over."; return; }
         err.textContent = "";
-        var btn = f.querySelector("button"); btn.disabled = true;
-        BY.subscribe(v, f.getAttribute("data-daily") || "daily_soul").then(function () {
-          f.innerHTML = '<p class="ok" role="status">You\'re in. Your first Daily Soul is on its way.</p>';
+        var btn = f.querySelector("button"); btn.disabled = true; btn.textContent = "Sending…";
+        BY.subscribe(v, f.getAttribute("data-daily") || "daily_soul").then(function (res) {
+          if (res.ok && !res.check) { f.innerHTML = '<p class="ok" role="status">You\'re signed up. If a confirmation email arrives, tap the link in it.</p>'; return; }
+          if (res.ok && res.check) {
+            f.innerHTML = '<p class="ok" role="status">Almost there. Our email provider wants one quick check that you\'re a person.</p><p><a class="btn btn--ghost" href="' + BY.esc(res.check) + '" target="_blank" rel="noopener">Do the quick check</a></p>';
+            return;
+          }
+          btn.disabled = false; btn.textContent = "Try again";
+          err.textContent = "That didn't go through, so you're not signed up yet. Check your connection and try again.";
         });
       });
     });

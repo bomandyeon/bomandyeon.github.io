@@ -1,8 +1,8 @@
-/* Home: birthday -> paper-door reveal, spicy tabs, crush match, personalised shelf. */
+/* Home: birthday -> paper-door reveal, spicy tabs, crush match, personalized shelf. */
 (function () {
   "use strict";
   var BY = window.BY, D = window.BY_DATA, $ = BY.$, esc = BY.esc, reduced = BY.reduced;
-  var SOULS = D.SOULS, EL_COLOR = D.EL_COLOR, LINES = window.BY_COMPAT_LINES || {};
+  var SOULS = D.SOULS, EL_COLOR = D.EL_COLOR, LINES = window.BY_COMPAT_LINES || {}, PAIRS = window.BY_PAIRS || {};
   var state = { birth: null, R: null, crush: null, match: null };
   BY.fillSelects();
 
@@ -50,6 +50,7 @@
     $("rvYeon").textContent = D.SPICY[R.dayMaster][4];
     $("rvMore").href = "/souls/" + s.slug + "/";
     $("rvMore").textContent = "Everything about " + s.name;
+    $("rvBio").textContent = BY.bioLine(s);
   }
   function afterReveal(R, s) {
     ["spicy", "crush"].forEach(function (id) { $(id).hidden = false; });
@@ -59,6 +60,14 @@
     $("rvName").setAttribute("tabindex", "-1"); $("rvName").focus({ preventScroll: true });
     BY.watch();
   }
+  BY.bioLine = function (s) { return s.hanja + " " + s.nick + " · " + s.name + " | bomandyeon.com"; };
+  $("copyBio").addEventListener("click", function () {
+    if (!state.R) return;
+    var line = BY.bioLine(SOULS[state.R.dayMaster]);
+    var done = function () { BY.toast("Copied: " + line); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(line).then(done, function () { BY.toast(line); });
+    else BY.toast(line);
+  });
   $("shareSoul").addEventListener("click", function () {
     if (!state.R) return;
     var s = SOULS[state.R.dayMaster];
@@ -97,9 +106,10 @@
 
   /* ---------- crush match ---------- */
   var FLAG_ORDER = ["stem_combo", "branch_harmony", "branch_clash", "element_complement", "same_element"];
+  function pairData(R) { return PAIRS[pairSlug(R.dayMaster, R.partner.dayMaster)] || {}; }
   function matchLine(R) {
     var f = FLAG_ORDER.filter(function (x) { return R.compat.flags.indexOf(x) >= 0; })[0];
-    return (f && LINES[f]) || D.VERDICTS[R.compat.verdict].p;
+    return (f && LINES[f]) || pairData(R).x || "";
   }
   var cform = $("crushForm");
   cform.addEventListener("submit", function (e) {
@@ -115,7 +125,7 @@
     var R = BY.analyze(state.birth, state.crush), me = SOULS[R.dayMaster], them = SOULS[R.partner.dayMaster], box = $("match");
     state.match = R; box.hidden = false;
     $("mYou").textContent = me.hanja; $("mThem").textContent = them.hanja;
-    $("mVerdict").textContent = D.MATCH_TITLE[R.compat.verdict];
+    $("mVerdict").textContent = pairData(R).v || "";
     $("mThemLine").innerHTML = 'Their Day Master: <span class="hz">' + them.hanja + "</span> " + esc(them.name) + ", " + esc(them.nick.toLowerCase());
     $("mLine").textContent = matchLine(R);
     $("mTwin").hidden = R.compat.flags.indexOf("stem_combo") < 0;
@@ -138,7 +148,7 @@
   $("shareMatch").addEventListener("click", function () {
     var R = state.match; if (!R) return;
     var me = SOULS[R.dayMaster], them = SOULS[R.partner.dayMaster];
-    BY.share("Our saju match", me.name + " + " + them.name + ": " + R.compat.score + "%. " + D.MATCH_TITLE[R.compat.verdict] + ".", "https://bomandyeon.com" + $("mPair").getAttribute("href"));
+    BY.share("Our saju match", me.name + " + " + them.name + ": " + R.compat.score + "%. " + (pairData(R).v || "") + ".", "https://bomandyeon.com" + $("mPair").getAttribute("href"));
   });
 
   /* ---------- returning visitor ---------- */

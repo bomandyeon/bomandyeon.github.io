@@ -45,9 +45,10 @@
       center(ctx, I.dmName, 800, "700 72px " + SERIF, MOON);
       center(ctx, I.nick + (I.them ? "  ·  with " + I.them.hanja + " " + I.them.name : ""), 862, fit(ctx, I.nick, "400 38px " + SERIF, 900), "rgba(237,230,214,.7)");
       // pillars
-      var px = [W / 2 - 260, W / 2, W / 2 + 260];
+      var np = I.pillars.length, gap = np > 3 ? 236 : 260, bw = np > 3 ? 200 : 210;
+      var px = I.pillars.map(function (_, i) { return W / 2 + (i - (np - 1) / 2) * gap; });
       I.pillars.forEach(function (p, i) {
-        round(ctx, px[i] - 105, 930, 210, 330, 22); ctx.fillStyle = "rgba(237,230,214,.06)"; ctx.fill(); ctx.strokeStyle = "rgba(201,164,92,.45)"; ctx.lineWidth = 2; ctx.stroke();
+        round(ctx, px[i] - bw / 2, 930, bw, 330, 22); ctx.fillStyle = "rgba(237,230,214,.06)"; ctx.fill(); ctx.strokeStyle = "rgba(201,164,92,.45)"; ctx.lineWidth = 2; ctx.stroke();
         ctx.textAlign = "center";
         ctx.font = "600 28px " + SANS; ctx.fillStyle = GOLD; ctx.fillText(p.label.toUpperCase(), px[i], 980);
         ctx.font = "700 96px " + HZ; ctx.fillStyle = COL[p.stemEl] || MOON; ctx.fillText(p.stem, px[i], 1090);
