@@ -1,7 +1,9 @@
 /* Product page (preview) and reading page (full personalized webtoon). One file, mode from window.BY_PRODUCT.mode.
- * Product page loads /readings/<slug>/preview.json only (2 chapters + 3 panels per Day Master).
- * Reading page loads one file per Day Master (/readings/<slug>/read/d/<dm>.<hash>.json) with chapters, season,
- * strength, balance and pair layers (see SPEC-V2-PERSONALIZATION.md). */
+ * P4 (v4 content): both pages assemble the reading with BYAssembleV4 (assemble-v4.js, see work/content-v4/SCHEMA.md).
+ * Product page loads /readings/<slug>/preview.json only (the first two plan chapters per Day Master).
+ * Reading page loads one file per Day Master (/readings/<slug>/read/d/<dm>.<hash>.json): the v4 layers for that reader
+ * plus the 10 pair texts that involve them. Ex + situationship ask up to 3 optional questions first (step by step, skippable);
+ * the answers go in the reading URL (&a=them.months.closure) so a shared link reproduces the same reading. */
 (function () {
   "use strict";
   /* Drop Stripe Payment Links in here when checkout is ready, e.g. {"situationship": "https://buy.stripe.com/..."}.
@@ -9,12 +11,13 @@
      (Server side of the switch: FULL_DATA_PUBLIC in src/build.py.) */
   var STRIPE_LINKS = {};
 
-  var BY = window.BY, D = window.BY_DATA, P = window.BY_PRODUCT, $ = BY.$, esc = BY.esc, PL = window.BYPlan, PAIRS = window.BY_PAIRS || {};
+  var BY = window.BY, D = window.BY_DATA, P = window.BY_PRODUCT, $ = BY.$, esc = BY.esc, PL = window.BYPlan, PAIRS = window.BY_PAIRS || {}, A4 = window.BYAssembleV4;
   if (!P) return;
   var EL_LOWER = ["wood", "fire", "earth", "metal", "water"];
   var SEASON_HZ = { spring: "春", summer: "夏", autumn: "秋", winter: "冬" };
   var ART = P.art || [1, 2, 3, 4, 11, 12];
-  var EXTRA = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].filter(function (n) { return ART.indexOf(n) < 0; }); // season, balance x2, pair x3
+  var EXTRA = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].filter(function (n) { return ART.indexOf(n) < 0; });
+  var ARTS = ART.concat(EXTRA); // v4 readings have 21-28 panels: cycle through all 12 images, the product's own six first
   var PAIR = P.pair || (P.two ? "required" : "");
   var THEIR_KEY = PAIR === "optional" ? "their_" + P.slug : "their";
   BY.fillSelects();
@@ -22,7 +25,21 @@
   function qsDate(k) { var m = new RegExp("[?&]" + k + "=([0-9-]{10})").exec(location.search); return m ? BY.fromIso(m[1]) : null; }
   var birth = qsDate("b") || BY.load("birth"), their = PAIR ? (qsDate("t") || BY.load(THEIR_KEY)) : null, name = BY.load("name") || "";
 
-  function readUrl() { return P.readUrl + "?b=" + BY.iso(birth) + (PAIR && their ? "&t=" + BY.iso(their) : ""); }
+  /* optional intake answers (ex + situationship): {qid: value}; URL form a=v1.v2.v3 in intake order */
+  var INTAKE = P.intake || [], ANS_KEY = "ans_" + P.slug;
+  function cleanAns(o) {
+    if (!o || typeof o !== "object") return null;
+    var r = {}, n = 0;
+    INTAKE.forEach(function (q) { var v = o[q.id]; if (v === q.skip_value || q.options.some(function (x) { return x.value === v; })) { r[q.id] = v; n++; } });
+    return n === INTAKE.length ? r : null;
+  }
+  function qsAns() {
+    var m = /[?&]a=([a-z.]+)/.exec(location.search); if (!m || !INTAKE.length) return null;
+    var v = m[1].split("."), o = {}; INTAKE.forEach(function (q, i) { o[q.id] = v[i]; }); return cleanAns(o);
+  }
+  var answers = INTAKE.length ? (qsAns() || cleanAns(BY.load(ANS_KEY))) : {};
+  function ansParam() { return INTAKE.length && answers ? "&a=" + INTAKE.map(function (q) { return answers[q.id]; }).join(".") : ""; }
+  function readUrl() { return P.readUrl + "?b=" + BY.iso(birth) + (PAIR && their ? "&t=" + BY.iso(their) : "") + ansParam(); }
   function pairSlug(a, b) { var x = Math.min(a, b), y = Math.max(a, b); return D.SLUGS[x] + "-and-" + D.SLUGS[y]; }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function who(sp) { return sp === "yeon" ? "Yeon" : "Bom"; }
@@ -58,7 +75,21 @@
     return BY.panel(art, b, who(p.speaker) + " speaks in a comic panel");
   }
   function webtoon(list) { var wt = document.createElement("div"); wt.className = "webtoon"; list.forEach(function (f) { if (f) wt.appendChild(f); }); return wt; }
-  function chapterHTML(title, text, kicker) { return '<section class="rise chap">' + (kicker ? '<p class="kicker">' + esc(kicker) + "</p>" : "") + "<h3>" + esc(title) + "</h3>" + BY.paras(text) + "</section>"; }
+  /* chapter text: paragraphs split on blank lines, "### X" lines are sub-headings */
+  function textHTML(t) {
+    return String(t || "").split(/\n\s*\n/).map(function (b) {
+      b = b.trim(); if (!b) return "";
+      var m = /^### (.+?)(?:\n([\s\S]*))?$/.exec(b);
+      if (m) return "<h4>" + esc(m[1].trim()) + "</h4>" + (m[2] && m[2].trim() ? "<p>" + esc(m[2].trim()) + "</p>" : "");
+      return "<p>" + esc(b) + "</p>";
+    }).join("");
+  }
+  function chapterHTML(title, text, kicker, pre) { return '<section class="rise chap">' + (kicker ? '<p class="kicker">' + esc(kicker) + "</p>" : "") + "<h3>" + esc(title) + "</h3>" + (pre || "") + textHTML(text) + "</section>"; }
+  /* one assembled v4 chapter -> [webtoon, text] (art cycles through all panel images) */
+  function v4Panels(ch, artAt) { return webtoon(ch.panels.map(function (p) { return panel(ARTS[artAt() % ARTS.length], p, p.nar || null); })); }
+  function counter() { var i = 0; return function () { return i++; }; }
+  var TYPE_NAMES = { season: "Your season", strength: "Your strength, and what steadies you", pair: "You and them" };
+  function planTitle(c) { return c.title || TYPE_NAMES[c.type] || c.id; }
   function html(h) { var d = document.createElement("div"); d.className = "chapter-text"; d.innerHTML = h; return d; }
 
   function seasonLine(R) { return PL.seasonLabel(R); }
@@ -90,7 +121,7 @@
       out.innerHTML = '<p class="center muted">Bom and Yeon are pulling your chapters…</p>';
       data().then(function (J) {
         var d = J.by_day_master[s.slug];
-        if (!d) { out.innerHTML = '<p class="err">This reading is still being written for ' + esc(s.name) + ". Try another one for now.</p>"; return; }
+        if (!d || !A4) { out.innerHTML = '<p class="err">This reading is still being written for ' + esc(s.name) + ". Try another one for now.</p>"; return; }
         out.innerHTML = "";
         var head = document.createElement("div");
         head.className = "center rise";
@@ -99,15 +130,23 @@
           (PAIR && R.partner ? "<li>You + " + esc(D.SOULS[R.partner.dayMaster].name) + "</li>" : "") + "</ul>" +
           '<p class="code code--sm">' + esc(R.readingCode) + "</p>" + termBanner(R);
         out.appendChild(head);
-        var arts = ART;
-        out.appendChild(webtoon((d.panels || []).slice(0, 3).map(function (p, i) { return panel(arts[i % arts.length], p, i === 0 ? s.hanja + " · " + s.name + ", " + s.nick.toLowerCase() + "." : null); })));
-        var extra = ["your " + PL.seasonShort(R) + " chapter", "your " + (R.dmStrength === "strong" ? "strong" : "weak") + "-chart section", "your element balance"];
+        // the reading's real opening: the first two plan chapters, assembled exactly as on the reading page
+        var V = { plan: J.plan2, intake: J.intake, ext: J.ext || {}, day_branch: J.day_branch, day_branch_heading: J.day_branch_heading, heavy: {}, missing: {},
+          base: {}, base_panels: {}, season: {}, extra: {} };
+        V.base[s.slug] = d.base; V.base_panels[s.slug] = d.base_panels; V.season[s.slug] = d.season; V.extra[s.slug] = d.extra || {};
+        var asm = A4.assemble(R, V, {}), art = counter(), lockHTML = "";
+        var rest = J.plan.slice(2).filter(function (c) { return !(c.type === "pair" && c.optional && !R.partner); });
+        var extra = ["your " + (R.dmStrength === "strong" ? "strong" : "weak") + "-chart chapter", "your element balance"];
         if (PAIR && R.partner) extra.push("the chapter on you and " + D.SOULS[R.partner.dayMaster].name);
-        var tx = html(J.chapters.slice(0, 2).map(function (ch) { return chapterHTML(ch.title, d.chapters[ch.id] || ""); }).join("") +
-          '<div class="chapter-lock rise"><p class="kicker">' + (J.chapters.length - 2) + ' more chapters</p><p class="muted small">Plus ' + esc(extra.join(", ")) + '.</p><ul class="chips">' +
-          J.chapters.slice(2).map(function (ch) { return "<li>" + esc(ch.title) + "</li>"; }).join("") + "</ul>" +
-          '<button class="btn" type="button" data-buy>' + buyLabel() + "</button>" + giftNote() + "</div>");
-        out.appendChild(tx);
+        else if (PAIR === "optional") extra.push("a chapter on the two of you if you add their birthday");
+        if (INTAKE.length) extra.push("the sections your answers pick (" + INTAKE.length + " optional questions, one tap each)");
+        lockHTML = '<div class="chapter-lock rise"><p class="kicker">' + rest.length + ' more chapters</p><p class="muted small">Including ' + esc(extra.join(", ")) + '.</p><ul class="chips">' +
+          rest.map(function (c) { return "<li>" + esc(planTitle(c)) + "</li>"; }).join("") + "</ul>" +
+          '<button class="btn" type="button" data-buy>' + buyLabel() + "</button>" + giftNote() + "</div>";
+        asm.chapters.forEach(function (ch, i) {
+          out.appendChild(v4Panels(ch, art));
+          out.appendChild(html(chapterHTML(ch.title, ch.text, ch.kicker) + (i === asm.chapters.length - 1 ? lockHTML : "")));
+        });
         BY.watch(out);
         if (scroll) out.scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth", block: "start" });
       }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and press the button again.</p>'; });
@@ -140,59 +179,91 @@
     }
     function need() { return !birth || (PAIR === "required" && !their); }
     if (need()) {
-      $("rdAsk").hidden = false; fillForm(form);
+      out.innerHTML = ""; $("rdAsk").hidden = false; fillForm(form);
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (!readForm(form, $("rdErr"))) return;
         $("rdAsk").hidden = true;
         try { history.replaceState(null, "", readUrl()); } catch (x) { /* file:// */ }
-        render();
+        next();
       });
-    } else render();
+    } else next();
+    function next() { if (INTAKE.length && !answers) intake(); else render(); }
+
+    /* step-by-step optional questions, each with a visible skip; answers stored like the other form fields */
+    function intake(prev) {
+      var box = $("rdIntake"), cur = prev ? Object.assign({}, prev) : {}, i = 0;
+      out.innerHTML = ""; box.hidden = false; box.classList.add("no-print");
+      function step() {
+        var q = INTAKE[i];
+        box.innerHTML = '<p class="kicker">Question ' + (i + 1) + " of " + INTAKE.length + ' · optional</p><h2 class="intake__q">' + esc(q.question) + "</h2>" +
+          '<p class="muted small">Your answer changes one section of the reading. Skip it and that section is written for not knowing.</p>' +
+          '<div class="intake__opts" role="group" aria-label="' + esc(q.question) + '">' + q.options.filter(function (o) { return o.value !== q.skip_value; }).map(function (o) {
+            return '<button type="button" class="btn btn--ghost btn--block intake__opt" data-v="' + esc(o.value) + '"' + (cur[q.id] === o.value ? ' aria-pressed="true"' : "") + ">" + esc(o.label) + "</button>";
+          }).join("") + "</div>" +
+          '<div class="intake__nav">' + (i > 0 ? '<button type="button" class="linkbtn" data-nav="back">Back</button>' : "<span></span>") +
+          '<button type="button" class="linkbtn" data-v="' + esc(q.skip_value) + '">Skip this question</button></div>' +
+          (i === 0 ? '<p class="center"><button type="button" class="linkbtn small" data-nav="all">Skip all and open my reading</button></p>' : "");
+        var f = box.querySelector(".intake__opt"); if (f && i > 0) f.focus({ preventScroll: true });
+      }
+      box.onclick = function (e) {
+        var b = e.target.closest("button"); if (!b) return;
+        var nav = b.getAttribute("data-nav");
+        if (nav === "back") { i = Math.max(0, i - 1); step(); return; }
+        if (nav === "all") { INTAKE.forEach(function (q) { if (!cur[q.id]) cur[q.id] = q.skip_value; }); i = INTAKE.length; }
+        else { cur[INTAKE[i].id] = b.getAttribute("data-v"); i++; }
+        if (i < INTAKE.length) { step(); return; }
+        answers = cleanAns(cur); BY.store(ANS_KEY, answers);
+        box.hidden = true; box.innerHTML = ""; box.onclick = null;
+        try { history.replaceState(null, "", readUrl()); } catch (x) { /* file:// */ }
+        render(); window.scrollTo(0, 0);
+      };
+      step();
+      box.scrollIntoView({ block: "start" });
+    }
+    function answersLine() {
+      if (!INTAKE.length || !answers) return null;
+      var given = INTAKE.map(function (q) { var o = q.options.filter(function (x) { return x.value === answers[q.id]; })[0]; return answers[q.id] === q.skip_value || !o ? null : o.label; }).filter(Boolean);
+      var d = document.createElement("div"); d.className = "answers-line no-print rise";
+      d.innerHTML = '<p class="muted small">' + (given.length ? "Your answers: " + esc(given.join(" · ")) + "." : "You skipped the questions, so those sections are written for not knowing.") +
+        ' <button type="button" class="linkbtn small" data-act="answers">' + (given.length ? "Change answers" : "Answer them") + "</button></p>";
+      return d;
+    }
 
     function render() {
       var R = analyze(), s = D.SOULS[R.dayMaster], them = R.partner ? D.SOULS[R.partner.dayMaster] : null;
       out.innerHTML = '<p class="center muted">Opening your reading…</p>';
       fetch(P.files[s.slug]).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }).then(function (J) {
         out.innerHTML = "";
-        var info = coverInfo(R, s, them, J.title);
+        var LEN = null, info = coverInfo(R, s, them, J.title);
         out.appendChild(coverCard(info, R));
         if (R.termDay) out.appendChild(html(termBanner(R)));
         out.appendChild(actions());
         if (PAIR === "required" && them) out.appendChild(bondBox(R, s, them));
 
-        var base = (J.panels || []).slice(0, 6), PLN = PL.plan(R, J), bp = PLN.balance, pr = them && J.pairs ? J.pairs[them.slug] : null;
-        var ch = J.chapters, T = J.text || {};
-        function chs(a, b) { return ch.slice(a, b).map(function (c) { return c.id === "colors" ? chapterHTML(c.title, (T[c.id] || "") + "\n\n" + colorNote(R)) : chapterHTML(c.title, T[c.id] || ""); }).join(""); }
-        function bp0(i) { return base[i] ? panel(ART[i % ART.length], base[i], i === 0 ? s.hanja + " · " + s.name + ", " + s.nick.toLowerCase() + "." : null) : null; }
-
-        // 1. opening panels + season panel, season chapter
-        out.appendChild(webtoon([bp0(0), bp0(1), PLN.seasonPanel ? panel(EXTRA[0], PLN.seasonPanel, PLN.seasonNarration) : null]));
-        out.appendChild(html(chapterHTML(PL.seasonTitle(R, s.name), PLN.seasonIntro, seasonLine(R))));
-        // 2. first Day Master chapters
-        out.appendChild(webtoon([bp0(2)]));
-        out.appendChild(html(chs(0, 2)));
-        // 3. balance panels + balance section
-        out.appendChild(webtoon([bp0(3), bp.panels[0] ? panel(EXTRA[1], bp.panels[0], bp.nar) : null, bp.panels[1] ? panel(EXTRA[2], bp.panels[1]) : null]));
-        out.appendChild(html(balanceHTML(R, bp)));
-        out.appendChild(html(chs(2, 4)));
-        // 4. strength section
-        out.appendChild(webtoon([bp0(4)]));
-        out.appendChild(html(strengthHTML(R, PLN)));
-        // 5. pair chapter (ex with their birthday, situationship)
-        if (pr) {
-          var pk = "You " + s.hanja + " " + s.name + " + them " + them.hanja + " " + them.name;
-          out.appendChild(webtoon(pr.panels.slice(0, 3).map(function (p, i) { return panel(EXTRA[3 + i], p, i === 0 ? s.hanja + " + " + them.hanja + " · you and them." : null); })));
-          out.appendChild(html(chapterHTML(pr.title, pr.text, pk)));
-        } else if (PAIR === "optional") {
-          out.appendChild(html('<div class="card rise no-print add-their"><p class="kicker">One more chapter</p><p>Add their birthday and Bom and Yeon write a chapter on how your two patterns meet.</p>' +
-            '<form id="addTheir" class="form-stack" novalidate>' + document.querySelector("#rdForm .selects[aria-label^='Their']").outerHTML + '<p class="err" id="atErr" role="alert"></p><button class="btn" type="submit">Add the chapter</button></form></div>'));
-        }
-        // 6. last panel, remaining chapters, closing
-        out.appendChild(webtoon([bp0(5)]));
-        out.appendChild(html(chs(4, ch.length) +
-          '<div class="say say--yeon rise"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b>' + esc(D.YEON_MSG[R.dayMasterEl]) + "</p></div>"));
-        out.appendChild(html(aboutThis(R, out)));
+        var al = answersLine(); if (al) out.appendChild(al);
+        var asm = A4.assemble(R, J, { answers: answers || {}, pairs: J.pairs || null }), art = counter();
+        var pi = -1; J.plan.forEach(function (c, i) { if (c.type === "pair") pi = i; });
+        var afterId = PAIR === "optional" && !them && pi > 0 ? J.plan[pi - 1].id : null;
+        asm.chapters.forEach(function (ch) {
+          out.appendChild(v4Panels(ch, art));
+          var h;
+          if (ch.id === "balance" && ch.blocks) {
+            h = '<section class="rise chap"><p class="kicker">' + esc(ch.kicker) + "</p><h3>" + esc(ch.title) + "</h3>" + ch.blocks.map(function (b) {
+              return "<h4>" + esc(b.h) + "</h4>" + textHTML(b.t) + (b.note ? '<p class="muted small">' + esc(b.note) + "</p>" : "");
+            }).join("") + "</section>";
+          } else if (ch.id === "strength") h = chapterHTML(ch.title, ch.text, ch.kicker, '<p class="muted small">' + esc(strengthHow(R)) + "</p>");
+          else h = chapterHTML(ch.title, ch.text, ch.kicker);
+          out.appendChild(html(h));
+          if (afterId && ch.id === afterId) {
+            out.appendChild(html('<div class="card rise no-print add-their"><p class="kicker">One more chapter</p><p>Add their birthday and Bom and Yeon write a chapter on how your two patterns meet.</p>' +
+              '<form id="addTheir" class="form-stack" novalidate>' + document.querySelector("#rdForm .selects[aria-label^='Their']").outerHTML + '<p class="err" id="atErr" role="alert"></p><button class="btn" type="submit">Add the chapter</button></form></div>'));
+          }
+        });
+        out.appendChild(html('<div class="say say--yeon rise"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b>' + esc(D.YEON_MSG[R.dayMasterEl]) + "</p></div>"));
+        LEN = { words: asm.words, chapters: asm.chapters.length, panels: asm.panels };
+        out.appendChild(html(aboutThis(R, LEN)));
+        var lenTag = $("rdLen"); if (lenTag) lenTag.textContent = LEN.chapters + " chapters · " + LEN.words.toLocaleString("en-US") + " words · a " + mins(LEN.words) + "-minute read";
         out.appendChild(actions(true));
 
         requestAnimationFrame(function () { setTimeout(function () { [].forEach.call(out.querySelectorAll("[data-w]"), function (i) { i.style.width = i.getAttribute("data-w") + "%"; }); }, 200); });
@@ -239,6 +310,7 @@
         "<h1>" + esc(I.dmName) + '</h1><p class="muted">' + esc(I.nick) + (I.them ? ' · with <span class="hz" style="color:' + I.them.color + '">' + I.them.hanja + "</span> " + esc(I.them.name) : "") + "</p>" +
         '<div class="pillars' + (I.pillars.length > 3 ? " pillars--4" : "") + '" aria-label="Your pillars">' + pills + "</div>" +
         '<ul class="tags"><li>' + I.seasonHz + " " + esc(seasonLine(R)) + "</li><li>" + esc(strengthWord(R)) + " · " + I.score + " of " + I.max + "</li></ul>" +
+        '<p class="muted small" id="rdLen">&nbsp;</p>' +
         '<div class="bars">' + bars + "</div>" +
         '<p class="code">' + esc(I.code) + '</p><p class="muted small">Your reading code. Same code, same reading.</p>' +
         '<p class="muted small">' + (R.hasHour ? "Four pillars from your birth date and time." : "Three pillars from your birth date (year, month, day). Your birth hour would add a fourth.") +
@@ -256,6 +328,7 @@
         b.addEventListener("click", function () {
           var a = b.getAttribute("data-act");
           if (a === "pdf") window.print();
+          if (a === "answers") { intake(answers); return; }
           // the ex reading's title never goes on anything public: share text and story card use a neutral title
           var pub = /ex-come-back/.test(P.slug) ? "My saju reading" : title;
           if (a === "share") BY.share(pub, "Bom and Yeon read my chart: " + pub + " (" + info.code + ")", "https://bomandyeon.com/readings/" + P.slug + "/");
@@ -275,35 +348,22 @@
         '<a class="link-arrow" href="/compatibility/' + slug + '/">' + esc(s.name + " + " + them.name) + " in full</a>";
       return box;
     }
-    function balanceHTML(R, bp) {
-      var txt = bp.blocks.map(function (b) { return "<h4>" + esc(b.h) + "</h4>" + BY.paras(b.t) + (b.note ? '<p class="muted small">' + esc(b.note) + "</p>" : ""); }).join("");
-      return '<section class="rise chap"><p class="kicker">Your element balance</p><h3>What you have plenty of, and what you lack</h3>' + txt + "</section>";
-    }
-    /* Glow-up: color advice keyed on the chart's strength (balancing element for strong charts, support for weak ones) */
-    function colorNote(R) {
-      var C = ["deep green, sage or olive", "coral, rust or a warm red", "camel, sand or ochre", "crisp white, silver or soft gray", "navy, ink or deep blue"];
-      var e = R.dayMasterEl, m = function (r) { return (e + r) % 5; };
-      if (R.dmStrength === "strong") return "Your chart is strong, so it already carries plenty of your home palette. Treat those colors as your base and let balancing colors do the lifting: " +
-        C[m(1)] + ", or " + C[m(2)] + ". A touch of " + C[m(3)].split(", ").pop().replace("or ", "") + " works as an accent.";
-      return "Your chart is weak, so your home palette is your boost, not your excess. Wear it generously and back it with your support colors, " + C[m(4)] + ". Keep " + C[m(3)].split(", ")[0] + " to small accents.";
-    }
-    function aboutThis(R, root) {
-      var words = [].reduce.call(root.querySelectorAll(".chap, .bubble"), function (n, el) { return n + (el.textContent || "").split(/\s+/).filter(Boolean).length; }, 0), min = Math.max(1, Math.round(words / 238));
-      return '<section class="rise chap about-reading"><p class="kicker">About this reading</p><p class="muted small">This reading is about ' + words.toLocaleString("en-US") + " words, roughly " + min + " minute" + (min > 1 ? "s" : "") + " of reading. " +
+    function mins(w) { return Math.max(1, Math.round(w / 238)); }
+    function aboutThis(R, L) {
+      var words = L.words, min = mins(words);
+      return '<section class="rise chap about-reading"><p class="kicker">About this reading</p><p class="muted small">This reading is ' + words.toLocaleString("en-US") + " words in " + L.chapters + " chapters and " + L.panels + " panels, roughly " + min + " minute" + (min > 1 ? "s" : "") + " of reading. " +
         (R.hasHour ? "It uses four pillars: your birth year, month, day and hour. " : "It uses three pillars: your birth year, month and day. A birth hour would add a fourth. ") +
         "It doesn't include your 10-year luck cycles (대운), which traditional readers use for timing. If you were born between 11 pm and midnight, some saju schools count you as the next day's Day Master" +
         (PAIR ? ". The chapter on the two of you compares your Day Masters (and notes your day branches); a full Korean compatibility reading (궁합) compares both whole charts" : "") +
         ". For entertainment and self-reflection.</p></section>";
     }
-    function strengthHTML(R, PLN) {
+    /* the "what backs you up" line above the strength chapter (same count as the cover card) */
+    function strengthHow(R) {
       var names = { season: R.seasonKey === "earth" ? "your season (the Earth days)" : "your season (" + R.seasonElName + " in command)", day_branch: "your day branch", year_branch: "your year branch", hour_branch: "your hour branch",
         year_stem: "your year stem", month_stem: "your month stem", hour_stem: "your hour stem" };
       var yes = R.strengthParts.filter(function (p) { return p.ok; }).map(function (p) { return names[p.part]; });
-      var how = "Bom and Yeon count what backs your " + D.EL_NAMES[R.dayMasterEl] + " up: your own element or the one that feeds it. " +
+      return "Bom and Yeon count what backs your " + D.EL_NAMES[R.dayMasterEl] + " up: your own element or the one that feeds it. " +
         (yes.length ? "Support comes from " + yes.join(", ") + "." : "None of your pillars carries it.") + " That is " + R.strengthScore + " of " + R.strengthMax + " points, with the season worth the most. A simplified count from the pillars we have.";
-      return '<section class="rise chap"><p class="kicker">' + esc(strengthWord(R)) + " · " + R.strengthScore + " of " + R.strengthMax + "</p><h3>" +
-        (R.dmStrength === "strong" ? "A strong chart: your blind spot is pushing" : "A weak chart: your blind spot is giving too much") + "</h3>" +
-        '<p class="muted small">' + esc(how) + "</p>" + (PLN.strengthBridge ? "<p>" + esc(PLN.strengthBridge) + "</p>" : "") + BY.paras(PLN.strengthText) + "</section>";
     }
   }
 
