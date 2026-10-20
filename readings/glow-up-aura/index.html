@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Inter:wght@400;500;600;700&family=Noto+Serif+KR:wght@700&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=e189cc1d">
+<link rel="stylesheet" href="/assets/css/site.css?v=e6effca5">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is this about changing how I look?","acceptedAnswer":{"@type":"Answer","text":"No. It's about aura, style, colour and how you come across. We never suggest changing your body or face, and nothing here is beauty or medical advice."}},{"@type":"Question","name":"Where do the colours come from?","acceptedAnswer":{"@type":"Answer","text":"From the five elements in saju. Each Day Master has a home element with its own palette, plus the element that feeds it. Your element balance adds a note on what to lean into."}},{"@type":"Question","name":"Do I need my birth time?","acceptedAnswer":{"@type":"Answer","text":"No. Your Day Master comes from your birth date alone. A birth hour adds a fuller element balance for the bonus notes."}},{"@type":"Question","name":"I don't wear colour. Is this still useful?","acceptedAnswer":{"@type":"Answer","text":"Yes. Every palette has neutrals, and accessories, textures and photo settings work in black and white too."}},{"@type":"Question","name":"Is this for any gender?","acceptedAnswer":{"@type":"Answer","text":"Yes. The examples lean toward the styles our readers love, but the aura and colour advice works for anyone."}}]},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://bomandyeon.com/"},{"@type":"ListItem","position":2,"name":"Your Glow-Up Aura","item":"https://bomandyeon.com/readings/glow-up-aura/"}]}]}</script>
 </head>
 <body>
@@ -59,6 +59,20 @@
   <div class="say say--bom rise"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Bom</b>What do people actually see when you walk in, and how do you lean into it?</p></div>
  </div>
 </section>
+<section id="personal">
+ <div class="wrap read">
+  <p class="kicker">What's personal</p>
+  <h2>What makes it yours</h2>
+  <p class="lede">Built from your day, month and year pillars, your season, your element balance.</p>
+  <ul class="perso"><li><b>Your Day Master</b><span>One of 10 souls, from your day pillar. 6 chapters and six webtoon panels written for it.</span></li><li><b>Your season</b><span>Spring, summer, autumn or winter, set by the solar terms on your birth date, not the calendar month. A season chapter and its own panel.</span></li><li><b>Your strength</b><span>Strong or weak, worked out from your day, month and year pillars. A section on the blind spot that comes with it.</span></li><li><b>Your element balance</b><span>What your chart has too much of and what it lacks. Notes and two panels for your mix.</span></li></ul>
+  <p class="muted small">10 souls × 4 seasons × 2 strengths = 80 core versions, then your element balance on top. Two people with the same Day Master can still get a different reading.</p>
+  <div class="code-card">
+   <p class="kicker">Your reading code</p>
+   <p class="code" id="pvCode">BY-甲-冬-S-7K2Q</p>
+   <p class="muted small" id="pvCodeNote">Example. Yours appears after you add your birthday: your Day Master, your season (春 spring, 夏 summer, 秋 autumn, 冬 winter), S for strong or W for weak, and a tag for your three pillars. Same code, same reading. Compare it with a friend.</p>
+  </div>
+ </div>
+</section>
 <section id="preview">
  <div class="wrap read">
   <div class="card">
@@ -66,10 +80,11 @@
    <h2>Read the first two chapters</h2>
    <p class="muted">Your birthday picks your Day Master. The chapters are written for it.</p>
    <form id="pvForm" class="form-stack" novalidate>
-    <div class="selects" role="group" aria-label="Your birthday"><label><span class="sr">Your birthday month</span><select name="bm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Your birthday day</span><select name="bd" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Your birthday year</span><select name="by" data-kind="y" required><option value="">Year</option></select></label></div>
+    <span class="field-label">Your birthday</span><div class="selects" role="group" aria-label="Your birthday"><label><span class="sr">Your birthday month</span><select name="bm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Your birthday day</span><select name="bd" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Your birthday year</span><select name="by" data-kind="y" required><option value="">Year</option></select></label></div>
+    <label class="name-field"><span class="field-label">Your first name <small>(optional, printed on your cover)</small></span><input class="input" type="text" name="nm" maxlength="24" autocomplete="given-name" placeholder="e.g. Mina"></label>
     <p class="err" id="pvErr" role="alert"></p>
     <button class="btn btn--block" type="submit">Show my preview</button>
-    <p class="note">Your birthday stays in your browser. We don't store it.</p>
+    <p class="note">Your birthday and name stay in your browser. We don't store them.</p>
    </form>
   </div>
   <div id="pvOut" class="preview-out" aria-live="polite"></div>
@@ -79,7 +94,7 @@
  <div class="wrap read">
   <p class="kicker">Inside</p><h2>Chapters</h2>
   <ol class="chapters"><li><div><b>Your aura</b><span>The energy you carry into a room before you say a word.</span></div></li><li><div><b>How people read you</b><span>Your first impression, your second impression, and where people get you wrong.</span></div></li><li><div><b>Your colours</b><span>Your element palette, the colours that support it, and the ones that drown you out.</span></div></li><li><div><b>Your style signature</b><span>Silhouettes, textures, the one detail that makes a look yours, and your best photo setting.</span></div></li><li><div><b>Your glow-up vibe</b><span>The K-drama arc your aura is ready for. Same you, turned up.</span></div></li><li><div><b>When your aura dims</b><span>What it looks like when your glow fades, and the small resets that bring it back.</span></div></li></ol>
-  <p class="muted small" style="margin-top:12px">6 chapters, about 12 minutes. Opens as a vertical webtoon with Bom and Yeon, then the chapters.</p>
+  <p class="muted small" style="margin-top:12px">6 chapters, about 12 minutes, plus your season, strength and balance sections. Opens as a vertical webtoon with Bom and Yeon.</p>
  </div>
 </section>
 <section>
@@ -115,9 +130,9 @@
   <p class="ent">For entertainment and self-reflection. Not advice about health, money, law or life decisions. © 2026 Bom &amp; Yeon</p>
  </div>
 </footer>
-<script src="/assets/js/legacy-data.js?v=6228cc79"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=661a3493"></script>
+<script src="/assets/js/legacy-data.js?v=6228cc79"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=9f9d31d8"></script>
 <script src="/assets/js/site.js?v=ef91e734"></script>
-<script>window.BY_PRODUCT={"mode":"product","slug":"glow-up-aura","price":9.99,"two":false,"art":[1,3,6,10,11,12],"dataUrl":"/readings/glow-up-aura/data.json","readUrl":"/readings/glow-up-aura/read/"};</script>
-<script src="/assets/js/product.js?v=33ceb82d"></script>
+<script>window.BY_PRODUCT={"mode":"product","slug":"glow-up-aura","price":9.99,"two":false,"pair":"","art":[1,3,6,10,11,12],"dataUrl":"/readings/glow-up-aura/preview.json","readUrl":"/readings/glow-up-aura/read/"};</script>
+<script src="/assets/js/product.js?v=01ab882d"></script>
 </body>
 </html>
