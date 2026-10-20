@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /readings/*/read/
+
+Sitemap: https://bomandyeon.com/sitemap.xml
