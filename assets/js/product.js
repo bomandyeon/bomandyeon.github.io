@@ -214,6 +214,8 @@
         else { cur[INTAKE[i].id] = b.getAttribute("data-v"); i++; }
         if (i < INTAKE.length) { step(); return; }
         answers = cleanAns(cur); BY.store(ANS_KEY, answers);
+        var nAns = INTAKE.filter(function (q) { return answers && answers[q.id] !== q.skip_value; }).length;
+        BY.track((nAns ? "intake-answered-" : "intake-skipped-") + P.slug, (nAns ? "Intake answered (" + nAns + " of " + INTAKE.length + "): " : "Intake skipped: ") + P.slug);
         box.hidden = true; box.innerHTML = ""; box.onclick = null;
         try { history.replaceState(null, "", readUrl()); } catch (x) { /* file:// */ }
         render(); window.scrollTo(0, 0);
@@ -230,11 +232,13 @@
       return d;
     }
 
+    var opened = false;
     function render() {
       var R = analyze(), s = D.SOULS[R.dayMaster], them = R.partner ? D.SOULS[R.partner.dayMaster] : null;
       out.innerHTML = '<p class="center muted">Opening your reading…</p>';
       fetch(P.files[s.slug]).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }).then(function (J) {
         out.innerHTML = "";
+        if (!opened) { opened = true; BY.track("read-" + P.slug, "Opened reading: " + P.slug); }
         var LEN = null, info = coverInfo(R, s, them, J.title);
         out.appendChild(coverCard(info, R));
         if (R.termDay) out.appendChild(html(termBanner(R)));
@@ -327,10 +331,12 @@
       [].forEach.call(out.querySelectorAll("[data-act]"), function (b) {
         b.addEventListener("click", function () {
           var a = b.getAttribute("data-act");
-          if (a === "pdf") window.print();
+          if (a === "pdf") { BY.track("pdf-" + P.slug, "Save as PDF: " + P.slug); window.print(); }
           if (a === "answers") { intake(answers); return; }
           // the ex reading's title never goes on anything public: share text and story card use a neutral title
           var pub = /ex-come-back/.test(P.slug) ? "My saju reading" : title;
+          if (a === "share") BY.track("share-reading-" + P.slug, "Shared the reading link: " + P.slug);
+          if (a === "story") BY.track("share-story-" + P.slug, "Share image: story card (" + P.slug + ")");
           if (a === "share") BY.share(pub, "Bom and Yeon read my chart: " + pub + " (" + info.code + ")", "https://bomandyeon.com/readings/" + P.slug + "/");
           if (a === "story" && BY.storyCard) BY.storyCard(pub === title ? info : Object.assign({}, info, { title: pub }));
         });

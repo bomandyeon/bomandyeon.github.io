@@ -105,6 +105,8 @@
           '<p class="muted small center">1080 × 1920, sized for Instagram stories. On a phone you can also press and hold the image to save it.</p>' +
           '<div class="actions">' + (canShare ? '<button class="btn" type="button" data-sh>Share</button>' : "") +
           '<a class="btn' + (canShare ? " btn--ghost" : "") + '" href="' + url + '" download="' + fname + '">Download image</a><button class="btn btn--ghost" type="button" data-close>Close</button></div>';
+        var dl = box.querySelector("a[download]");
+        if (dl && BY.track) dl.addEventListener("click", function () { BY.track("story-download", "Story image downloaded"); });
         var sh = box.querySelector("[data-sh]");
         if (sh) sh.addEventListener("click", function () { navigator.share({ files: [file], title: "Bom & Yeon", text: "My reading code: " + I.code + " bomandyeon.com" }).catch(function () {}); });
       }, "image/png");
@@ -215,6 +217,8 @@
             '<p class="muted small center">' + dims[0] + " \u00D7 " + dims[1] + (fmt === "story" ? ", sized for stories." : ", sized for feed posts.") + " On a phone you can also press and hold the image to save it.</p>" +
             '<div class="actions">' + (canShare ? '<button class="btn" type="button" data-sh>Share image</button>' : "") +
             '<a class="btn' + (canShare ? " btn--ghost" : "") + '" href="' + url + '" download="' + fname + '">Download image</a><button class="btn btn--ghost" type="button" data-close>Close</button></div>';
+          var dl = out.querySelector("a[download]");
+          if (dl && BY.track) dl.addEventListener("click", function () { BY.track("share-download-" + (o.kind || "card") + "-" + fmt, "Share image downloaded (" + fmt + ")"); });
           var sh = out.querySelector("[data-sh]");
           if (sh) sh.addEventListener("click", function () { navigator.share({ files: [file], text: o.text || "#MyKoreanSoul bomandyeon.com" }).catch(function () {}); });
         }, "image/png");

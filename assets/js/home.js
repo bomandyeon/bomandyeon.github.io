@@ -12,6 +12,7 @@
   var qs = new URLSearchParams(location.search), vsSlug = qs.get("vs"), vsIdx = D.SLUGS.indexOf(vsSlug), VS = null;
   if (vsIdx >= 0) VS = { idx: vsIdx, soul: SOULS[vsIdx], name: BY.cleanName(qs.get("n")) };
   if (VS) {
+    BY.trackOnce("compare-visit", "Visit from a compare link");
     var vb = $("vsBanner"), who = VS.name ? esc(VS.name) : "Your friend";
     vb.innerHTML = "<b>" + who + '</b> is <span class="hz" style="color:' + EL_COLOR[VS.soul.el] + '">' + VS.soul.hanja + "</span> " + esc(VS.soul.nick) + ". What are you?";
     vb.hidden = false;
@@ -26,6 +27,7 @@
     if (!state.R) return;
     var s = SOULS[state.R.dayMaster], n = myName();
     if (n) BY.store("name", n);
+    BY.track("compare-link", "Compare link created");
     BY.share("Compare souls with me", (n ? n + " is " : "I'm ") + s.nick + " (" + s.hanja + " " + s.name + "). What are you? Tap to see how we match.", BY.vsLink(state.R.dayMaster, n));
   }
 
@@ -79,6 +81,7 @@
     var vn = $("vsName"); if (vn && !vn.value) vn.value = BY.load("name") || "";
   }
   function afterReveal(R, s) {
+    BY.track("reveal-" + s.slug, "Reveal done: " + s.name);
     ["spicy", "crush"].forEach(function (id) { $(id).hidden = false; });
     if (VS) paintVs(R, s);
     var dh = document.querySelector("#daily h2"); if (dh) dh.textContent = "One line from Yeon for " + s.nick + ", every morning.";
@@ -93,6 +96,7 @@
     if (!state.R) return;
     var line = BY.bioLine(SOULS[state.R.dayMaster]);
     var done = function () { BY.toast("Copied: " + line); };
+    BY.track("copy-bio", "Copied the bio line");
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(line).then(done, function () { BY.toast(line); });
     else BY.toast(line);
   });
@@ -104,6 +108,7 @@
   }
   $("cardSoul").addEventListener("click", function () {
     if (!state.R || !BY.shareCard) return;
+    BY.track("share-soul", "Share image: soul");
     BY.shareCard(soulCard(state.R, "My Korean soul type", D.SPICY[state.R.dayMaster][4], "my-korean-soul-" + SOULS[state.R.dayMaster].slug));
   });
 
@@ -126,6 +131,7 @@
   });
   $("vsCard").addEventListener("click", function () {
     if (!state.R || !VS || !BY.shareCard) return;
+    BY.track("share-vs-match", "Share image: compare match");
     var s = SOULS[state.R.dayMaster], o = VS.soul, pd = PAIRS[pairSlug(state.R.dayMaster, VS.idx)] || {};
     BY.shareCard({ kind: "match", kicker: "Our saju match", hanja: s.hanja, name: s.name, nick: s.nick, color: EL_COLOR[s.el],
       them: { hanja: o.hanja, name: o.name, nick: o.nick, color: EL_COLOR[o.el] }, score: pd.s, verdict: pd.v, file: "our-saju-match-" + s.slug + "-" + o.slug,
@@ -178,6 +184,7 @@
   });
   $("cardSpicy").addEventListener("click", function () {
     if (!state.R || !BY.shareCard) return;
+    BY.track("share-spicy", "Share image: spicy tab");
     BY.shareCard(soulCard(state.R, TAB_CARD[spIdx], D.SPICY[state.R.dayMaster][spIdx], "my-korean-soul-" + SOULS[state.R.dayMaster].slug + "-" + (spIdx + 1)));
   });
 
@@ -196,6 +203,7 @@
     if (c.error) { $("crushErr").textContent = c.error; return; }
     $("crushErr").textContent = "";
     state.crush = c; BY.store("their", c);
+    BY.track("crush-match", "Crush match");
     runMatch(true);
   });
   function runMatch(animate) {
@@ -224,11 +232,13 @@
   }
   $("shareMatch").addEventListener("click", function () {
     var R = state.match; if (!R) return;
+    BY.track("share-match-link", "Shared the match link");
     var me = SOULS[R.dayMaster], them = SOULS[R.partner.dayMaster];
     BY.share("Our saju match", me.name + " + " + them.name + ": " + R.compat.score + "%. " + (pairData(R).v || "") + ".", "https://bomandyeon.com" + $("mPair").getAttribute("href"));
   });
   $("cardMatch").addEventListener("click", function () {
     var R = state.match; if (!R || !BY.shareCard) return;
+    BY.track("share-crush-match", "Share image: crush match");
     var me = SOULS[R.dayMaster], them = SOULS[R.partner.dayMaster];
     BY.shareCard({ kind: "match", kicker: "My crush check", hanja: me.hanja, name: me.name, nick: me.nick, color: EL_COLOR[me.el],
       them: { hanja: them.hanja, name: them.name, nick: them.nick, color: EL_COLOR[them.el] }, score: R.compat.score, verdict: pairData(R).v, file: "saju-match-" + me.slug + "-" + them.slug,
