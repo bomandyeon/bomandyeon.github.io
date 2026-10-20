@@ -24,7 +24,7 @@
 <link rel="preload" href="/assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/gowun-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/css/fonts.css?v=6fb4c80a">
-<link rel="stylesheet" href="/assets/css/site.css?v=cf8c7819">
+<link rel="stylesheet" href="/assets/css/site.css?v=8583e12c">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Bom & Yeon","url":"https://bomandyeon.com/","description":"Korean saju personality types, compatibility and readings."},{"@type":"Organization","name":"Bom & Yeon","url":"https://bomandyeon.com/","email":"yeon@bomandyeon.com"}]}</script>
 </head>
 <body>
@@ -46,6 +46,7 @@
   <p class="kicker">Korean saju · 사주</p>
   <h1>Your Korean personality type. <em>Like MBTI,</em> but a thousand years older.</h1>
   <p class="sub">Saju turns the day you were born into one of 10 souls. Your type, your red flags, your match. Free, ten seconds.</p>
+  <p class="vs-banner" id="vsBanner" hidden></p>
   <form class="hero__form" id="birthForm" novalidate>
    <div class="selects" role="group" aria-label="Your birthday"><label><span class="sr">Your birthday month</span><select name="bm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Your birthday day</span><select name="bd" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Your birthday year</span><select name="by" data-kind="y" required><option value="">Year</option></select></label></div>
    <p class="err" id="birthErr" role="alert"></p>
@@ -68,8 +69,11 @@
     <ul class="chips" id="rvChips"></ul>
     <div class="say say--bom"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Bom</b><span id="rvBom"></span></p></div>
     <div class="say say--yeon"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b><span id="rvYeon"></span></p></div>
+    <p class="small muted" id="rvPillarP" hidden>Your day pillar: <a id="rvPillar" href="/day-pillars/"></a></p>
     <div class="bio-row"><p class="bio-line" id="rvBio"></p><button class="btn btn--ghost btn--sm" type="button" id="copyBio">Copy for bio</button></div>
-    <div class="actions"><button class="btn" type="button" id="shareSoul">Share my soul</button><a class="btn btn--ghost" id="rvMore" href="/souls/">All 10 souls</a></div>
+    <div class="actions"><button class="btn" type="button" id="cardSoul">Save my soul card</button><a class="btn btn--ghost" id="rvMore" href="/souls/">All 10 souls</a></div>
+    <div class="vs-send"><p class="kicker">Compare with friends</p><p class="small muted">Send your soul to a friend. They see yours, find theirs, then see how you two match. Only your type travels in the link, never your birthday.</p>
+     <div class="vs-row"><label><span class="sr">Your first name, optional</span><input class="input" id="vsName" type="text" maxlength="20" autocomplete="given-name" placeholder="Your first name (optional)"></label><button class="btn btn--ghost" type="button" id="shareSoul">Send a compare link</button></div></div>
    </article>
    <div class="door door--l" aria-hidden="true"><span class="door__shadow" id="dsL"></span></div>
    <div class="door door--r" aria-hidden="true"><span class="door__shadow" id="dsR"></span></div>
@@ -79,12 +83,19 @@
  </div>
 </section>
 
-<section id="readings">
- <div class="wrap">
-  <p class="kicker">The shelf</p>
-  <h2 id="shelfH">Readings, written for your soul</h2>
-  <p class="lede">Each one is a short webtoon plus chapters, picked by your Day Master and your five elements. Preview the first two chapters free.</p>
-  <div class="shelf"><a class="pcard rise" href="/readings/will-your-ex-come-back/"><img src="/assets/img/cover-ex.webp" alt="Yeon holds a glowing red thread that leads to a figure walking away over a moonlit bridge" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>Will Your Ex Come Back?</h3><p>You keep checking their stories. Let&#x27;s talk about why, honestly, and what&#x27;s actually in your hands.</p><span class="price">$12.99</span></div></a><a class="pcard rise" href="/readings/situationship/"><img src="/assets/img/cover-situationship.webp" alt="Bom despairs over two phones tied by a red thread while Yeon sips tea" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>The Situationship Reading</h3><p>What is this, actually? And what do you want it to be?</p><span class="price">$12.99</span></div></a><a class="pcard rise" href="/readings/brutally-honest/"><img src="/assets/img/cover-brutal.webp" alt="Yeon points her fan at you, a nine-tailed fox glowing behind her" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>Brutally Honest: Yeon&#x27;s Reading</h3><p>Bom is too nice. Yeon will tell you what everyone&#x27;s thinking and nobody&#x27;s saying.</p><span class="price">$9.99</span></div></a><a class="pcard rise" href="/readings/what-kind-of-lover/"><img src="/assets/img/cover-lover.webp" alt="Bom blushes holding a heart lantern while Yeon reads the five elements" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>What Kind of Lover Are You?</h3><p>Why do you fall the way you fall, and why does it keep going the same way?</p><span class="price">$9.99</span></div></a><a class="pcard rise" href="/readings/glow-up-aura/"><img src="/assets/img/cover-glowup.webp" alt="Yeon looks into a bronze mirror that shows her glowing modern reflection" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>Your Glow-Up Aura</h3><p>What do people actually see when you walk in, and how do you lean into it?</p><span class="price">$9.99</span></div></a></div>
+<section id="vs" hidden>
+ <div class="wrap read">
+  <div class="card center vs-card">
+   <p class="kicker">Compare with me</p>
+   <h2 id="vsHead">You and your friend</h2>
+   <div class="duo" id="vsDuo"></div>
+   <p class="score" id="vsScore"></p>
+   <p class="verdict" id="vsVerdict"></p>
+   <p id="vsLine"></p>
+   <div class="actions"><button class="btn" type="button" id="vsCard">Save our match image</button><a class="btn btn--ghost" id="vsPair" href="/compatibility/">Read the pair</a></div>
+   <div class="vs-row" style="margin-top:14px"><label><span class="sr">Your first name, optional</span><input class="input" id="vsMe" type="text" maxlength="20" autocomplete="given-name" placeholder="Your first name (optional)"></label><button class="btn btn--ghost" type="button" id="vsBack">Send yours back</button></div>
+   <p class="note">Same score whichever of you checks first. It compares your two Day Masters.</p>
+  </div>
  </div>
 </section>
 
@@ -94,7 +105,10 @@
   <h2>What your soul won't admit</h2>
   <p class="lede">Like your MBTI, but meaner. Screenshot it for the group chat.</p>
   <div class="tabs" id="spTabs" role="tablist" aria-label="Spicy truths"></div>
-  <div class="card spcard" id="spCard" aria-live="polite"><p class="t" id="spTitle"></p><p class="x" id="spText"></p><p class="w" id="spWho"></p></div>
+  <div class="card spcard" id="spCard" aria-live="polite"><p class="t" id="spTitle"></p><p class="x" id="spText"></p><p class="w" id="spWho"></p>
+   <div class="vote" id="spVote" role="group" aria-label="Is this you?"><button type="button" class="tab" data-v="real" aria-pressed="false">Too real</button><button type="button" class="tab" data-v="not" aria-pressed="false">Not me</button>
+   <button type="button" class="btn btn--sm" id="cardSpicy">Save this one</button></div></div>
+  <p class="note">Your votes stay in this browser.</p>
  </div>
 </section>
 
@@ -122,7 +136,7 @@
    <p class="muted" id="mThemLine"></p>
    <p id="mLine"></p>
    <p id="mTwin" hidden><span class="twin">Heavenly combination</span></p>
-   <div class="actions"><button class="btn" type="button" id="shareMatch">Share our match</button><a class="btn btn--ghost" id="mPair" href="/compatibility/">Read the pair</a></div>
+   <div class="actions"><button class="btn" type="button" id="cardMatch">Save match image</button><button class="btn btn--ghost" type="button" id="shareMatch">Share our match</button><a class="btn btn--ghost" id="mPair" href="/compatibility/">Read the pair</a></div>
   </div>
  </div>
 </section>
@@ -137,6 +151,15 @@
   <p class="note consent">By signing up you agree to get the Daily Soul by email, plus occasional news about new readings. We send your email, Day Master and birth date to Kit, our email provider. Unsubscribe any time. For readers 18 and over. <a href="/privacy/">Privacy</a></p>
  </form>
 </div></div></section>
+
+<section id="readings">
+ <div class="wrap">
+  <p class="kicker">The shelf</p>
+  <h2 id="shelfH">Readings, written for your soul</h2>
+  <p class="lede">Each one is a short webtoon plus chapters, picked by your Day Master and your five elements. Preview the first two chapters free.</p>
+  <div class="shelf"><a class="pcard rise" href="/readings/will-your-ex-come-back/"><img src="/assets/img/cover-ex.webp" alt="Yeon holds a glowing red thread that leads to a figure walking away over a moonlit bridge" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>Will Your Ex Come Back?</h3><p>You keep checking their stories. Let&#x27;s talk about why, honestly, and what&#x27;s actually in your hands.</p><span class="price">$12.99</span></div></a><a class="pcard rise" href="/readings/situationship/"><img src="/assets/img/cover-situationship.webp" alt="Bom despairs over two phones tied by a red thread while Yeon sips tea" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>The Situationship Reading</h3><p>What is this, actually? And what do you want it to be?</p><span class="price">$12.99</span></div></a><a class="pcard rise" href="/readings/brutally-honest/"><img src="/assets/img/cover-brutal.webp" alt="Yeon points her fan at you, a nine-tailed fox glowing behind her" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>Brutally Honest: Yeon&#x27;s Reading</h3><p>Bom is too nice. Yeon will tell you what everyone&#x27;s thinking and nobody&#x27;s saying.</p><span class="price">$9.99</span></div></a><a class="pcard rise" href="/readings/what-kind-of-lover/"><img src="/assets/img/cover-lover.webp" alt="Bom blushes holding a heart lantern while Yeon reads the five elements" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>What Kind of Lover Are You?</h3><p>Why do you fall the way you fall, and why does it keep going the same way?</p><span class="price">$9.99</span></div></a><a class="pcard rise" href="/readings/glow-up-aura/"><img src="/assets/img/cover-glowup.webp" alt="Yeon looks into a bronze mirror that shows her glowing modern reflection" width="720" height="894" loading="lazy"><div class="pcard__b"><span class="for"></span><h3>Your Glow-Up Aura</h3><p>What do people actually see when you walk in, and how do you lean into it?</p><span class="price">$9.99</span></div></a></div>
+ </div>
+</section>
 <div class="fox-div" aria-hidden="true"><img src="/assets/img/fox.webp" alt="" width="64" height="60" loading="lazy"></div>
 <section id="souls">
  <div class="wrap">
@@ -162,7 +185,7 @@
   <h2>Meet Bom &amp; Yeon</h2>
   <div class="say say--bom rise"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Bom</b>I&#x27;m Bom. I read your chart and tell you what&#x27;s good about you. Someone has to.</p></div>
   <div class="say say--yeon rise"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b>I&#x27;m Yeon. I tell you the other part. You&#x27;ll thank me later, or you won&#x27;t.</p></div>
-  <p><a class="link-arrow" href="/about/">What saju is, in plain words</a></p>
+  <p><a class="link-arrow" href="/about/">What saju is, in plain words</a> · <a class="link-arrow" href="/glossary/">The saju glossary</a></p>
  </div>
 </section>
 
@@ -178,6 +201,9 @@
    <div><h4>Explore</h4><ul>
     <li><a href="/#readings">Readings</a></li><li><a href="/souls/">The 10 souls</a></li><li><a href="/compatibility/">Compatibility</a></li>
     <li><a href="/mbti/">MBTI x saju</a></li><li><a href="/2027/">Your 2027</a></li></ul></div>
+   <div><h4>Learn</h4><ul>
+    <li><a href="/glossary/">Saju glossary</a></li><li><a href="/day-pillars/">The 60 day pillars</a></li><li><a href="/elements/">Element compatibility</a></li>
+    <li><a href="/compatibility/how-it-works/">How compatibility works</a></li><li><a href="/ipchun/">Ipchun</a></li></ul></div>
    <div><h4>Bom &amp; Yeon</h4><ul>
     <li><a href="/about/">About saju</a></li><li><a href="/privacy/">Privacy</a></li><li><a href="/terms/">Terms</a></li><li><a href="/refunds/">Refunds</a></li>
     <li><a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a></li></ul></div>
@@ -186,8 +212,8 @@
  </div>
 </footer>
 <script src="/assets/js/legacy-data.js?v=43ed1650"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=f77dcdf7"></script><script src="/assets/js/pair-data.js?v=8b71a9f9"></script>
-<script src="/assets/js/site.js?v=9065a5ca"></script>
-
-<script src="/assets/js/compat-lines.js?v=edcd0d76"></script><script src="/assets/js/home.js?v=88259436"></script>
+<script src="/assets/js/site.js?v=061db8b2"></script>
+<script>window.BY_PILLARS={"甲子":["gap-ja-wood-rat","Gap-ja","The Pine by the Midnight River"],"乙丑":["eul-chuk-wood-ox","Eul-chuk","The Flower Under Frost"],"丙寅":["byeong-in-fire-tiger","Byeong-in","The Sun at Spring Dawn"],"丁卯":["jeong-myo-fire-rabbit","Jeong-myo","The Candle in the Reading Room"],"戊辰":["mu-jin-earth-dragon","Mu-jin","The Dragon Mountain"],"己巳":["gi-sa-earth-snake","Gi-sa","The Sunlit Field"],"庚午":["gyeong-o-metal-horse","Gyeong-o","The Sword in the Forge"],"辛未":["sin-mi-metal-goat","Sin-mi","The Jewel in Warm Sand"],"壬申":["im-sin-water-monkey","Im-sin","The River from the Mountain Spring"],"癸酉":["gye-yu-water-rooster","Gye-yu","The Spring Welling from Stone"],"甲戌":["gap-sul-wood-dog","Gap-sul","The Pine on the Autumn Ridge"],"乙亥":["eul-hae-wood-pig","Eul-hae","The Flower Floating on Night Water"],"丙子":["byeong-ja-fire-rat","Byeong-ja","The Sun over the Midnight Sea"],"丁丑":["jeong-chuk-fire-ox","Jeong-chuk","The Candle in the Snowed-In Cabin"],"戊寅":["mu-in-earth-tiger","Mu-in","The Forested Mountain"],"己卯":["gi-myo-earth-rabbit","Gi-myo","The Garden of Spring Shoots"],"庚辰":["gyeong-jin-metal-dragon","Gyeong-jin","The Dragon's Blade"],"辛巳":["sin-sa-metal-snake","Sin-sa","The Jewel in the Sun"],"壬午":["im-o-water-horse","Im-o","The Sea Under the Midday Sun"],"癸未":["gye-mi-water-goat","Gye-mi","The Summer Rain on Dry Fields"],"甲申":["gap-sin-wood-monkey","Gap-sin","The Pine on the Cliff Edge"],"乙酉":["eul-yu-wood-rooster","Eul-yu","The Flower in the Steel Vase"],"丙戌":["byeong-sul-fire-dog","Byeong-sul","The Sun Setting on the Hills"],"丁亥":["jeong-hae-fire-pig","Jeong-hae","The Lantern on the Night River"],"戊子":["mu-ja-earth-rat","Mu-ja","The Mountain Above the Winter Lake"],"己丑":["gi-chuk-earth-ox","Gi-chuk","The Winter Field"],"庚寅":["gyeong-in-metal-tiger","Gyeong-in","The Axe in the Forest"],"辛卯":["sin-myo-metal-rabbit","Sin-myo","The Jewel Among Blossoms"],"壬辰":["im-jin-water-dragon","Im-jin","The Ocean Dragon"],"癸巳":["gye-sa-water-snake","Gye-sa","The Rain in Sunshine"],"甲午":["gap-o-wood-horse","Gap-o","The Pine in Full Summer"],"乙未":["eul-mi-wood-goat","Eul-mi","The Flower in the Summer Garden"],"丙申":["byeong-sin-fire-monkey","Byeong-sin","The Sun on Polished Steel"],"丁酉":["jeong-yu-fire-rooster","Jeong-yu","The Candle on the Silver Tray"],"戊戌":["mu-sul-earth-dog","Mu-sul","The Mountain Fortress"],"己亥":["gi-hae-earth-pig","Gi-hae","The Riverside Field"],"庚子":["gyeong-ja-metal-rat","Gyeong-ja","The Blade in the Winter Stream"],"辛丑":["sin-chuk-metal-ox","Sin-chuk","The Jewel Under Snow"],"壬寅":["im-in-water-tiger","Im-in","The River Through the Forest"],"癸卯":["gye-myo-water-rabbit","Gye-myo","The Rain on Spring Blossoms"],"甲辰":["gap-jin-wood-dragon","Gap-jin","The Pine in Spring Rain"],"乙巳":["eul-sa-wood-snake","Eul-sa","The Flower in Early Summer Sun"],"丙午":["byeong-o-fire-horse","Byeong-o","The Sun at High Noon"],"丁未":["jeong-mi-fire-goat","Jeong-mi","The Lantern at the Summer Festival"],"戊申":["mu-sin-earth-monkey","Mu-sin","The Mountain with a Mine"],"己酉":["gi-yu-earth-rooster","Gi-yu","The Orchard at Harvest"],"庚戌":["gyeong-sul-metal-dog","Gyeong-sul","The Sword in the Stone"],"辛亥":["sin-hae-metal-pig","Sin-hae","The Jewel in Clear Water"],"壬子":["im-ja-water-rat","Im-ja","The Midnight Ocean"],"癸丑":["gye-chuk-water-ox","Gye-chuk","The Winter Sleet"],"甲寅":["gap-in-wood-tiger","Gap-in","The Pine in the Old Forest"],"乙卯":["eul-myo-wood-rabbit","Eul-myo","The Flower in the Spring Meadow"],"丙辰":["byeong-jin-fire-dragon","Byeong-jin","The Sun Through Spring Mist"],"丁巳":["jeong-sa-fire-snake","Jeong-sa","The Torch at the Start of Summer"],"戊午":["mu-o-earth-horse","Mu-o","The Volcano"],"己未":["gi-mi-earth-goat","Gi-mi","The Summer Field"],"庚申":["gyeong-sin-metal-monkey","Gyeong-sin","The Iron Peak"],"辛酉":["sin-yu-metal-rooster","Sin-yu","The Flawless Gem"],"壬戌":["im-sul-water-dog","Im-sul","The Ocean Against the Cliffs"],"癸亥":["gye-hae-water-pig","Gye-hae","The Monsoon"]};</script>
+<script src="/assets/js/compat-lines.js?v=edcd0d76"></script><script src="/assets/js/share-card.js?v=d4606c33"></script><script src="/assets/js/home.js?v=f7d4702d"></script>
 </body>
 </html>

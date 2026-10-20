@@ -97,6 +97,19 @@
   BY.iso = function (b) { return b ? b.year + "-" + ("0" + b.month).slice(-2) + "-" + ("0" + b.day).slice(-2) : ""; };
   BY.fromIso = function (s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); if (!m) return null; var b = { year: +m[1], month: +m[2], day: +m[3] }; return BY.validDate(b.year, b.month, b.day) ? b : null; };
 
+  /* ---------- attribution: ?src (TikTok bio, landing pages) and ?vs (compare links) ride into Kit's source field ---------- */
+  (function () {
+    try {
+      var q = new URLSearchParams(location.search), src = (q.get("src") || "").toLowerCase(), vs = (q.get("vs") || "").toLowerCase();
+      if (/^[a-z0-9_-]{1,40}$/.test(src)) BY.store("src", src);
+      if (/^(gap-wood|eul-wood|byeong-fire|jeong-fire|mu-earth|gi-earth|gyeong-metal|sin-metal|im-water|gye-water)$/.test(vs)) BY.store("vs", vs);
+    } catch (e) { /* old browser */ }
+  })();
+  BY.sourceTag = function (base) {
+    var src = BY.load("src"), vs = BY.load("vs");
+    return (base || "daily_soul") + (src ? ";src=" + src : "") + (vs ? ";vs=" + vs : "");
+  };
+
   /* ---------- Kit: Daily Soul (form 10071361) ---------- */
   var KIT_URL = "https://app.kit.com/forms/10071361/subscriptions";
   BY.EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -107,7 +120,7 @@
     params.append("email_address", email);
     params.append("fields[day_master]", dm);
     params.append("fields[birth_date]", BY.iso(b));
-    params.append("fields[source]", source || "daily_soul");
+    params.append("fields[source]", BY.sourceTag(source));
     // resolves {ok:true} | {ok:true, check:url} (Kit's bot guard wants one click) | {ok:false}. Never opens a popup.
     return fetch(KIT_URL, { method: "POST", headers: { Accept: "application/json" }, body: params })
       .then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }); })
