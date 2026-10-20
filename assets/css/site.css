@@ -497,3 +497,15 @@ a.gl:hover { color: var(--gold2); }
 .rel-table { width: 100%; border-collapse: collapse; font-size: 15px; }
 .rel-table th, .rel-table td { border-bottom: 1px solid var(--hair); padding: 10px 6px; text-align: left; vertical-align: top; }
 @media (max-width: 699px) { .vote .btn { margin-left: 0; } .emx th, .emx td { font-size: 12px; padding: 6px 2px; } }
+
+/* ---------- P4 (v4 readings): optional intake questions ---------- */
+.intake { margin: 18px auto 26px; max-width: 560px; }
+.intake__q { font-size: 26px; margin: 6px 0 8px; overflow-wrap: anywhere; }
+.intake__opts { display: grid; gap: 10px; margin: 16px 0 8px; }
+.intake__opt { white-space: normal; text-align: center; min-height: 48px; line-height: 1.3; }
+.intake__opt[aria-pressed="true"] { background: var(--gold); color: var(--night); }
+.intake__nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 8px; }
+.linkbtn { background: none; border: 0; padding: 8px 2px; color: var(--gold2); font: 600 14px/1.3 var(--sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.linkbtn.small { font-size: 13px; }
+.answers-line { text-align: center; margin: -10px auto 18px; max-width: 560px; }
+#rdLen { min-height: 1.5em; margin-top: -4px; }
