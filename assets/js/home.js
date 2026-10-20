@@ -3,14 +3,37 @@
   "use strict";
   var BY = window.BY, D = window.BY_DATA, $ = BY.$, esc = BY.esc, reduced = BY.reduced;
   var SOULS = D.SOULS, EL_COLOR = D.EL_COLOR, LINES = window.BY_COMPAT_LINES || {}, PAIRS = window.BY_PAIRS || {};
-  var state = { birth: null, R: null, crush: null, match: null };
+  var state = { birth: null, R: null, crush: null, match: null }, form = $("birthForm");
   BY.fillSelects();
+  var TAB_CARD = ["Red flag", "Do you ghost?", "Me, as an ex", "How I flirt", "Toxic trait"];
+
+  /* ---------- compare-with-me links: /?vs=<dm-slug>&n=<first name>. Never a birth date. ---------- */
+  BY.cleanName = function (n) { return String(n || "").replace(/[^\p{L}\p{M} '\-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 20); };
+  var qs = new URLSearchParams(location.search), vsSlug = qs.get("vs"), vsIdx = D.SLUGS.indexOf(vsSlug), VS = null;
+  if (vsIdx >= 0) VS = { idx: vsIdx, soul: SOULS[vsIdx], name: BY.cleanName(qs.get("n")) };
+  if (VS) {
+    var vb = $("vsBanner"), who = VS.name ? esc(VS.name) : "Your friend";
+    vb.innerHTML = "<b>" + who + '</b> is <span class="hz" style="color:' + EL_COLOR[VS.soul.el] + '">' + VS.soul.hanja + "</span> " + esc(VS.soul.nick) + ". What are you?";
+    vb.hidden = false;
+    var sb = form.querySelector("button[type=submit]"); if (sb) sb.textContent = "Reveal mine and our match";
+  }
+  BY.vsLink = function (idx, name) {
+    var n = BY.cleanName(name);
+    return "https://bomandyeon.com/?vs=" + D.SLUGS[idx] + (n ? "&n=" + encodeURIComponent(n) : "");
+  };
+  function myName() { var i = $("vsName"); return BY.cleanName((i && i.value) || BY.load("name") || ""); }
+  function shareVs(btn) {
+    if (!state.R) return;
+    var s = SOULS[state.R.dayMaster], n = myName();
+    if (n) BY.store("name", n);
+    BY.share("Compare souls with me", (n ? n + " is " : "I'm ") + s.nick + " (" + s.hanja + " " + s.name + "). What are you? Tap to see how we match.", BY.vsLink(state.R.dayMaster, n));
+  }
 
   function pairSlug(a, b) { var x = Math.min(a, b), y = Math.max(a, b); return D.SLUGS[x] + "-and-" + D.SLUGS[y]; }
   function polarity(i) { return (i & 1 ? "Yin " : "Yang ") + D.EL_NAMES[i >> 1]; }
 
   /* ---------- reveal ---------- */
-  var form = $("birthForm"), timers = [];
+  var timers = [];
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     var b = BY.readDate(form, "b");
@@ -51,9 +74,14 @@
     $("rvMore").href = "/souls/" + s.slug + "/";
     $("rvMore").textContent = "Everything about " + s.name;
     $("rvBio").textContent = BY.bioLine(s);
+    var dp = (window.BY_PILLARS || {})[R.pillars.day.stemHanja + R.pillars.day.branchHanja], pl = $("rvPillar");
+    if (dp && pl) { pl.href = "/day-pillars/" + dp[0] + "/"; pl.innerHTML = '<span class="hz">' + R.pillars.day.stemHanja + R.pillars.day.branchHanja + "</span> " + esc(dp[1]) + ", " + esc(dp[2]); $("rvPillarP").hidden = false; }
+    var vn = $("vsName"); if (vn && !vn.value) vn.value = BY.load("name") || "";
   }
   function afterReveal(R, s) {
     ["spicy", "crush"].forEach(function (id) { $(id).hidden = false; });
+    if (VS) paintVs(R, s);
+    var dh = document.querySelector("#daily h2"); if (dh) dh.textContent = "One line from Yeon for " + s.nick + ", every morning.";
     renderSpicy();
     personaliseShelf(s);
     if (state.crush) runMatch(false);
@@ -68,10 +96,40 @@
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(line).then(done, function () { BY.toast(line); });
     else BY.toast(line);
   });
-  $("shareSoul").addEventListener("click", function () {
-    if (!state.R) return;
-    var s = SOULS[state.R.dayMaster];
-    BY.share("My Korean soul type", "I'm " + s.name + " " + s.hanja + ", " + s.nick.toLowerCase() + ". What's yours?", "https://bomandyeon.com/souls/" + s.slug + "/");
+  $("shareSoul").addEventListener("click", function () { shareVs(); });
+  function soulCard(R, kicker, line, file) {
+    var s = SOULS[R.dayMaster];
+    return { kind: "soul", kicker: kicker, line: line, who: "Yeon", hanja: s.hanja, name: s.name, nick: s.nick, color: EL_COLOR[s.el], file: file,
+      alt: "Share card: " + s.nick + ", " + s.name + ". Yeon says: " + line, text: "I'm " + s.nick + " (" + s.hanja + "). What's yours? #MyKoreanSoul bomandyeon.com" };
+  }
+  $("cardSoul").addEventListener("click", function () {
+    if (!state.R || !BY.shareCard) return;
+    BY.shareCard(soulCard(state.R, "My Korean soul type", D.SPICY[state.R.dayMaster][4], "my-korean-soul-" + SOULS[state.R.dayMaster].slug));
+  });
+
+  /* ---------- you vs the friend who sent the link ---------- */
+  function paintVs(R, s) {
+    var o = VS.soul, pd = PAIRS[pairSlug(R.dayMaster, VS.idx)] || {}, who = VS.name || "your friend";
+    $("vs").hidden = false;
+    $("vsHead").textContent = "You and " + who;
+    $("vsDuo").innerHTML = '<span style="color:' + EL_COLOR[s.el] + '">' + s.hanja + '</span><i>+</i><span style="color:' + EL_COLOR[o.el] + '">' + o.hanja + "</span>";
+    $("vsScore").textContent = (pd.s != null ? pd.s : "") + "%";
+    $("vsVerdict").textContent = pd.v || "";
+    $("vsLine").textContent = "You are " + s.nick + " (" + s.name + "). " + (VS.name ? VS.name : "They") + " is " + o.nick + " (" + o.name + "). " + (pd.x || "");
+    $("vsPair").href = "/compatibility/" + pairSlug(R.dayMaster, VS.idx) + "/";
+    $("vsPair").textContent = "Read " + s.name + " + " + o.name;
+    $("vsBack").textContent = VS.name ? "Send yours back to " + VS.name : "Send yours back";
+  }
+  $("vsBack").addEventListener("click", function () {
+    var n = BY.cleanName($("vsMe").value); if (n) { BY.store("name", n); var vn = $("vsName"); if (vn) vn.value = n; }
+    shareVs();
+  });
+  $("vsCard").addEventListener("click", function () {
+    if (!state.R || !VS || !BY.shareCard) return;
+    var s = SOULS[state.R.dayMaster], o = VS.soul, pd = PAIRS[pairSlug(state.R.dayMaster, VS.idx)] || {};
+    BY.shareCard({ kind: "match", kicker: "Our saju match", hanja: s.hanja, name: s.name, nick: s.nick, color: EL_COLOR[s.el],
+      them: { hanja: o.hanja, name: o.name, nick: o.nick, color: EL_COLOR[o.el] }, score: pd.s, verdict: pd.v, file: "our-saju-match-" + s.slug + "-" + o.slug,
+      alt: "Share card: " + s.nick + " and " + o.nick + ", " + pd.s + "% match", text: s.nick + " + " + o.nick + ": " + pd.s + "%. #MyKoreanSoul bomandyeon.com" });
   });
 
   function personaliseShelf(s) {
@@ -102,7 +160,26 @@
     $("spText").textContent = D.SPICY[R.dayMaster][spIdx];
     $("spWho").textContent = s.name + " · " + s.nick + " · for entertainment and self-reflection";
     card.classList.remove("is-pop"); void card.offsetWidth; card.classList.add("is-pop");
+    paintVotes();
   }
+  /* "Too real / Not me": stays in this browser only */
+  function votes() { return BY.load("votes") || {}; }
+  function paintVotes() {
+    var v = (votes()[SOULS[state.R.dayMaster].slug] || {})[spIdx];
+    [].forEach.call(document.querySelectorAll("#spVote [data-v]"), function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-v") === v ? "true" : "false"); });
+  }
+  [].forEach.call(document.querySelectorAll("#spVote [data-v]"), function (b) {
+    b.addEventListener("click", function () {
+      if (!state.R) return;
+      var all = votes(), k = SOULS[state.R.dayMaster].slug, val = b.getAttribute("data-v");
+      all[k] = all[k] || {}; all[k][spIdx] = all[k][spIdx] === val ? null : val; BY.store("votes", all); paintVotes();
+      if (all[k][spIdx]) BY.toast(val === "real" ? "Noted. Yeon is not surprised." : "Noted. Yeon wants a second opinion.");
+    });
+  });
+  $("cardSpicy").addEventListener("click", function () {
+    if (!state.R || !BY.shareCard) return;
+    BY.shareCard(soulCard(state.R, TAB_CARD[spIdx], D.SPICY[state.R.dayMaster][spIdx], "my-korean-soul-" + SOULS[state.R.dayMaster].slug + "-" + (spIdx + 1)));
+  });
 
   /* ---------- crush match ---------- */
   var FLAG_ORDER = ["stem_combo", "branch_harmony", "branch_clash", "element_complement", "same_element"];
@@ -149,6 +226,13 @@
     var R = state.match; if (!R) return;
     var me = SOULS[R.dayMaster], them = SOULS[R.partner.dayMaster];
     BY.share("Our saju match", me.name + " + " + them.name + ": " + R.compat.score + "%. " + (pairData(R).v || "") + ".", "https://bomandyeon.com" + $("mPair").getAttribute("href"));
+  });
+  $("cardMatch").addEventListener("click", function () {
+    var R = state.match; if (!R || !BY.shareCard) return;
+    var me = SOULS[R.dayMaster], them = SOULS[R.partner.dayMaster];
+    BY.shareCard({ kind: "match", kicker: "My crush check", hanja: me.hanja, name: me.name, nick: me.nick, color: EL_COLOR[me.el],
+      them: { hanja: them.hanja, name: them.name, nick: them.nick, color: EL_COLOR[them.el] }, score: R.compat.score, verdict: pairData(R).v, file: "saju-match-" + me.slug + "-" + them.slug,
+      alt: "Share card: " + me.nick + " and " + them.nick + ", " + R.compat.score + "% match", text: me.nick + " + " + them.nick + ": " + R.compat.score + "%. #MyKoreanSoul bomandyeon.com" });
   });
 
   /* ---------- returning visitor ---------- */

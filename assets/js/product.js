@@ -256,8 +256,10 @@
         b.addEventListener("click", function () {
           var a = b.getAttribute("data-act");
           if (a === "pdf") window.print();
-          if (a === "share") BY.share(title, "Bom and Yeon read my chart: " + title + " (" + info.code + ")", "https://bomandyeon.com/readings/" + P.slug + "/");
-          if (a === "story" && BY.storyCard) BY.storyCard(info);
+          // the ex reading's title never goes on anything public: share text and story card use a neutral title
+          var pub = /ex-come-back/.test(P.slug) ? "My saju reading" : title;
+          if (a === "share") BY.share(pub, "Bom and Yeon read my chart: " + pub + " (" + info.code + ")", "https://bomandyeon.com/readings/" + P.slug + "/");
+          if (a === "story" && BY.storyCard) BY.storyCard(pub === title ? info : Object.assign({}, info, { title: pub }));
         });
       });
     }
