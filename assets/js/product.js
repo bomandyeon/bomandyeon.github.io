@@ -6,10 +6,18 @@
  * the answers go in the reading URL (&a=them.months.closure) so a shared link reproduces the same reading. */
 (function () {
   "use strict";
-  /* Drop Stripe Payment Links in here when checkout is ready, e.g. {"situationship": "https://buy.stripe.com/..."}.
-     While a slug has no link, the buy button opens the full reading free as a founding reader gift.
-     (Server side of the switch: FULL_DATA_PUBLIC in src/build.py.) */
-  var STRIPE_LINKS = {};
+  /* Gumroad checkout (merchant of record). url = product page, pid = license verify product_id.
+     OFFER = discount code added to the checkout URL (founding readers: 100% off). Empty string = full price.
+     A slug missing here falls back to the free founding gift (no checkout, no license gate). */
+  var GUMROAD = {
+    "brutally-honest": { url: "https://rok8678.gumroad.com/l/brutally-honest", pid: "IBPRp0PtRUmjngswfhzl2g==" },
+    "glow-up-aura": { url: "https://rok8678.gumroad.com/l/glow-up-aura", pid: "fA4YS5mz-Xx-3EWwb8UjlQ==" },
+    "what-kind-of-lover": { url: "https://rok8678.gumroad.com/l/what-kind-of-lover", pid: "AIK3O5Z1QAMgno2ALXEIDQ==" },
+    "situationship": { url: "https://rok8678.gumroad.com/l/situationship", pid: "z384UJ1a5uo0SKWoTXq0NA==" },
+    "will-your-ex-come-back": { url: "https://rok8678.gumroad.com/l/will-your-ex-come-back", pid: "S3HQgkOpj0zFweiQPtvYMg==" }
+  };
+  var OFFER = "FOUNDING100";
+  var STRIPE_LINKS = {}; // legacy, unused
 
   var BY = window.BY, D = window.BY_DATA, P = window.BY_PRODUCT, $ = BY.$, esc = BY.esc, PL = window.BYPlan, PAIRS = window.BY_PAIRS || {}, A4 = window.BYAssembleV4;
   if (!P) return;
@@ -142,7 +150,7 @@
         if (INTAKE.length) extra.push("the sections your answers pick (" + INTAKE.length + " optional questions, one tap each)");
         lockHTML = '<div class="chapter-lock rise"><p class="kicker">' + rest.length + ' more chapters</p><p class="muted small">Including ' + esc(extra.join(", ")) + '.</p><ul class="chips">' +
           rest.map(function (c) { return "<li>" + esc(planTitle(c)) + "</li>"; }).join("") + "</ul>" +
-          '<button class="btn" type="button" data-buy>' + buyLabel() + "</button>" + giftNote() + "</div>";
+          '<button class="btn" type="button" data-buy>' + buyLabel() + "</button>" + giftNote() + haveKey() + "</div>";
         asm.chapters.forEach(function (ch, i) {
           out.appendChild(v4Panels(ch, art));
           out.appendChild(html(chapterHTML(ch.title, ch.text, ch.kicker) + (i === asm.chapters.length - 1 ? lockHTML : "")));
@@ -151,8 +159,9 @@
         if (scroll) out.scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth", block: "start" });
       }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and press the button again.</p>'; });
     }
-    function buyLabel() { return STRIPE_LINKS[P.slug] ? "Get the full reading · $" + P.price : "Open the full reading"; }
-    function giftNote() { return STRIPE_LINKS[P.slug] ? "" : '<p class="gift"><b>Founding reader gift</b>This reading is $' + P.price + ". Our first readers get it free. No card, no charge.</p>"; }
+    function buyLabel() { return GUMROAD[P.slug] ? (OFFER ? "Get it free · founding reader" : "Get the full reading · $" + P.price) : "Open the full reading"; }
+    function haveKey() { return GUMROAD[P.slug] && !BY.load("lic_" + P.slug) ? '<p class="muted small"><a href="' + P.readUrl + '" data-havekey>Already have a license key? Open your reading</a></p>' : ""; }
+    function giftNote() { return GUMROAD[P.slug] && !OFFER ? "" : '<p class="gift"><b>Founding reader gift</b>This reading is $' + P.price + ". Our first readers get it free" + (GUMROAD[P.slug] ? ": the code is already applied at checkout, no card needed." : ". No card, no charge.") + "</p>"; }
     document.addEventListener("click", function (e) {
       if (!e.target.closest("[data-buy]")) return;
       e.preventDefault();
@@ -160,8 +169,11 @@
         $("pvErr").textContent = PAIR === "required" ? "Add both birthdays first, so the reading is written for the two of you." : "Add your birthday first, so the reading is written for you.";
         $("preview").scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth" }); form.querySelector("select").focus({ preventScroll: true }); return;
       }
-      var link = STRIPE_LINKS[P.slug];
-      location.href = link ? link + (link.indexOf("?") < 0 ? "?" : "&") + "client_reference_id=" + encodeURIComponent(P.slug + "_" + Math.random().toString(36).slice(2, 10)) : readUrl();
+      var g = GUMROAD[P.slug];
+      if (!g || BY.load("lic_" + P.slug)) { location.href = readUrl(); return; }
+      BY.store("pending_" + P.slug, readUrl());
+      BY.track("checkout-" + P.slug, "Checkout opened: " + P.slug);
+      location.href = g.url + (OFFER ? "/" + OFFER : "") + "?wanted=true";
     });
     if (birth && (PAIR !== "required" || their)) renderPreview(false);
     var sb = $("stickyBuy");
@@ -177,6 +189,41 @@
       out.innerHTML = '<div class="card center"><h1 style="font-size:28px">This reading opens after checkout</h1><p class="muted">Get it from the reading page.</p><a class="btn" href="' + P.productUrl + '">Go to the reading</a></div>';
       return;
     }
+    var G = GUMROAD[P.slug], LIC_KEY = "lic_" + P.slug;
+    if (G && !BY.load(LIC_KEY)) { licenseGate(); return; }
+    start();
+    function licenseGate() {
+      var box = document.createElement("div"); box.className = "card license-gate";
+      box.innerHTML = '<h1 style="font-size:28px">Open your reading</h1>' +
+        '<p class="muted">Paste the license key from your Gumroad receipt. You only do this once on this device.</p>' +
+        '<form id="licForm" class="form-stack" novalidate><label class="name-field"><span class="field-label">License key</span>' +
+        '<input id="licKey" class="input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX"></label>' +
+        '<p class="err" id="licErr" role="alert"></p><button class="btn btn--block" type="submit">Open my reading</button></form>' +
+        '<p class="muted small">No key yet? <a href="' + P.productUrl + '">Get the reading</a>' + (OFFER ? " (free for founding readers)" : "") + '. Lost it? It\'s in the email from Gumroad, or write to us.</p>';
+      out.innerHTML = ""; out.appendChild(box);
+      var lf = $("licForm"), inp = $("licKey"), err = $("licErr");
+      inp.focus({ preventScroll: true });
+      lf.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var k = inp.value.trim();
+        if (!/^[A-Za-z0-9-]{16,}$/.test(k)) { err.textContent = "That doesn't look like a license key. It's four blocks of letters and numbers."; return; }
+        err.textContent = ""; var btn = lf.querySelector("button"); btn.disabled = true; btn.textContent = "Checking…";
+        var body = new URLSearchParams(); body.set("product_id", G.pid); body.set("license_key", k); body.set("increment_uses_count", "false");
+        fetch("https://api.gumroad.com/v2/licenses/verify", { method: "POST", body: body }).then(function (r) { return r.json(); }).then(function (j) {
+          var pu = j && j.purchase;
+          if (j && j.success && pu && !pu.refunded && !pu.chargebacked && !pu.disputed) {
+            BY.store(LIC_KEY, k); BY.track("unlock-" + P.slug, "Reading unlocked: " + P.slug);
+            var pend = BY.load("pending_" + P.slug);
+            if (pend && !birth && pend.indexOf(P.readUrl) === 0) { location.replace(pend); return; }
+            start();
+          } else {
+            btn.disabled = false; btn.textContent = "Open my reading";
+            err.textContent = pu && pu.refunded ? "This purchase was refunded, so the key no longer opens the reading." : "That key doesn't match this reading. Check you copied all of it, and that it's for " + document.title.split(" |")[0] + ".";
+          }
+        }).catch(function () { btn.disabled = false; btn.textContent = "Open my reading"; err.textContent = "We couldn't reach Gumroad to check the key. Check your connection and try again."; });
+      });
+    }
+    function start() {
     function need() { return !birth || (PAIR === "required" && !their); }
     if (need()) {
       out.innerHTML = ""; $("rdAsk").hidden = false; fillForm(form);
@@ -188,6 +235,7 @@
         next();
       });
     } else next();
+    }
     function next() { if (INTAKE.length && !answers) intake(); else render(); }
 
     /* step-by-step optional questions, each with a visible skip; answers stored like the other form fields */
