@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Inter:wght@400;500;600;700&family=Noto+Serif+KR:wght@700&display=swap">
-<link rel="stylesheet" href="/assets/css/site.css?v=e189cc1d">
+<link rel="stylesheet" href="/assets/css/site.css?v=e6effca5">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is it actually mean?","acceptedAnswer":{"@type":"Answer","text":"It's honest, with jokes. Yeon roasts your habits, never your worth, and every chapter ends somewhere useful. Bom also insisted on a fix chapter."}},{"@type":"Question","name":"What's it based on?","acceptedAnswer":{"@type":"Answer","text":"Your Day Master, the element of the day you were born, plus your element balance. Saju is our personality language, like MBTI with 2,000 years of history."}},{"@type":"Question","name":"Can I send it to a friend?","acceptedAnswer":{"@type":"Answer","text":"Yes, and it's even better read out loud in a group chat. Just let them enter their own birthday so they get their own roast."}},{"@type":"Question","name":"What if I don't know my birth hour?","acceptedAnswer":{"@type":"Answer","text":"No problem. Your Day Master comes from your birth date alone. The hour only adds detail to your element balance."}},{"@type":"Question","name":"Is this serious advice?","acceptedAnswer":{"@type":"Answer","text":"No. For entertainment and self-reflection. If something in it hits home, that part is yours to keep."}}]},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://bomandyeon.com/"},{"@type":"ListItem","position":2,"name":"Brutally Honest: Yeon's Reading","item":"https://bomandyeon.com/readings/brutally-honest/"}]}]}</script>
 </head>
 <body>
@@ -59,6 +59,20 @@
   <div class="say say--yeon rise"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b>Bom is too nice. Yeon will tell you what everyone&#x27;s thinking and nobody&#x27;s saying.</p></div>
  </div>
 </section>
+<section id="personal">
+ <div class="wrap read">
+  <p class="kicker">What's personal</p>
+  <h2>What makes it yours</h2>
+  <p class="lede">Built from your day, month and year pillars, your season, your element balance.</p>
+  <ul class="perso"><li><b>Your Day Master</b><span>One of 10 souls, from your day pillar. 6 chapters and six webtoon panels written for it.</span></li><li><b>Your season</b><span>Spring, summer, autumn or winter, set by the solar terms on your birth date, not the calendar month. A season chapter and its own panel.</span></li><li><b>Your strength</b><span>Strong or weak, worked out from your day, month and year pillars. A section on the blind spot that comes with it.</span></li><li><b>Your element balance</b><span>What your chart has too much of and what it lacks. Notes and two panels for your mix.</span></li></ul>
+  <p class="muted small">10 souls × 4 seasons × 2 strengths = 80 core versions, then your element balance on top. Two people with the same Day Master can still get a different reading.</p>
+  <div class="code-card">
+   <p class="kicker">Your reading code</p>
+   <p class="code" id="pvCode">BY-甲-冬-S-7K2Q</p>
+   <p class="muted small" id="pvCodeNote">Example. Yours appears after you add your birthday: your Day Master, your season (春 spring, 夏 summer, 秋 autumn, 冬 winter), S for strong or W for weak, and a tag for your three pillars. Same code, same reading. Compare it with a friend.</p>
+  </div>
+ </div>
+</section>
 <section id="preview">
  <div class="wrap read">
   <div class="card">
@@ -66,10 +80,11 @@
    <h2>Read the first two chapters</h2>
    <p class="muted">Your birthday picks your Day Master. The chapters are written for it.</p>
    <form id="pvForm" class="form-stack" novalidate>
-    <div class="selects" role="group" aria-label="Your birthday"><label><span class="sr">Your birthday month</span><select name="bm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Your birthday day</span><select name="bd" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Your birthday year</span><select name="by" data-kind="y" required><option value="">Year</option></select></label></div>
+    <span class="field-label">Your birthday</span><div class="selects" role="group" aria-label="Your birthday"><label><span class="sr">Your birthday month</span><select name="bm" data-kind="m" required><option value="">Month</option></select></label><label><span class="sr">Your birthday day</span><select name="bd" data-kind="d" required><option value="">Day</option></select></label><label><span class="sr">Your birthday year</span><select name="by" data-kind="y" required><option value="">Year</option></select></label></div>
+    <label class="name-field"><span class="field-label">Your first name <small>(optional, printed on your cover)</small></span><input class="input" type="text" name="nm" maxlength="24" autocomplete="given-name" placeholder="e.g. Mina"></label>
     <p class="err" id="pvErr" role="alert"></p>
     <button class="btn btn--block" type="submit">Show my preview</button>
-    <p class="note">Your birthday stays in your browser. We don't store it.</p>
+    <p class="note">Your birthday and name stay in your browser. We don't store them.</p>
    </form>
   </div>
   <div id="pvOut" class="preview-out" aria-live="polite"></div>
@@ -79,7 +94,7 @@
  <div class="wrap read">
   <p class="kicker">Inside</p><h2>Chapters</h2>
   <ol class="chapters"><li><div><b>What people clock in ten seconds</b><span>The first impression you give, whether you meant to or not.</span></div></li><li><div><b>Your red flag (yes, you have one)</b><span>The habit everyone&#x27;s noticed and nobody&#x27;s mentioned.</span></div></li><li><div><b>How you sabotage love</b><span>Your signature move for making romance harder than it needs to be.</span></div></li><li><div><b>Friends and work: the receipts</b><span>What your coworkers and group chat would say if they were honest.</span></div></li><li><div><b>The lie you tell yourself</b><span>The story you repeat that isn&#x27;t quite true.</span></div></li><li><div><b>Okay fine, the fix (Bom made me)</b><span>Small, specific changes. Yeon-approved. Bom-supervised.</span></div></li></ol>
-  <p class="muted small" style="margin-top:12px">6 chapters, about 10 minutes. Opens as a vertical webtoon with Bom and Yeon, then the chapters.</p>
+  <p class="muted small" style="margin-top:12px">6 chapters, about 10 minutes, plus your season, strength and balance sections. Opens as a vertical webtoon with Bom and Yeon.</p>
  </div>
 </section>
 <section>
@@ -115,9 +130,9 @@
   <p class="ent">For entertainment and self-reflection. Not advice about health, money, law or life decisions. © 2026 Bom &amp; Yeon</p>
  </div>
 </footer>
-<script src="/assets/js/legacy-data.js?v=6228cc79"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=661a3493"></script>
+<script src="/assets/js/legacy-data.js?v=6228cc79"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=9f9d31d8"></script>
 <script src="/assets/js/site.js?v=ef91e734"></script>
-<script>window.BY_PRODUCT={"mode":"product","slug":"brutally-honest","price":9.99,"two":false,"art":[1,2,3,11,5,12],"dataUrl":"/readings/brutally-honest/data.json","readUrl":"/readings/brutally-honest/read/"};</script>
-<script src="/assets/js/product.js?v=33ceb82d"></script>
+<script>window.BY_PRODUCT={"mode":"product","slug":"brutally-honest","price":9.99,"two":false,"pair":"","art":[1,2,3,11,5,12],"dataUrl":"/readings/brutally-honest/preview.json","readUrl":"/readings/brutally-honest/read/"};</script>
+<script src="/assets/js/product.js?v=01ab882d"></script>
 </body>
 </html>
