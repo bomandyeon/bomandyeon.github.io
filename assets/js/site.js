@@ -105,6 +105,32 @@
       if (/^(gap-wood|eul-wood|byeong-fire|jeong-fire|mu-earth|gi-earth|gyeong-metal|sin-metal|im-water|gye-water)$/.test(vs)) BY.store("vs", vs);
     } catch (e) { /* old browser */ }
   })();
+  /* ---------- GoatCounter events (cookieless). Event names only: never a birthday, a name or an answer. Skips localhost. ---------- */
+  var GC_LOCAL = /^(localhost|127\.|0\.0\.0\.0$|\[::1\]$)|\.local$/.test(location.hostname) || location.protocol === "file:";
+  var gcQueue = [], gcTries = 0, gcTimer = null;
+  function gcFlush() {
+    var gc = window.goatcounter;
+    if (gc && typeof gc.count === "function") {
+      clearInterval(gcTimer); gcTimer = null;
+      while (gcQueue.length) { try { gc.count(gcQueue.shift()); } catch (e) { /* ignore */ } }
+    } else if (++gcTries > 40) { clearInterval(gcTimer); gcTimer = null; gcQueue = []; } // script blocked: drop quietly
+  }
+  BY.track = function (name, title) {
+    if (GC_LOCAL) return;
+    var n = String(name || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+    if (!n) return;
+    gcQueue.push({ path: "evt-" + n, title: title || n, event: true });
+    gcFlush();
+    if (gcQueue.length && !gcTimer) gcTimer = setInterval(gcFlush, 500);
+  };
+  BY.trackOnce = function (name, title) {
+    try { var k = "by_gc_" + name; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, "1"); } catch (e) { /* private mode: send anyway */ }
+    BY.track(name, title);
+  };
+  /* GoatCounter counts pageviews on the canonical URL (no query string, so birthdays in reading URLs never leave the browser).
+     ?src survives as one event per session instead. */
+  (function () { var src = ""; try { src = (new URLSearchParams(location.search).get("src") || "").toLowerCase(); } catch (e) { return; }
+    if (/^[a-z0-9_-]{1,40}$/.test(src)) BY.trackOnce("src-" + src, "Arrived with ?src=" + src); })();
   BY.sourceTag = function (base) {
     var src = BY.load("src"), vs = BY.load("vs");
     return (base || "daily_soul") + (src ? ";src=" + src : "") + (vs ? ";vs=" + vs : "");
@@ -142,6 +168,7 @@
         err.textContent = "";
         var btn = f.querySelector("button"); btn.disabled = true; btn.textContent = "Sending…";
         BY.subscribe(v, f.getAttribute("data-daily") || "daily_soul").then(function (res) {
+          if (res.ok) BY.track(res.check ? "kit-signup-check" : "kit-signup", res.check ? "Daily Soul signup (Kit check step)" : "Daily Soul signup");
           if (res.ok && !res.check) { f.innerHTML = '<p class="ok" role="status">You\'re signed up. If a confirmation email arrives, tap the link in it.</p>'; return; }
           if (res.ok && res.check) {
             f.innerHTML = '<p class="ok" role="status">Almost there. Our email provider wants one quick check that you\'re a person.</p><p><a class="btn btn--ghost" href="' + BY.esc(res.check) + '" target="_blank" rel="noopener">Do the quick check</a></p>';
