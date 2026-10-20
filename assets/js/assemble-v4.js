@@ -62,6 +62,8 @@
       miss_el: k.missEl == null ? "" : EL[k.missEl], helper_el: EL[k.helperEl], second_el: k.secondEl == null ? "" : EL[k.secondEl],
       easy_el: EL[k.easyEl], season: R.season, dm_hanja: HANJA.charAt(R.dayMaster), slug: s,
       day_animal: k.dayBranch == null ? "" : ANIMALS[k.dayBranch], day_branch: k.dayBranch == null ? "" : BRANCH_HZ.charAt(k.dayBranch) };
+    if (R.partner && R.partner.dayMaster != null) { map.them = NAMES[R.partner.dayMaster] + " " + EL[R.partner.dayMaster >> 1]; map.them_short = NAMES[R.partner.dayMaster]; map.them_el = EL[R.partner.dayMaster >> 1]; }
+    var T = TERMS && TERMS[s]; if (T) for (var tk in T) if (T.hasOwnProperty(tk)) map[tk] = T[tk];
     return String(t || "").replace(/\{(\w+)\}/g, function (m, n) { return map.hasOwnProperty(n) ? map[n] : m; });
   }
 
@@ -86,12 +88,60 @@
   }
 
   var CUR = null; // fill function for the reading being assembled
+  var TERMS = null; // V.terms: per-Day-Master placeholder words ({pos} etc.), set during assemble()
+  /* keys for "mix" chapter parts (new products, 2026-10-20): partner / pair keys need R.partner (a full chart when available) */
+  var BR_SIX = [1, 0, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2];
+  function branchRel(a, b) {
+    if (a == null || b == null) return "neutral";
+    if (a === b) return "same";
+    if (mod(a - b, 12) === 6) return "clash";
+    if (BR_SIX[a] === b) return "harmony";
+    if (mod(a - b, 4) === 0) return "trio";
+    return "neutral";
+  }
+  function stemRel(x, y) {
+    if (mod(x - y, 10) === 5) return "combo";
+    if (x === y) return "same_stem";
+    var ex = x >> 1, ey = y >> 1;
+    if (ex === ey) return "same_element";
+    var r = rel(ex, ey);
+    if (r === 1 || r === 4) return "generating";
+    if ((x & 1) === (y & 1) && Math.abs(x - y) === 6 && Math.min(x, y) <= 3) return "clash";
+    return "controlling";
+  }
+  function partKey(key, R, k) {
+    var P = R.partner, dm = R.dayMaster;
+    switch (key) {
+      case "partner_dm": return P ? SLUGS[P.dayMaster] : null;
+      case "tengod": return P ? String(rel(dm >> 1, P.dayMaster >> 1) * 2 + ((dm & 1) === (P.dayMaster & 1) ? 0 : 1)) : null;
+      case "el_rel": return P ? REL[rel(dm >> 1, P.dayMaster >> 1)] : null;
+      case "stem_rel": return P ? stemRel(dm, P.dayMaster) : null;
+      case "branch_rel": return P ? branchRel(k.dayBranch, P.pillars && P.pillars.day ? P.pillars.day.branch : null) : null;
+      case "pair_strength": return P ? R.dmStrength + "_" + (P.dmStrength || "unknown") : null;
+      case "day_branch": return k.dayBranch == null ? null : BRANCH_SLUG[k.dayBranch];
+      case "strength": return R.dmStrength;
+      case "dm_el": return EL[dm >> 1].toLowerCase();
+      case "yinyang": return dm & 1 ? "yin" : "yang";
+      case "season": return k.season;
+      case "heavy_rel": return k.heavyEl == null ? null : REL[rel(dm >> 1, k.heavyEl)];
+      case "miss_rel": return k.missEl == null ? "none" : REL[rel(dm >> 1, k.missEl)];
+      case "helper_el": return EL[k.helperEl].toLowerCase();
+      case "dm": return SLUGS[dm];
+      case "partner_strength": return P && P.dmStrength ? P.dmStrength : null;
+      case "partner_season": return P && P.seasonKey ? P.seasonKey : null;
+      case "partner_el": return P ? EL[P.dayMaster >> 1].toLowerCase() : null;
+    }
+    return null;
+  }
+  var MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var MON3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   function P(p, nar) { if (!p) return null; var o = { speaker: p.speaker, text: CUR ? CUR(p.text) : p.text }; if (nar) o.nar = nar; return o; }
   function join(parts) { return parts.filter(function (x) { return x && String(x).trim(); }).join("\n\n"); }
 
   function assemble(R, V, opts) {
     opts = opts || {};
     var answers = opts.answers || {}, k = keysFor(R), dm = k.dm, dmName = NAMES[R.dayMaster] + " " + EL[R.dayMasterEl];
+    TERMS = V.terms || null;
     var F = function (t) { return fill(t, R, k); }; CUR = F;
     var base = V.base[dm], bp = V.base_panels[dm] || [], used = 0, out = [];
     function nextBase() { return used < bp.length ? P(bp[used++]) : null; }
@@ -160,6 +210,27 @@
         ch.kicker = "Your palette · lead element " + EL[k.helperEl]; ch.title = c.title;
         ch.text = join([F(base[c.lead_base_id] || ""), F(pr.text), F(L.text), F(sec), F(easy)]);
         ch.panels.push(P(pr.panel)); ch.panels.push(P(L.panel));
+      } else if (c.type === "mix") { // new products: optional lead base chapter (+ext) then keyed parts
+        var mt = [];
+        if (c.lead) { var le = (V.ext[c.lead] || {})[k.strength]; mt.push(base[c.lead]); if (le) { mt.push(F(le.text)); if (le.panel) ch.panels.push(P(le.panel)); } }
+        ch.text = join(mt);
+      } else if (c.type === "months") { // 2027: saju months of the Fire Goat year (R.months2027 from the engine)
+        var MS = R.months2027 || [], MV = V.months, mt2 = [], combos = 0, best = 0, hard = 0;
+        MS.forEach(function (m) { if (m.n < c.months[0]) { if (m.dayBranch === "combo") combos++; if (m.mark === "best") best++; if (m.mark === "hard") hard++; } });
+        c.months.forEach(function (n) {
+          var m = MS[n]; if (!m) return;
+          var st = m.starts, nx = MS[n + 1] && MS[n + 1].starts, mname = st ? MONTH_NAMES[st.m - 1] + " " + st.y : "";
+          var rng = st ? MON3[st.m - 1] + " " + st.d + (nx ? " to " + MON3[nx.m - 1] + " " + (nx.d - 1) : "") : "";
+          var mood = MV.mood[n], g = (n >= 10 ? MV.god_b : MV.god_a)[m.stemGodIndex];
+          var parts = ["### " + mname + " · " + m.pillar.stemHanja + m.pillar.branchHanja + (rng ? " (" + rng + ")" : ""), F(mood.text), F(g.text)];
+          if (m.dayBranch === "clash" && MV.clash) parts.push(F(MV.clash.text));
+          if (m.dayBranch === "combo" && MV.combo) parts.push(F(MV.combo[Math.min(combos++, MV.combo.length - 1)].text));
+          if (m.mark === "best" && MV.best) parts.push(F(MV.best[Math.min(best++, MV.best.length - 1)]));
+          if (m.mark === "hard" && MV.hard) parts.push(F(MV.hard[Math.min(hard++, MV.hard.length - 1)]));
+          mt2.push(join(parts));
+          if (g.panel) ch.panels.push(P(g.panel, n === c.months[0] ? m.pillar.stemHanja + m.pillar.branchHanja + " · " + mname + "." : null));
+        });
+        ch.kicker = c.kicker || "Month by month"; ch.text = mt2.join("\n\n");
       } else if (c.type === "pair") {
         if (!them || !opts.pairs) return; // optional chapter: skipped without their birthday
         var a = Math.min(R.dayMaster, R.partner.dayMaster), b = Math.max(R.dayMaster, R.partner.dayMaster), pk = SLUGS[a] + "-and-" + SLUGS[b];
@@ -169,10 +240,21 @@
         ch.title = X.title; ch.text = ov && ov[side] ? ov[side] : X[side];
         (ov && ov.panels ? ov.panels : X.panels).slice(0, 3).forEach(function (q, n) { var z = alt[String(n)] && alt[String(n)].reader === dm ? alt[String(n)] : q; ch.panels.push(P(z, n === 0 ? HANJA.charAt(R.dayMaster) + " + " + HANJA.charAt(R.partner.dayMaster) + " · you and them." : null)); });
       }
+      if (c.parts && c.type !== "pair") { // keyed parts, any chapter type (new products)
+        var mp = [ch.text];
+        c.parts.forEach(function (pt) {
+          var kv = partKey(pt.key, R, k), X = kv == null ? null : ((V.keyed || {})[pt.src] || {})[kv];
+          if (!X) return;
+          var hd = X.heading || pt.heading;
+          mp.push((hd ? "### " + F(hd) + "\n\n" : "") + F(X.text));
+          if (X.panel) ch.panels.push(P(X.panel));
+        });
+        ch.text = join(mp);
+      }
       ch.panels = ch.panels.filter(Boolean);
       out.push(ch);
     });
-    CUR = null;
+    CUR = null; TERMS = null;
     var words = 0, panels = 0;
     out.forEach(function (c) { words += wc(c.text.replace(/^### .*$/gm, "")); c.panels.forEach(function (p) { words += wc(p.text); panels++; }); });
     return { chapters: out, words: words, panels: panels, keys: k };
