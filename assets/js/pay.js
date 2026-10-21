@@ -2,14 +2,18 @@
  * the public site stays free until launch. Flow: a random token per reading is saved in localStorage and sent to Gumroad in the
  * checkout URL (?token=). Gumroad pings the worker after the sale; the page polls /status?token= every 3 s for up to 10 minutes
  * (and resumes on page load while a checkout is pending). On {paid:true} the license is stored as lic_<slug>
- * (lic_all-readings opens every reading). A license key typed by hand is a small hidden fallback. */
+ * (lic_all-readings opens every reading). Restore without typing: the reading URL with ?key=<license from the receipt>
+ * is verified with Gumroad (product, then bundle) and opens silently.
+ * Gumroad's gumroad.js is NOT loaded: its current version leaves direct-checkout links (wanted=true) as plain links
+ * (no overlay) and appends its own logo span to every gumroad.com link. Our own gold button opens checkout in a new tab;
+ * polling keeps running and checks again the moment the reader comes back to this tab. */
 (function () {
   "use strict";
   var BY = window.BY; if (!BY) return;
   var SHOP = "https://rok8678.gumroad.com/l/";
   var API = "https://bom-yeon-unlock.bomandyeon.workers.dev/status?token=";
   var BUNDLE = "all-readings";
-  /* license verify product_id per Gumroad product (fallback key entry only) */
+  /* license verify product_id per Gumroad product (?key= restore only) */
   var PID = {
     "brutally-honest": "IBPRp0PtRUmjngswfhzl2g==", "glow-up-aura": "fA4YS5mz-Xx-3EWwb8UjlQ==", "what-kind-of-lover": "AIK3O5Z1QAMgno2ALXEIDQ==",
     "situationship": "z384UJ1a5uo0SKWoTXq0NA==", "will-your-ex-come-back": "S3HQgkOpj0zFweiQPtvYMg==", "k-pop-position": "Tu9IIvIG4r4tTupnWNEaAg==",
@@ -28,20 +32,13 @@
   function owns(slug) { return !!(BY.load("lic_" + slug) || BY.load("lic_" + BUNDLE)); }
   function anchor(price) { return (Math.round(price * 1.54) - 0.01).toFixed(2); }
   function checkoutUrl(slug) { return SHOP + slug + "?wanted=true&token=" + token(slug); }
-  var gumLoaded = false;
-  function loadGumroad() {
-    if (gumLoaded) return; gumLoaded = true;
-    var s = document.createElement("script"); s.src = "https://gumroad.com/js/gumroad.js"; s.async = true; document.head.appendChild(s);
-  }
-  /* the buy link: Gumroad's overlay picks it up (class + data attribute); if the overlay script is blocked it opens Gumroad in a new tab */
+  function loadGumroad() { /* kept as a no-op for callers; see header */ }
+  /* our own gold button, no Gumroad styling: checkout opens in a new tab, this tab keeps polling */
   function buyLink(slug, label, cls) {
-    return '<a class="btn gumroad-button ' + (cls || "") + '" href="' + BY.esc(checkoutUrl(slug)) + '" data-gumroad-overlay-checkout="true" data-gumroad-single-product="true" target="_blank" rel="noopener" data-pay="' + slug + '">' + label + "</a>";
+    return '<a class="btn pay-btn ' + (cls || "") + '" href="' + BY.esc(checkoutUrl(slug)) + '" target="_blank" rel="noopener" data-pay="' + slug + '">' + label + "</a>";
   }
-  function fallback(slug) {
-    return '<p class="pay-fallback small"><button type="button" class="linkbtn small" data-payhelp="' + slug + '">Paid but nothing opened?</button></p>' +
-      '<form class="pay-key form-stack" data-paykey="' + slug + '" hidden novalidate><p class="muted small">Paste the license key from your Gumroad receipt email.</p>' +
-      '<input class="input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX">' +
-      '<p class="err" role="alert"></p><button class="btn btn--ghost btn--sm" type="submit">Open my reading</button></form>';
+  function fallback() {
+    return '<p class="pay-help muted">Paid? Your comic opens here by itself. Nothing after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>';
   }
 
   var polls = {}, handlers = {};
@@ -58,7 +55,7 @@
   function poll(slug) {
     if (polls[slug]) return;
     var p = pendingFresh(slug); if (!p) return;
-    status(slug, "Waiting for Gumroad to say yes. This page opens your reading by itself.");
+    status(slug, "Waiting for your payment to go through. This page opens your comic by itself.");
     var tok = p.tok;
     polls[slug] = setInterval(function () {
       var q = pendingFresh(slug);
@@ -85,27 +82,41 @@
   document.addEventListener("click", function (e) {
     var a = e.target.closest && e.target.closest("[data-pay]");
     if (a) { var s = a.getAttribute("data-pay"); setPending(s); BY.track("checkout-" + s, "Checkout opened: " + s); setTimeout(function () { poll(s); }, 1500); return; }
-    var h = e.target.closest && e.target.closest("[data-payhelp]");
-    if (h) { var f = document.querySelector('[data-paykey="' + h.getAttribute("data-payhelp") + '"]'); if (f) { f.hidden = !f.hidden; if (!f.hidden) f.querySelector("input").focus(); } }
   }, true);
-  document.addEventListener("submit", function (e) {
-    var f = e.target.closest && e.target.closest("[data-paykey]"); if (!f) return;
-    e.preventDefault();
-    var slug = f.getAttribute("data-paykey"), inp = f.querySelector("input"), err = f.querySelector(".err"), btn = f.querySelector("button"), k = inp.value.trim();
-    if (!/^[A-Za-z0-9-]{16,}$/.test(k)) { err.textContent = "That doesn't look like a license key. It's four blocks of letters and numbers."; return; }
-    err.textContent = ""; btn.disabled = true; btn.textContent = "Checking…";
-    verifyKey(slug, k).then(function (hit) {
-      btn.disabled = false; btn.textContent = "Open my reading";
-      if (hit) paid(slug, k, hit); else err.textContent = "That key doesn't match this reading. Check you copied all of it, or write to yeon@bomandyeon.com.";
-    }).catch(function () { btn.disabled = false; btn.textContent = "Open my reading"; err.textContent = "We couldn't reach Gumroad. Check your connection and try again."; });
-  });
+  /* back on this tab after checkout: check right away instead of waiting for the next tick */
+  function checkNow() {
+    Object.keys(polls).forEach(function (slug) {
+      var q = pendingFresh(slug); if (!polls[slug] || !q) return;
+      fetch(API + encodeURIComponent(q.tok), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j && j.paid && polls[slug]) { clearInterval(polls[slug]); polls[slug] = null; paid(slug, j.license_key, j.slug); }
+      }).catch(function () {});
+    });
+  }
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) checkNow(); });
+  window.addEventListener("pageshow", function (e) { if (e.persisted) checkNow(); });
+  window.addEventListener("focus", checkNow);
+
+  /* ?key=<license> restore: verify silently, store, drop the key from the address bar. Resolves true when it opened. */
+  function keyParam() { try { var k = new URLSearchParams(location.search).get("key"); return k && /^[A-Za-z0-9-]{16,80}$/.test(k.trim()) ? k.trim() : ""; } catch (e) { return ""; } }
+  function stripKey() {
+    try { var u = new URL(location.href); u.searchParams.delete("key"); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) { /* file:// */ }
+  }
+  function restore(slug) {
+    var k = keyParam(); if (!k) return Promise.resolve(false);
+    stripKey();
+    return verifyKey(slug, k).then(function (hit) {
+      if (!hit) return false;
+      BY.store("lic_" + hit, k); BY.track("restore-" + hit, "Restored with key: " + hit); return true;
+    }).catch(function () { return false; });
+  }
 
   BY.pay = {
-    on: !!BY.paytest, owns: owns, anchor: anchor, buyLink: buyLink, fallback: fallback, loadGumroad: loadGumroad,
+    on: !!BY.paytest, owns: owns, anchor: anchor, buyLink: buyLink, fallback: fallback, loadGumroad: loadGumroad, restore: restore, hasKey: function () { return !!keyParam(); },
     /* call once per page per slug: resumes a pending checkout and runs onPaid(slug) when it goes through */
     watch: function (slug, onPaid) { handlers[slug] = onPaid; poll(slug); },
     statusEl: function (slug) { return '<p class="muted small pay-status" data-paystatus="' + slug + '" role="status" aria-live="polite" hidden></p>'; },
-    guarantee: "Free redo or refund within 14 days."
+    guarantee: "Free redo or refund within 14 days.",
+    methods: "Card, Apple Pay or PayPal."
   };
 
   /* bundle page: one checkout button (paytest only) */
@@ -115,10 +126,11 @@
     var pr = document.querySelector(".phero .price-row strong"); if (pr) pr.innerHTML = '<s class="muted">$' + anchor(price) + "</s> $" + price;
     var paint = function () {
       if (owns(BUNDLE)) { bp.innerHTML = '<p class="small pw-promise">All Readings is yours on this browser. Pick any reading below and it opens in full.</p><a class="btn" href="#list">Pick a reading</a>'; return; }
-      bp.innerHTML = buyLink(BUNDLE, "Get All Readings · $" + price) + '<p class="small pw-promise">' + BY.pay.guarantee + " Every reading has a free 2-chapter preview too.</p>" + BY.pay.statusEl(BUNDLE) + fallback(BUNDLE);
+      bp.innerHTML = buyLink(BUNDLE, "Get All Readings · $" + price) + '<p class="small pw-promise">' + BY.pay.guarantee + " " + BY.pay.methods + " Every reading has a free 2-chapter preview too.</p>" + BY.pay.statusEl(BUNDLE) + fallback();
     };
     if (top) top.hidden = true; if (gift) gift.hidden = true;
-    bp.hidden = false; paint(); loadGumroad();
+    bp.hidden = false; paint();
+    restore(BUNDLE).then(function (ok) { if (ok) { paint(); BY.toast("Welcome back. Every reading is yours on this browser again."); } });
     BY.pay.watch(BUNDLE, function () { paint(); BY.toast("Thank you. Every reading is yours now. Bom says pick one, Yeon says pick two."); });
   }
 })();

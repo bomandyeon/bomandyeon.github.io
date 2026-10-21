@@ -202,8 +202,8 @@
           lockHTML = '<div class="chapter-lock paywall rise"><p class="kicker">To be continued</p><h3>Continue your comic</h3>' +
             '<p class="pw-price"><s>$' + PAY.anchor(P.price) + '</s> <strong>$' + P.price + "</strong></p>" +
             '<p class="muted small">' + rest.length + " more chapters, written for your chart. Including " + esc(extra.join(", ")) + ".</p>" + chips +
-            PAY.buyLink(P.slug, "Continue your comic · $" + P.price, "btn--block") +
-            '<p class="small pw-promise">' + PAY.guarantee + " Pay with card, Apple Pay or PayPal on Gumroad.</p>" + PAY.statusEl(P.slug) + PAY.fallback(P.slug) + "</div>";
+            PAY.buyLink(P.slug, "Continue my comic · $" + P.price, "btn--block") +
+            '<p class="small pw-promise">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl(P.slug) + PAY.fallback() + "</div>";
         } else {
           lockHTML = '<div class="chapter-lock rise"><p class="kicker">' + rest.length + ' more chapters</p><p class="muted small">Including ' + esc(extra.join(", ")) + ".</p>" + chips +
             '<button class="btn" type="button" data-buy>' + buyLabel() + "</button>" + giftNote() + "</div>";
@@ -212,7 +212,7 @@
           out.appendChild(comicChapter(ch, R, art, i === asm.chapters.length - 1 ? { tail: lockHTML } : null));
         });
         BY.watch(out);
-        if (PAY) PAY.loadGumroad();
+        if (PAY) stickyPaywall();
         if (scroll) out.scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth", block: "start" });
       }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and press the button again.</p>'; });
     }
@@ -225,7 +225,10 @@
         $("pvErr").textContent = PAIR === "required" ? "Add both birthdays first, so the reading is written for the two of you." : "Add your birthday first, so the reading is written for you.";
         $("preview").scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth" }); form.querySelector("select").focus({ preventScroll: true }); return;
       }
-      if (PAY && !PAY.owns(P.slug)) { var pw = out.querySelector(".paywall"); (pw || $("preview")).scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth", block: pw ? "center" : "start" }); if (!pw) renderPreview(true); return; }
+      if (PAY && !PAY.owns(P.slug)) {
+        var pw = out.querySelector(".paywall"), pb = pw && pw.querySelector("[data-pay]");
+        // sticky bar once the reader has reached the paywall: open checkout straight away
+        if (pb && e.target.closest("#stickyBuy") && pw.getBoundingClientRect().top < window.innerHeight) { pb.click(); return; } (pw || $("preview")).scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth", block: pw ? "center" : "start" }); if (!pw) renderPreview(true); return; }
       location.href = readUrl();
     });
     if (PAY) {
@@ -235,6 +238,23 @@
       [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { b.textContent = PAY.owns(P.slug) ? "Open my full reading" : "Read 2 chapters free"; });
       var sp = document.querySelector("#stickyBuy p"); if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong>$" + P.price + " · first 2 chapters free";
       PAY.watch(P.slug, function () { BY.store("thanks_" + P.slug, 1); location.href = readUrl(); });
+      // ?key=<license> on the product page: restore quietly, then open the reading (or show it as owned)
+      if (PAY.hasKey()) PAY.restore(P.slug).then(function (ok) {
+        if (!ok) return;
+        [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { b.textContent = "Open my full reading"; });
+        if (birth && (PAIR !== "required" || their)) location.href = readUrl(); else renderPreview(false);
+      });
+    }
+    /* paytest: when the paywall card is on the page, the sticky bar sells instead of offering the free preview again */
+    function stickyPaywall() {
+      var pw = out.querySelector(".paywall"), sb = $("stickyBuy"); if (!sb) return;
+      var btn = sb.querySelector("[data-buy]"), sp = sb.querySelector("p");
+      if (!pw) return;
+      if (btn) btn.textContent = "Continue · $" + P.price;
+      if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong><s>$" + PAY.anchor(P.price) + "</s> $" + P.price + " · 14-day refund";
+      // hide the bar while the paywall's own button is on screen, so there are never two buy buttons at once
+      var pb = pw.querySelector("[data-pay]");
+      if (pb && "IntersectionObserver" in window) new IntersectionObserver(function (ents) { ents.forEach(function (en) { sb.classList.toggle("is-hidden", en.isIntersecting); }); }).observe(pb);
     }
     var fromLink = !!qsDate("b");
     if (birth && (PAIR !== "required" || their)) renderPreview(fromLink);
@@ -251,7 +271,18 @@
       out.innerHTML = '<div class="card center"><h1 style="font-size:28px">This reading opens after checkout</h1><p class="muted">Get it from the reading page.</p><a class="btn" href="' + P.productUrl + '">Go to the reading</a></div>';
       return;
     }
-    if (PAY && !PAY.owns(P.slug)) { location.replace(P.productUrl + location.search + "#preview"); return; }
+    if (PAY && !PAY.owns(P.slug)) {
+      // ?key=<license from the receipt> restores a purchase on a new browser, without typing anything
+      if (PAY.hasKey()) {
+        out.innerHTML = '<p class="center muted">Opening your reading…</p>';
+        PAY.restore(P.slug).then(function (ok) {
+          if (ok) { start(); return; }
+          location.replace(P.productUrl + location.search + "#preview");
+        });
+        return;
+      }
+      location.replace(P.productUrl + location.search + "#preview"); return;
+    }
     start();
     function start() {
     function need() { return !birth || (PAIR === "required" && !their); }
@@ -441,9 +472,8 @@
       var c = document.createElement("div"); c.className = "card upsell center rise";
       c.innerHTML = '<p class="kicker">All Readings</p><h3>Every Bom and Yeon reading, one birthday</h3><p class="muted">Love, exes, situationships, your 2027, work style and the rest. Your birthday is already saved, so each one opens straight away.</p>' +
         '<p class="pw-price"><s>$' + PAY.anchor(29.99) + '</s> <strong>$29.99</strong></p>' + PAY.buyLink("all-readings", "Get All Readings · $29.99") +
-        '<p class="small pw-promise">' + PAY.guarantee + "</p>" + PAY.statusEl("all-readings") + '<p class="small"><a href="/readings/all-readings/">See what\'s inside</a></p>';
+        '<p class="small pw-promise">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl("all-readings") + '<p class="small"><a href="/readings/all-readings/">See what\'s inside</a></p>';
       shelf.parentNode.insertBefore(c, shelf);
-      PAY.loadGumroad();
       PAY.watch("all-readings", function () { c.innerHTML = '<p class="kicker">All Readings</p><h3>Done. Every reading is yours.</h3><p class="muted">Bom saved them all to this browser. Pick the next one.</p>'; shelf.hidden = false; });
     }
     function mins(w) { return Math.max(1, Math.round(w / 238)); }
