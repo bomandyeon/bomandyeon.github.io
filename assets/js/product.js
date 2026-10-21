@@ -457,6 +457,8 @@
         out.appendChild(lock);
         wirePaywall();
         BY.watch(out);
+        // teaser is on screen: the long chapter list and the intro boxes only distract from the paywall
+        [].forEach.call(document.querySelectorAll(".pv-extra, .phero .outline, .phero .gift"), function (x) { x.hidden = true; });
         BY.trackOnce("teaser-" + P.slug, "Teaser shown: " + P.slug);
         if (PAY) stickyPaywall();
         if (scroll) out.scrollIntoView({ behavior: smooth(), block: "start" });
