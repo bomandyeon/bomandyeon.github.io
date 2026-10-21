@@ -853,3 +853,70 @@ body.print-view #rdOut { min-height: 0; }
   .pp .hz { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 body:has(.paywall.is-pending) .sticky-buy { display: none !important; }
+
+/* ---------- teaser UX 2026-10-21: comic-first result, premium locked section ---------- */
+.tz-hero { max-width: 520px; margin: 0 auto 26px; }
+.tz-panel { position: relative; margin: 0; border-radius: 6px; overflow: hidden; border: 2px solid #0B0C14; box-shadow: 0 0 0 1px var(--hair), 0 18px 40px rgba(0,0,0,.5); background: #151729; aspect-ratio: 720 / 894; }
+.tz-panel img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tz-panel::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14,15,26,.35) 0%, rgba(14,15,26,0) 26%, rgba(14,15,26,0) 62%, rgba(14,15,26,.55) 100%); pointer-events: none; }
+.tz-cap { position: absolute; z-index: 2; top: 12px; left: 12px; margin: 0; padding: 7px 11px 8px; background: #EDE6D6; color: #1B1A22; border-radius: 3px; box-shadow: 0 4px 14px rgba(0,0,0,.35), inset 0 0 0 1px rgba(201,164,92,.55); font: 700 11px/1.25 var(--sans); letter-spacing: .12em; text-transform: uppercase; max-width: 64%; }
+.tz-cap span { display: block; font: 400 15px/1.3 var(--serif); letter-spacing: 0; text-transform: none; color: #3a3542; margin-top: 2px; }
+.tz-seal { position: absolute; z-index: 2; top: 12px; right: 12px; width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid #C8443C; color: #C8443C; background: rgba(237,230,214,.92); border-radius: 6px; font-size: 25px; transform: rotate(-6deg); box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+.tz-say { position: absolute; z-index: 2; margin: 0; max-width: 66%; padding: 9px 13px 10px; border-radius: 18px; font: 400 15px/1.42 var(--serif); color: #16161F; box-shadow: 0 6px 18px rgba(0,0,0,.4); border: 2px solid #16161F; }
+.tz-say b { display: block; font: 700 10px/1.2 var(--sans); letter-spacing: .16em; text-transform: uppercase; margin-bottom: 2px; }
+.tz-say::after { content: ""; position: absolute; width: 14px; height: 14px; border: 2px solid #16161F; border-top: 0; border-left: 0; background: inherit; }
+.tz-say--bom { left: 12px; top: 37%; background: #FBF7EE; }
+.tz-say--bom b { color: #8A6A2E; }
+.tz-say--bom::after { bottom: -8px; left: 26px; transform: rotate(45deg); }
+.tz-say--yeon { right: 12px; bottom: 14px; background: #F6DCCF; text-align: left; }
+.tz-say--yeon b { color: #9C4A36; }
+.tz-say--yeon::after { top: -8px; right: 30px; transform: rotate(-135deg); }
+.tz-intro { text-align: center; padding: 22px 6px 0; }
+.tz-h { font-size: 30px; line-height: 1.2; margin: 0 0 8px; }
+.tz-h em { font-style: normal; color: var(--gold2); }
+.tz-why, .tz-them, .tz-h { text-wrap: balance; }
+.tz-why { margin: 0 auto 6px; max-width: 30em; color: var(--mute); font-size: 16px; }
+.tz-them { margin: 0 auto 6px; max-width: 30em; color: var(--mute); font-size: 15px; }
+.tz-them b { color: var(--moon); font-weight: 600; }
+.tz-traits { list-style: none; padding: 0; margin: 12px 0 4px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.tz-traits li { padding: 5px 12px; border: 1px solid var(--hair); border-radius: 999px; font-size: 13px; color: var(--moon); background: rgba(26,28,46,.6); }
+.tz-chart { margin: 16px auto 0; max-width: 460px; text-align: left; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.tz-chart summary { cursor: pointer; list-style: none; padding: 12px 4px; font: 600 14px/1.3 var(--sans); color: var(--gold2); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.tz-chart summary::-webkit-details-marker { display: none; }
+.tz-chart summary::after { content: "\203A"; display: inline-block; transform: rotate(90deg); transition: transform .2s; font-size: 18px; line-height: 1; }
+.tz-chart[open] summary::after { transform: rotate(-90deg); }
+.tz-chart summary small { color: var(--faint); font-weight: 400; }
+.tz-chart__b { padding: 4px 0 14px; }
+.tz-chart .pillars { margin: 4px 0 10px; }
+.tz-chart .pillar .hz { font-size: 30px; }
+.tz-chart .pillar.is-dm { border-color: var(--gold2); }
+.tz-chart .pillar { text-align: center; }
+.tz-chart .tz-chart__b p { margin: 0; text-align: center; font-size: 14px; line-height: 1.55; }
+@media (min-width: 600px) { .tz-say { font-size: 16px; max-width: 58%; } .tz-h { font-size: 34px; } }
+
+/* cliffhanger: words fade out one by one (no blur block) */
+.cliff::after { display: none; }
+.cliff { background: linear-gradient(90deg, rgba(26,28,46,.75), rgba(26,28,46,.15)); }
+.cliff__f { color: var(--moon); }
+
+/* locked chapters: full titles, blurred scene thumbnail, lock */
+.lock-head { text-align: center; margin: 30px 0 14px; }
+.lock-head .kicker { margin: 0 0 4px; }
+.lock-head .lock-h { margin: 0; font-size: 24px; text-wrap: balance; }
+.lock-ol--v2 { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 8px; counter-reset: none; font-size: 15px; }
+.lock-ol--v2 li { display: grid; grid-template-columns: 48px 1fr 20px; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; white-space: normal; overflow: visible; border: 1px solid var(--hair); border-radius: 12px; background: rgba(21,23,41,.82); }
+.lock-ol--v2 li::before { content: none; display: none; }
+.lk-th { position: relative; width: 48px; height: 60px; border-radius: 8px; background: #23253a center / cover no-repeat; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(201,164,92,.35); }
+.lk-th::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14,15,26,.15), rgba(14,15,26,.6)); }
+.lk-th i { position: absolute; z-index: 1; left: 0; right: 0; bottom: 4px; text-align: center; font: 700 14px/1 var(--serif); font-style: normal; color: var(--gold2); text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+.lk-tx { min-width: 0; }
+.lk-tx b { display: block; font: 700 16px/1.3 var(--serif); color: var(--moon); }
+.lk-tx small { display: block; margin-top: 3px; font-size: 12px; line-height: 1.35; color: var(--faint); }
+.lk-ic { width: 18px; height: 18px; fill: none; stroke: var(--gold); stroke-width: 1.8; stroke-linecap: round; opacity: .85; }
+
+/* paywall card: no giant price, solid sticky bar (nothing ghosts through) */
+.pw-price2 { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 6px 0 16px; text-align: left; }
+.pw-amt { font: 700 34px/1 var(--serif); color: var(--gold2); }
+.pw-sub { font-size: 13px; line-height: 1.4; color: var(--mute); }
+.paywall.is-pending .pw-price2 { display: none !important; }
+.sticky-buy { background: #0E0F1A; }
