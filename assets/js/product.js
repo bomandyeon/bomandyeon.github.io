@@ -71,6 +71,7 @@
     applyState(pay.decState(r));
     if (P.mode === "read") try { var u = new URL(location.href); u.searchParams.delete("r"); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) { /* file:// */ }
   })();
+  function ansFor() { var o = Object.assign({}, answers || {}); try { var m = BY.load("mood_" + P.slug); if (m) o.mood = m; } catch (e) {} return o; }
   function ansParam() { return INTAKE.length && answers ? "&a=" + INTAKE.map(function (q) { return answers[q.id]; }).join(".") : ""; }
   function ready() { return !!birth && (PAIR !== "required" || !!their); }
   /* owned reading: straight to the comic; the read page asks for birthdays itself when they are missing */
@@ -112,12 +113,15 @@
     return BY.panel(art, b, who(p.speaker) + " speaks in a comic panel");
   }
   function webtoon(list) { var wt = document.createElement("div"); wt.className = "webtoon"; list.forEach(function (f) { if (f) wt.appendChild(f); }); return wt; }
+  /* copy rewrite 2026-10-21: a paragraph that starts "Bom: " or "Yeon: " is a speech bubble inside the chapter text */
+  var SAY_RE = /^(Bom|Yeon):\s+([\s\S]+)$/;
   /* chapter text: paragraphs split on blank lines, "### X" lines are sub-headings */
   function textHTML(t) {
     return String(t || "").split(/\n\s*\n/).map(function (b) {
       b = b.trim(); if (!b) return "";
       var m = /^### (.+?)(?:\n([\s\S]*))?$/.exec(b);
       if (m) return "<h4>" + esc(m[1].trim()) + "</h4>" + (m[2] && m[2].trim() ? "<p>" + esc(m[2].trim()) + "</p>" : "");
+      var sy = SAY_RE.exec(b); if (sy) return '<p class="tx-say tx-say--' + sy[1].toLowerCase() + '"><b>' + sy[1] + "</b> " + esc(sy[2]) + "</p>";
       return "<p>" + esc(b) + "</p>";
     }).join("");
   }
@@ -138,6 +142,7 @@
       b = b.trim(); if (!b) return;
       var lab = null, m = /^### (.+?)(?:\n([\s\S]*))?$/.exec(b);
       if (m) { lab = m[1].trim(); b = (m[2] || "").trim(); if (!b) { out.push({ label: lab, text: "" }); return; } }
+      var sy = SAY_RE.exec(b); if (sy) { if (lab) out.push({ label: lab, text: "" }); out.push({ say: sy[1].toLowerCase(), text: sy[2].trim() }); return; }
       var w = b.split(/\s+/).length;
       if (w > 75) {
         var sents = b.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) || [b], half = w / 2, acc = 0, a = [], c = [];
@@ -166,6 +171,7 @@
     var list = opts.blocks ? [] : beats(ch.text);
     if (opts.blocks) opts.blocks.forEach(function (b) { beats(b.t).forEach(function (x, i) { list.push({ label: i ? x.label : b.h, text: x.text }); }); if (b.note) list.push({ label: null, text: b.note, note: true }); });
     list.forEach(function (b, i) {
+      if (b.say) { html2 += '<div class="beat beat--say beat--' + b.say + '"><span class="av av--' + b.say + '"><img src="/assets/img/av-' + b.say + '.webp" alt="" width="44" height="44" loading="lazy"></span><p class="bubble"><b>' + (b.say === "bom" ? "Bom" : "Yeon") + "</b>" + esc(b.text) + "</p></div>"; return; }
       html2 += '<div class="beat beat--cap' + (b.note ? " beat--note" : "") + '" data-i="' + i + '">' + (b.label ? '<h4>' + esc(b.label) + "</h4>" : "") + (b.text ? "<p>" + esc(b.text) + "</p>" : "") + "</div>";
     });
     html2 += "</div>" + (opts.tail || "");
@@ -185,7 +191,7 @@
     [].forEach.call(sec.querySelectorAll(".beat--cap"), function (b) { io.observe(b); });
   }
   function counter() { var i = 0; return function () { return i++; }; }
-  var TYPE_NAMES = { season: "Your season", strength: "Your strength, and what steadies you", pair: "You and them" };
+  var TYPE_NAMES = { season: "You, in one page", strength: "Your blind spot (Yeon has notes)", pair: "You and them" };
   function planTitle(c) { return c.title || TYPE_NAMES[c.type] || c.id; }
   function html(h) { var d = document.createElement("div"); d.className = "chapter-text"; d.innerHTML = h; return d; }
 
@@ -406,8 +412,8 @@
     }
     function lockTitle(c, R, s, them) {
       var t = planTitle(c), hl;
-      if (c.type === "strength") return "Your blind spot, and what steadies you";
-      if (c.type === "balance") return "What you have too much of, and what you\u2019re missing";
+      if (c.type === "strength") return "Your blind spot (Yeon has notes)";
+      if (c.type === "balance") return c.title || "Too much of one thing, none of another";
       if (c.type === "pair") return them ? "You (" + s.nick + ") and them (" + them.nick + ")" : "You and them (add their birthday for this one)";
       if (name && /^Your\s/.test(t)) t = name + "'s " + t.slice(5);
       return t;
@@ -464,7 +470,7 @@
         '<div class="pw-pending" role="status"><p class="pw-pend-h"><span class="pw-dot" aria-hidden="true"></span>Opening your comic…</p>' +
         '<p class="small">Finish paying in the Gumroad tab. Your full comic opens right here the moment it goes through, usually within a minute.</p>' +
         '<p class="small"><a href="#" data-pay-cancel="' + P.slug + (SHELF ? " all-readings" : "") + '">Not paid yet? Show the price again</a></p></div>' +
-        (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>From chapter ' + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
+        (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>' + (sample.who ? (sample.who === "bom" ? "Bom" : "Yeon") + ", in chapter " : "From chapter ") + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
         '<p class="pw-what">One-time <b>$' + P.price + '</b>. All ' + total + ' chapters, yours forever, PDF included.</p>' +
         '<p class="pw-per2">No subscription.' + (per ? " That\u2019s $" + per + " a chapter." : "") + "</p>" +
         '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest \u00B7 $" + P.price, "btn--block") + "</div>" +
@@ -475,8 +481,11 @@
     /* the free part ends mid-sentence: the first words of a locked chapter clear, the rest blurred */
     function cliffHTML(text, at) {
       // teaser UX: clear words, then three words that fade out word by word, mid-sentence. Nothing after them is on the page.
-      var w = String(text).split(/\s+/), keep = Math.max(4, Math.min(9, Math.round(w.length * 0.4))), fade = w.slice(keep, keep + 3), op = [0.55, 0.3, 0.12];
-      return '<div class="cliff"><p class="kicker">Chapter ' + at.n + " \u00B7 " + esc(at.title) + '</p><p class="cliff__t">' + esc(w.slice(0, keep).join(" ")) +
+      // copy rewrite 2026-10-21: a written cliff may start "Yeon: " / "Bom: " (shown as the speaker) and mark the cut with " | "
+      var sp = "", sy = SAY_RE.exec(String(text)); if (sy) { sp = sy[1]; text = sy[2]; }
+      var cut = String(text).indexOf(" | "), w = String(text).replace(" | ", " ").split(/\s+/);
+      var keep = cut > 0 ? String(text).slice(0, cut).split(/\s+/).length : Math.max(4, Math.min(9, Math.round(w.length * 0.4))), fade = w.slice(keep, keep + 3), op = [0.55, 0.3, 0.12];
+      return '<div class="cliff"><p class="kicker">Chapter ' + at.n + " \u00B7 " + esc(at.title) + '</p><p class="cliff__t">' + (sp ? "<b>" + sp + "</b> " : "") + esc(w.slice(0, keep).join(" ")) +
         fade.map(function (x, i) { return ' <span class="cliff__f" aria-hidden="true" style="opacity:' + op[i] + '">' + esc(x) + "</span>"; }).join("") + "</p></div>";
     }
     function renderPreview(scroll) {
@@ -490,13 +499,15 @@
         var V = { plan: J.plan2, intake: J.intake, ext: J.ext || {}, keyed: J.keyed || {}, day_branch: J.day_branch, day_branch_heading: J.day_branch_heading, heavy: {}, missing: {},
           base: {}, base_panels: {}, season: {}, extra: {} };
         V.base[s.slug] = d.base; V.base_panels[s.slug] = d.base_panels; V.season[s.slug] = d.season; V.extra[s.slug] = d.extra || {};
+        if (d.open) { V.open = {}; V.open[s.slug] = d.open; } V.echo = J.echo || {};
         if (d.terms) { V.terms = {}; V.terms[s.slug] = d.terms; }
-        var asm = A4.assemble(R, V, { answers: answers || {} }), art = counter();
+        var asm = A4.assemble(R, V, { answers: ansFor() }), art = counter();
         // trimmed so the paywall comes fast: up to 3 panels and the first 2 paragraphs of each free chapter
-        asm.chapters.forEach(function (ch) {
+        asm.chapters.forEach(function (ch, ci) {
+          // copy rewrite 2026-10-21: chapters are comic beats now (short bubbles), so keep beats up to ~110 words instead of 2 paragraphs
           var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim(); }), keep = [], wc = 0;
-          for (var pi = 0; pi < paras.length && keep.length < 2 && wc < 90; pi++) { keep.push(paras[pi]); if (!/^###/.test(paras[pi])) wc += paras[pi].split(/\s+/).length; }
-          var t = Object.assign({}, ch, { panels: (ch.panels || []).slice(0, 2), text: keep.join("\n\n") });
+          for (var pi = 0; pi < paras.length && keep.length < 8 && wc < 110; pi++) { if (/^###/.test(paras[pi]) && keep.length) break; keep.push(paras[pi]); if (!/^###/.test(paras[pi])) wc += paras[pi].split(/\s+/).length; }
+          var t = Object.assign({}, ch, { panels: (ch.panels || []).slice(0, ci === 0 ? 4 : 3), text: keep.join("\n\n") });
           var sec = comicChapter(t, R, art); sec.classList.add("comic--teaser"); out.appendChild(sec);
         });
         var rest = J.plan.slice(2).filter(function (c) { return !(c.type === "pair" && c.optional && !R.partner && PAIR !== "optional"); });
@@ -511,7 +522,7 @@
           var sc = sceneFor(c.id, R), th = sc ? sc.src.replace("/img/scenes/", "/img/scenes-t/") : "";
           return '<li><span class="lk-th"' + (th ? ' style="background-image:url(' + th + ')"' : "") + '><i>' + (i + 3) + '</i></span><span class="lk-tx"><b>' + esc(lockTitle(c, R, s, them)) +
             '</b><small>' + esc(lockKicker(c, s, them)) + '</small></span><svg class="lk-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></li>';
-        }).join("") + "</ol>" + paywallHTML(rest.length, sm ? { text: hook.sample.text, n: sm.n, title: sm.title } : null);
+        }).join("") + "</ol>" + paywallHTML(rest.length, sm ? { text: hook.sample.text, who: hook.sample.who, n: sm.n, title: sm.title } : null);
         out.appendChild(lock);
         wirePaywall();
         BY.watch(out);
@@ -811,7 +822,7 @@
         if (PAIR === "required" && them) out.appendChild(bondBox(R, s, them));
 
         var al = answersLine(); if (al) out.appendChild(al);
-        var asm = A4.assemble(R, J, { answers: answers || {}, pairs: J.pairs || null }), art = counter();
+        var asm = A4.assemble(R, J, { answers: ansFor(), pairs: J.pairs || null }), art = counter();
         var pi = -1; J.plan.forEach(function (c, i) { if (c.type === "pair") pi = i; });
         var afterId = PAIR === "optional" && !them && pi > 0 ? J.plan[pi - 1].id : null;
         asm.chapters.forEach(function (ch) {
@@ -852,7 +863,7 @@
        Gowun Batang headings, Inter body, gold accents. Opens the print dialog once the images are in. ---------- */
     var INK = { Wood: "#3E7B4A", Fire: "#B8473C", Earth: "#97753A", Metal: "#6B717D", Water: "#3B6AA6" };
     function renderPrint(R, s, them, J) {
-      var I = coverInfo(R, s, them, J.title), asm = A4.assemble(R, J, { answers: answers || {}, pairs: J.pairs || null });
+      var I = coverInfo(R, s, them, J.title), asm = A4.assemble(R, J, { answers: ansFor(), pairs: J.pairs || null });
       document.body.classList.add("print-view");
       document.title = J.title + (I.name ? " · " + I.name : "") + " · Bom & Yeon";
       $("rdAsk").hidden = true; $("rdIntake").hidden = true; $("rdCross").hidden = true;
