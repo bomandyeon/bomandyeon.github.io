@@ -232,8 +232,8 @@
   BY.subscribe = function (email, source) { return BY.kitPost(KIT_FORMS.daily, email, { source: BY.sourceTag(source) }); };
   /* teaser email step: source "teaser-<slug>;product=<slug>;daily=yes|no" (+ ;src= ;vs=), plus product and the reading link.
      Daily Soul box ticked -> the Daily Soul form (its own confirm email); not ticked -> the reading-copy form only. */
-  BY.captureReading = function (email, slug, daily, url) {
-    var src = BY.sourceTag("teaser-" + slug) + ";product=" + slug + ";daily=" + (daily ? "yes" : "no");
+  BY.captureReading = function (email, slug, daily, url, via) {
+    var src = BY.sourceTag("teaser-" + slug) + ";product=" + slug + ";daily=" + (daily ? "yes" : "no") + (via ? ";via=" + via : "");
     return BY.kitPost(daily ? KIT_FORMS.daily : KIT_FORMS.reading, email, { source: src, product: slug, reading_url: url || "" });
   };
   BY.MIN_AGE = 18; // site terms (18+); this also covers the GDPR Art. 8 under-16 limit

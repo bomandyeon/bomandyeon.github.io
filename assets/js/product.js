@@ -192,14 +192,16 @@
       steps.push({ k: "time" }); steps.push({ k: "pillars" });
       if (!BY.load("email_given")) steps.push({ k: "email" });
     }
+    function extras(show) { [].forEach.call(document.querySelectorAll(".pv-faq, .pv-more"), function (x) { x.hidden = !show; }); var px = document.querySelector(".pv-extra"); if (px && !show) px.hidden = true; }
     function startWizard(skipDates) {
+      extras(false); document.body.classList.add("is-wiz");
       cur = Object.assign({}, answers || {}); buildSteps(skipDates); at = 0;
       out.innerHTML = ""; wiz.hidden = false; step();
       BY.trackOnce("wizard-start-" + P.slug, "Wizard started: " + P.slug);
     }
     function head(label) {
       var n = steps.length, pct = Math.round((at + 1) / n * 100);
-      return '<div class="wiz__top"><p class="kicker">' + (steps[at].k === "email" ? "Last step" : at >= n - 2 ? "Almost there" : "Step " + (at + 1)) + (label ? " · " + esc(label) : "") + "</p>" +
+      return (at === 0 && /preview/.test(location.hash) ? '<p class="wiz__ctx">' + esc(document.querySelector(".phero h1").textContent) + " \u00B7 first 2 chapters free</p>" : "") + '<div class="wiz__top"><p class="kicker">' + (steps[at].k === "email" ? "Last step" : at >= n - 2 ? "Almost there" : "Step " + (at + 1)) + (label ? " · " + esc(label) : "") + "</p>" +
         '<div class="wiz__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div></div>';
     }
     function nav(extra) {
@@ -243,7 +245,7 @@
         h = head() + '<h2 class="wiz__q">Know your birth time?</h2>' +
           '<button type="button" class="btn btn--block" data-w="notime">I don\'t know</button>' +
           '<form class="form-stack wiz__form wiz__time" novalidate><p class="wiz__or"><span>or</span></p>' +
-          '<div class="selects selects--2" role="group" aria-label="Birth time"><label><span class="field-label">Birth time</span><select name="bh"><option value="">Pick an hour</option></select></label>' +
+          '<div class="selects selects--2" role="group" aria-label="Birth time"><label><span class="field-label">Birth time</span><select name="bh"><option value="">Hour</option></select></label>' +
           '<label><span class="field-label">Minute</span><select name="bmi"><option value="">:00</option></select></label></div>' +
           '<details class="extras"><summary>Born in another country? <small>(optional)</small></summary><div class="extras__b">' +
           '<label><span class="field-label">Country where you were born</span><input class="input" type="text" name="bzq" list="bzList-wz" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Where I am now"></label>' +
@@ -416,16 +418,27 @@
         '<div class="say say--' + ml.who + '"><span class="av av--' + ml.who + '"><img src="/assets/img/av-' + ml.who + '.webp" alt="" width="44" height="44"></span><p class="bubble"><b>' + who(ml.who) + "</b>" + esc(ml.text) + "</p></div>" +
         '<p class="small muted"><button type="button" class="linkbtn small" data-redo>Change my answers</button></p></header>';
     }
-    function paywallHTML(restCount) {
+    /* real chapter count for this reader (2 free + the locked list): price per chapter rounded UP to the cent, never flattering */
+    function perChapter(total) { return total > 2 ? (Math.ceil(P.price / total * 100) / 100).toFixed(2) : ""; }
+    function paywallHTML(restCount, sample) {
       if (!PAY) return "";
       if (PAY.owns(P.slug)) return '<div class="chapter-lock rise"><a class="btn" href="' + esc(readUrl()) + '">Open my full reading</a></div>';
-      return '<div class="chapter-lock paywall rise" id="paywall"><h3>Keep reading</h3>' +
+      var total = restCount + 2, per = perChapter(total);
+      return '<div class="chapter-lock paywall rise" id="paywall">' +
+        (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>From chapter ' + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
         '<p class="pw-big"><s>$' + PAY.anchor(P.price) + "</s> $" + P.price + "</p>" +
+        (per ? '<p class="pw-per">All ' + total + " chapters, $" + per + " a chapter</p>" : "") +
         '<div class="pw-btn">' + PAY.buyLink(P.slug, "Continue my comic", "btn--block") + "</div>" +
         (SHELF ? '<p class="pw-alt">or ' + PAY.buyLink("all-readings", "all " + SHELF.count + " readings for $" + SHELF.price + " (save $" + SHELF.save + ")", "pw-link") + "</p>" : "") +
         '<p class="pw-tiny">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
     }
     function wirePaywall() {}
+    /* the free part ends mid-sentence: the first words of a locked chapter clear, the rest blurred */
+    function cliffHTML(text, at) {
+      var w = String(text).split(/\s+/), keep = Math.max(4, Math.min(9, Math.round(w.length * 0.4)));
+      return '<div class="cliff"><p class="kicker">Chapter ' + at.n + " \u00B7 " + esc(at.title) + '</p><p class="cliff__t">' + esc(w.slice(0, keep).join(" ")) +
+        ' <span class="cliff__blur" aria-hidden="true">' + esc(w.slice(keep).join(" ")) + "</span></p></div>";
+    }
     function renderPreview(scroll) {
       var R = analyze(), s = D.SOULS[R.dayMaster], them = PAIR && R.partner ? D.SOULS[R.partner.dayMaster] : null;
       out.innerHTML = '<p class="center muted">Bom and Yeon are pulling your chapters…</p>';
@@ -449,18 +462,23 @@
         });
         var rest = J.plan.slice(2).filter(function (c) { return !(c.type === "pair" && c.optional && !R.partner && PAIR !== "optional"); });
         var tz = {}; CH.forEach(function (x, i) { tz[i] = x[1]; });
+        // two real lines from the locked chapters (built per Day Master, preview.json "hook"): a cliffhanger cut mid-sentence, and one clear sample
+        var hook = d.hook || {}, numOf = function (id) { for (var i = 0; i < rest.length; i++) if (rest[i].id === id) return { n: i + 3, title: lockTitle(rest[i], R, s, them) }; return null; };
+        var cl = hook.cliff && numOf(hook.cliff.id), sm = hook.sample && numOf(hook.sample.id);
         var lock = document.createElement("section"); lock.className = "lock-list rise";
-        lock.innerHTML = '<p class="kicker center">' + rest.length + ' more chapters, written for you</p><ol class="lock-ol" start="3">' + rest.map(function (c) {
+        lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") +
+          '<h3 class="lock-h">' + esc(s.name) + ', here\u2019s what you\u2019d be skipping</h3><ol class="lock-ol" start="3">' + rest.map(function (c) {
           var w = lockTitle(c, R, s, them).split(" "), cut = Math.min(3, Math.ceil(w.length / 2));
           return '<li><span>' + esc(w.slice(0, cut).join(" ")) + '</span> <span class="lock-blur" aria-hidden="true">' + esc(w.slice(cut).join(" ")) + "</span></li>";
-        }).join("") + "</ol>" + paywallHTML(rest.length);
+        }).join("") + "</ol>" + paywallHTML(rest.length, sm ? { text: hook.sample.text, n: sm.n, title: sm.title } : null);
         out.appendChild(lock);
         wirePaywall();
         BY.watch(out);
         // teaser is on screen: the long chapter list and the intro boxes only distract from the paywall
         [].forEach.call(document.querySelectorAll(".pv-extra, .phero .outline, .phero .gift"), function (x) { x.hidden = true; });
+        extras(true); document.body.classList.remove("is-wiz");
         BY.trackOnce("teaser-" + P.slug, "Teaser shown: " + P.slug);
-        if (PAY) stickyPaywall();
+        if (PAY) { stickyPaywall(); exitCapture(); }
         if (scroll) out.scrollIntoView({ behavior: smooth(), block: "start" });
       }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and tap the button again.</p>'; });
     }
@@ -497,7 +515,7 @@
       var pw = out.querySelector(".paywall"), sb = $("stickyBuy"); if (!sb || !pw) return;
       var btn = sb.querySelector("[data-buy]"), sp = sb.querySelector("p");
       if (btn) btn.textContent = "Continue · $" + P.price;
-      if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong><s>$" + PAY.anchor(P.price) + "</s> $" + P.price + " · 30-day refund";
+      if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + '</strong><span class="sb-price">$' + P.price + "</span> · all " + (out.querySelectorAll(".lock-ol li").length + 2) + " chapters";
       // hide the bar while the paywall's own button is on screen, so there are never two buy buttons at once
       var area = pw.querySelector(".pw-btn") || pw;
       if ("IntersectionObserver" in window) {
@@ -505,6 +523,86 @@
         stickyIO = new IntersectionObserver(function (ents) { ents.forEach(function (en) { sb.classList.toggle("is-hidden", en.isIntersecting); }); });
         stickyIO.observe(area);
       }
+    }
+    /* leave capture (2026-10-21): a teaser viewer with no email given who scrolls back up fast, moves the mouse out of the top
+       of the window (desktop) or taps Back after seeing the paywall gets ONE small sheet per session offering the first two
+       chapters by email (same Kit form + fields as the wizard step; Daily Soul box unticked). Never for owners. */
+    var exitWired = false;
+    function exitEligible() {
+      var ss = null; try { ss = sessionStorage.getItem("by_exit"); } catch (x) { ss = "1"; }
+      return !ss && !BY.load("email_given") && !(PAY && PAY.owns(P.slug)) && !!out.querySelector(".paywall");
+    }
+    function exitCapture() {
+      if (exitWired || !exitEligible()) return;
+      exitWired = true;
+      var armed = false, seenPw = false, lastY = window.scrollY, lastT = Date.now(), upPx = 0, upT = 0, pushed = false;
+      var pw = out.querySelector(".paywall");
+      if ("IntersectionObserver" in window && pw) {
+        var io = new IntersectionObserver(function (ents) { ents.forEach(function (en) { if (en.isIntersecting) { seenPw = armed = true; io.disconnect(); } }); });
+        io.observe(pw);
+      }
+      setTimeout(function () { armed = true; }, 12000);
+      window.addEventListener("scroll", function () {
+        var y = window.scrollY, t = Date.now(), dy = lastY - y, dt = Math.max(1, t - lastT);
+        if (dy > 0) { if (t - upT > 400) upPx = 0; upPx += dy; upT = t; } else upPx = 0;
+        lastY = y; lastT = t;
+        // fast flick back up from inside the teaser: at least 500 px up within 400 ms, while still below the reading's start
+        if (armed && upPx > 500 && dy / dt > 1.2 && y > out.offsetTop - window.innerHeight) showExit("scroll");
+      }, { passive: true });
+      if (window.matchMedia && matchMedia("(pointer: fine)").matches) {
+        document.addEventListener("mouseout", function (e) { if (armed && !e.relatedTarget && e.clientY <= 0) showExit("mouse"); });
+      }
+      // Back after the paywall: one history entry, added on a real tap (browsers skip entries added without one)
+      function addEntry() {
+        if (pushed || !seenPw || !exitEligible()) return;
+        pushed = true; try { history.pushState({ byExit: 1 }, "", location.href); } catch (x) { /* file:// */ }
+      }
+      document.addEventListener("pointerdown", addEntry, true);
+      document.addEventListener("keydown", addEntry, true);
+      window.addEventListener("popstate", function () {
+        if (!pushed) return; pushed = false;
+        if (exitEligible()) showExit("back"); else history.back();
+      });
+    }
+    function showExit(via) {
+      if (!exitEligible() || document.querySelector(".exit-sheet")) return;
+      try { sessionStorage.setItem("by_exit", "1"); } catch (x) { /* private mode */ }
+      BY.track("exit-shown-" + P.slug, "Leave sheet shown (" + via + "): " + P.slug);
+      var sh = document.createElement("div"); sh.className = "exit-sheet no-print"; sh.setAttribute("role", "dialog"); sh.setAttribute("aria-labelledby", "exH");
+      sh.innerHTML = '<div class="exit-sheet__in"><button type="button" class="exit-x" data-x aria-label="Close">\u00D7</button>' +
+        '<div class="say say--bom"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="44" height="44"></span><p class="bubble" id="exH"><b>Bom</b>Not now? I\u2019ll email you your first 2 chapters.</p></div>' +
+        '<form class="form-stack" novalidate><label><span class="sr">Email address</span><input class="input" type="email" name="em" inputmode="email" autocomplete="email" placeholder="you@email.com"></label>' +
+        '<label class="check"><input type="checkbox" name="ds"> <span>Also send me Yeon\'s Daily Soul, one line every morning. Free, 18+.</span></label>' +
+        '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">Email them to me</button>' +
+        '<p class="note">Sent via Kit, our email provider. Unsubscribe in one tap. <a href="/privacy/">Privacy</a></p></form>' +
+        '<p class="center"><button type="button" class="linkbtn small" data-x>No thanks</button></p></div>';
+      document.body.appendChild(sh);
+      requestAnimationFrame(function () { sh.classList.add("is-on"); });
+      function close() { sh.classList.remove("is-on"); setTimeout(function () { if (sh.parentNode) sh.parentNode.removeChild(sh); }, 300); document.removeEventListener("keydown", esc1); }
+      function esc1(e) { if (e.key === "Escape") close(); }
+      document.addEventListener("keydown", esc1);
+      sh.addEventListener("click", function (e) { if (e.target === sh || e.target.closest("[data-x]")) { BY.track("exit-close-" + P.slug, "Leave sheet closed: " + P.slug); close(); } });
+      sh.querySelector("form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var f = e.target, em = f.querySelector('[name="em"]'), v = em.value.trim(), ds = f.querySelector('[name="ds"]').checked, err = f.querySelector(".err");
+        if (!BY.EMAIL_RE.test(v)) { err.textContent = "That email doesn't look right."; em.focus(); return; }
+        if (ds && BY.ageOn(birth) < BY.MIN_AGE) ds = false;
+        BY.store("email_given", 1);
+        BY.track("email-exit-" + P.slug, "Leave sheet email given: " + P.slug + (ds ? " + Daily Soul" : ""));
+        var btn = f.querySelector("button[type=submit]"); btn.disabled = true; btn.textContent = "Saving\u2026";
+        BY.captureReading(v, P.slug, ds, "https://bomandyeon.com" + readUrl(), "exit").then(function (res) {
+          var box = sh.querySelector(".exit-sheet__in");
+          if (res && res.ok && res.check) { f.innerHTML = '<p class="small">Our email provider wants one quick check that you\'re a person. <a href="' + esc(res.check) + '" target="_blank" rel="noopener">Do the check</a></p>'; return; }
+          if (res && res.ok) {
+            if (res.ok) BY.track(ds ? "kit-signup-teaser" : "kit-reading-copy", ds ? "Daily Soul signup from teaser" : "Reading copy email saved");
+            box.querySelector(".bubble").innerHTML = "<b>Bom</b>Saved. Your chapters go to " + esc(v) + "." + (ds ? " Tap the confirm link in your inbox for the Daily Soul." : "");
+            f.hidden = true; var nb = box.querySelector("p.center .linkbtn"); if (nb) nb.textContent = "Back to my reading";
+            return;
+          }
+          BY.store("email_given", null); btn.disabled = false; btn.textContent = "Email them to me"; err.textContent = "That didn't save. Try once more?";
+        });
+      });
+      setTimeout(function () { var i = sh.querySelector("input[type=email]"); if (i && window.matchMedia && matchMedia("(pointer: fine)").matches) i.focus({ preventScroll: true }); }, 350);
     }
     if (PAY && PAY.owns(P.slug) && !PAY.hasKey()) { goRead(true); return; }
     var complete = !!birth && (PAIR !== "required" || !!their) && (!INTAKE.length || !!answers);
@@ -716,15 +814,22 @@
         '<a class="link-arrow" href="/compatibility/' + slug + '/">' + esc(s.name + " + " + them.name) + " in full</a>";
       return box;
     }
-    /* after a paid reading: one card offering All Readings instead of the whole shelf */
+    /* after a paid reading: one card offering the rest of the shelf as All Readings. Honest math: the readings this browser
+       does not own yet, at their real one-by-one prices, against the bundle price (no strike-through anchor here). */
     function upsell() {
-      var box = $("rdCross"), shelf = box.querySelector(".shelf"); if (!shelf || box.querySelector(".upsell")) return;
+      var box = $("rdCross"), shelf = box.querySelector(".shelf"), SH = P.shelf; if (!shelf || box.querySelector(".upsell") || !SH || !SH.items) return;
+      var left = SH.items.filter(function (x) { return !BY.load("lic_" + x[0]); }), sum = 0;
+      left.forEach(function (x) { sum += +x[1]; });
+      var price = +SH.price, save = sum - price;
+      if (left.length < 2 || save <= 0) return; // nothing honest to offer
       shelf.hidden = true;
-      var c = document.createElement("div"); c.className = "card upsell center rise";
-      c.innerHTML = '<p class="kicker">All Readings</p><h3>Every Bom and Yeon reading, one birthday</h3><p class="muted">Love, exes, situationships, your 2027, work style and the rest. Your birthday is already saved, so each one opens straight away.</p>' +
-        '<p class="pw-price"><s>$' + PAY.anchor(29.99) + '</s> <strong>$29.99</strong></p>' + PAY.buyLink("all-readings", "Get All Readings · $29.99") +
+      var c = document.createElement("div"); c.className = "card upsell center";
+      c.innerHTML = '<p class="kicker">While your birthday is saved</p><h3>Add every other reading for $' + price.toFixed(2) + "</h3>" +
+        '<p class="muted">The other ' + left.length + " readings cost $" + sum.toFixed(2) + " one by one. Together: $" + price.toFixed(2) + ", so you keep $" + save.toFixed(2) + ". Each one opens straight away, no forms.</p>" +
+        PAY.buyLink("all-readings", "Add all " + left.length + " · $" + price.toFixed(2)) +
         '<p class="small pw-promise">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl("all-readings") + '<p class="small"><a href="/readings/all-readings/">See what\'s inside</a></p>';
       shelf.parentNode.insertBefore(c, shelf);
+      BY.trackOnce("upsell-shown-" + P.slug, "Bundle card shown after purchase: " + P.slug);
       PAY.watch("all-readings", function () { c.innerHTML = '<p class="kicker">All Readings</p><h3>Done. Every reading is yours.</h3><p class="muted">Bom saved them all to this browser. Pick the next one.</p>'; shelf.hidden = false; });
     }
     function mins(w) { return Math.max(1, Math.round(w / 238)); }
