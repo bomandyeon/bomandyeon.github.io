@@ -197,7 +197,7 @@
     var yr = T.yearChanges ? " and year" : "";
     var alt = T.readAsAfter ? "before " + T.time : "after " + T.time;
     return '<div class="term-banner rise" role="note"><b>You were born on ' + esc(T.term) + ", a solar-term day.</b> The saju month" + yr + " turned over that day at " + esc(T.time) +
-      " " + esc(BY.zoneLabel(R.zone)) + " time. With no birth time we read noon, so your month pillar is " + esc(T.month) + ". Born " + esc(alt) + "? You'd be " + esc(T.altMonth) +
+      " " + esc(BY.zoneLabel(R.zone)) + " time. With no birth time we read noon, so your saju month is " + esc(T.month) + ". Born " + esc(alt) + "? You'd be " + esc(T.altMonth) +
       (T.yearChanges ? ", in a " + esc(T.altYear) + " " + esc(T.altAnimal) + " year" : "") + ". Add your birth time to the form to be exact.</div>";
   }
   function strengthWord(R) { return R.dmStrength === "strong" ? "Strong chart" : "Weak chart"; }
@@ -237,9 +237,10 @@
     }
     function head(label) {
       var n = steps.length, pct = Math.round((at + 1) / n * 100);
-      return (at === 0 && /preview/.test(location.hash) ? '<p class="wiz__ctx">' + esc(document.querySelector(".phero h1").textContent) + "</p>" : "") + '<div class="wiz__top"><p class="kicker">' + (at >= n - 2 ? "Almost there" : "Step " + (at + 1)) + (label ? " · " + esc(label) : "") + "</p>" +
+      return (at === 0 && /preview/.test(location.hash) ? '<p class="wiz__ctx">' + esc(document.querySelector(".phero h1").textContent) + "</p>" : "") + '<div class="wiz__top"><p class="kicker">' + (steps[at] && steps[at].k === "pillars" ? "Your birthday type" : "Question " + (at + 1) + " of " + (n - 1)) + (label ? " · " + esc(label) : "") + "</p>" +
         '<div class="wiz__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div></div>';
     }
+    function hint(t) { return '<p class="wiz__hint">' + esc(t) + "</p>"; }
     function nav(extra) {
       return '<div class="wiz__nav">' + (at > 0 ? '<button type="button" class="linkbtn" data-w="back">Back</button>' : "<span></span>") + (extra || "<span></span>") + "</div>";
     }
@@ -258,15 +259,15 @@
       var s = steps[at], h = "";
       if (s.k === "q") {
         var q = s.q;
-        h = head() + '<h2 class="wiz__q">' + esc(q.question) + "</h2>" + opts(q.options.filter(function (o) { return o.value !== q.skip_value; }), cur[q.id]) +
+        h = head() + '<h2 class="wiz__q">' + esc(q.question) + "</h2>" + hint(at === 0 ? "Tap the closest one. Your chapters are written around it." : "Tap one. Skip if none fits.") + opts(q.options.filter(function (o) { return o.value !== q.skip_value; }), cur[q.id]) +
           nav('<button type="button" class="linkbtn" data-v="' + esc(q.skip_value) + '">Skip</button>');
       } else if (s.k === "mood") {
         var m = BY.load(MOOD_KEY);
-        h = head() + '<h2 class="wiz__q">' + esc(MOOD.question) + "</h2>" +
+        h = head() + '<h2 class="wiz__q">' + esc(MOOD.question) + "</h2>" + hint("Just for fun. It picks the first thing Bom or Yeon says to you.") +
           opts(MOOD.options, m) + nav('<button type="button" class="linkbtn" data-v="">Skip</button>');
       } else if (s.k === "you") {
         var known = !!birth && !s.change;
-        h = head() + '<h2 class="wiz__q">' + (known ? "Still you?" : "When's your birthday?") + "</h2>" +
+        h = head() + '<h2 class="wiz__q">' + (known ? "Is this your birthday?" : "When's your birthday?") + "</h2>" + hint("Your comic is written from it. Saju reads your exact birth date.") +
           '<form class="form-stack wiz__form" novalidate>' +
           (known ? '<p class="wiz__known"><b>' + esc(BY.prettyDate(birth)) + '</b> <button type="button" class="linkbtn" data-w="change">change</button></p>'
                  : dateRow("b", "Your birthday")) +
@@ -274,13 +275,13 @@
       } else if (s.k === "them") {
         var req = PAIR === "required";
         h = head() + '<h2 class="wiz__q">' + (req ? "And their birthday?" : "Know their birthday?") + "</h2>" +
-          '<p class="muted small">' + (req ? "Just the date." : "Optional. Adds a chapter on the two of you.") + "</p>" +
+          hint(req ? "So the comic is about the two of you. Just the date, they never find out." : "Optional. Adds a chapter about the two of you.") +
           '<form class="form-stack wiz__form" novalidate>' + dateRow("t", "Their birthday") + '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">Next</button></form>' +
           nav(req ? "" : '<button type="button" class="linkbtn" data-w="nothem">Skip, I don\'t know it</button>');
       } else if (s.k === "time") {
-        h = head() + '<h2 class="wiz__q">Know your birth time?</h2>' +
-          '<button type="button" class="btn btn--block" data-w="notime">I don\'t know</button>' +
-          '<form class="form-stack wiz__form wiz__time" novalidate><p class="wiz__or"><span>or</span></p>' +
+        h = head() + '<h2 class="wiz__q">What time were you born?</h2>' + hint("Optional. Makes it more accurate. Skip if you don't know.") +
+          '<button type="button" class="btn btn--block" data-w="notime">Skip, I don\'t know</button>' +
+          '<form class="form-stack wiz__form wiz__time" novalidate><p class="wiz__or"><span>or pick it</span></p>' +
           '<div class="selects selects--2" role="group" aria-label="Birth time"><label><span class="field-label">Birth time</span><select name="bh"><option value="">Hour</option></select></label>' +
           '<label><span class="field-label">Minute</span><select name="bmi"><option value="">:00</option></select></label></div>' +
           '<details class="extras"><summary>Born in another country? <small>(optional)</small></summary><div class="extras__b">' +
@@ -288,7 +289,7 @@
           '<input type="hidden" name="bz" value=""><datalist id="bzList-wz"></datalist><p class="note" data-bzhint aria-live="polite"></p></div></details>' +
           '<p class="err" role="alert"></p><button class="btn btn--ghost btn--block" type="submit">Use this time</button></form>' + nav();
       } else if (s.k === "pillars") {
-        h = head() + pillarsHTML() + '<button type="button" class="btn btn--block" data-w="go">Write my reading</button>' + nav();
+        h = head() + pillarsHTML() + '<button type="button" class="btn btn--block" data-w="go">Show my comic</button>' + nav();
       }
       wiz.innerHTML = h;
       BY.fillSelects(wiz);
@@ -345,12 +346,13 @@
         their = t; BY.store(THEIR_KEY, t); next(); return;
       }
       if (s.k === "time") {
-        if (f.querySelector('[name="bh"]').value === "") { err.textContent = "Pick the hour, or tap \u201CI don't know\u201D above."; return; }
+        if (f.querySelector('[name="bh"]').value === "") { err.textContent = "Pick the hour, or tap \u201CSkip, I don't know\u201D above."; return; }
         BY.readExtras(f); next(); return;
       }
     });
 
-    /* the four pillars screen */
+    /* clarity pass 2026-10-21: the old "Your four pillars" hanja screen is now a plain type reveal. Your type in English,
+       the soul's own picture, one line on what it means, 3 traits; the hanja chart only inside a folded "See the chart". */
     function pillarsHTML() {
       var R = analyze(), s = D.SOULS[R.dayMaster], pl = R.pillars, them = PAIR && R.partner ? D.SOULS[R.partner.dayMaster] : null;
       var cols = [["Year", pl.year], ["Month", pl.month], ["Day", pl.day], ["Hour", pl.hour]];
@@ -360,17 +362,22 @@
         return '<div class="pillar' + (c[0] === "Day" ? " is-dm" : "") + '"><span class="pl-l">' + c[0] + '</span><span class="hz" style="color:' + D.EL_COLOR[p.stemEl] + '">' + p.stemHanja + "</span>" +
           '<span class="hz" style="color:' + D.EL_COLOR[p.branchEl] + '">' + p.branchHanja + '</span><span class="pl-e">' + p.stemEl + "<br>" + p.branchEl + " · " + p.animal + "</span></div>";
       }).join("");
-      return '<h2 class="wiz__q">Your four pillars</h2>' +
-        '<div class="pillars pillars--4 wiz-pillars" aria-label="Your four pillars">' + grid + "</div>" +
-        '<p class="center wiz-dm">Your Day Master: <span class="hz" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</span> <b>" + esc(s.name) + "</b>, " + esc(s.nick) + "</p>" +
-        (them ? '<p class="center muted small">Theirs: <span class="hz" style="color:' + D.EL_COLOR[them.el] + '">' + them.hanja + "</span> " + esc(them.name) + ", " + esc(them.nick) + "</p>" : "") +
-        "";
+      var how = HOW[P.slug] || "who you are";
+      return '<figure class="tr-pic"><img src="/assets/img/scenes/soul/' + s.slug + '.webp" alt="Bom and Yeon in a scene for ' + esc(s.nick) + '" width="720" height="1290" decoding="async"></figure>' +
+        '<h2 class="wiz__q tr-h">You\u2019re <em>' + esc(s.nick) + ".</em></h2>" +
+        '<p class="tr-what">That\u2019s your birthday type. Korean saju calls it <b>' + esc(s.name) + "</b>. Think zodiac sign, but from the exact day you were born. It shapes " + esc(how) + ".</p>" +
+        '<p class="tr-tag">' + esc(s.tag) + "</p>" +
+        '<ul class="tz-traits tr-traits" aria-label="Your traits">' + (s.traits || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
+        (them ? '<p class="tr-them">Them: <b>' + esc(them.nick) + "</b> (" + esc(them.name) + "). " + (PAIR === "required" ? "Your comic is about how you two fit." : "They\u2019re in your comic too.") + "</p>" : "") +
+        '<details class="tz-chart tr-chart"><summary>See the chart</summary><div class="tz-chart__b">' +
+        '<div class="pillars pillars--4 wiz-pillars" aria-label="Your saju chart">' + grid + "</div>" +
+        '<p class="small muted">Saju turns your birth year, month, day and hour into these four columns. The top of the Day column (<span class="hz" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</span>) is your birthday type, " + esc(s.name) + ". Your comic is written from it.</p></div></details>";
     }
     /* a few honest seconds: the chart is already worked out, Bom and Yeon just pick your chapters */
-    var LINES = [["bom", "Finding your season…"], ["yeon", "Counting your elements. You have a lot of one of them."], ["yeon", "Done. Brace yourself a little."]];
+    var LINES = [["bom", "Drawing your comic…"], ["yeon", "Writing the parts you won\u2019t like."], ["bom", "Done. Scroll down and read."]];
     function loading(done) {
       var i = 0, R = analyze(), s = D.SOULS[R.dayMaster];
-      wiz.innerHTML = '<div class="wiz-load" role="status" aria-live="polite"><p class="hz wiz-load__dm" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + '</p><div class="wiz-load__say"></div></div>';
+      wiz.innerHTML = '<div class="wiz-load" role="status" aria-live="polite"><p class="wiz-load__k">Making your comic</p><p class="wiz-load__dm2">' + esc(s.nick) + '</p><div class="wiz-load__say"></div></div>';
       var box = wiz.querySelector(".wiz-load__say"), ms = BY.reduced ? 300 : 650;
       (function tick() {
         if (i >= LINES.length) { done(); return; }
@@ -397,15 +404,15 @@
     }
     function lockTitle(c, R, s, them) {
       var t = planTitle(c), hl;
-      if (c.type === "strength") return (R.dmStrength === "strong" ? "Strong " : "Weak ") + s.name + ": your blind spot, and what steadies you";
-      if (c.type === "balance") { hl = heavyLight(R); return "Plenty of " + hl.heavy + ", " + (hl.none ? "no " : "not much ") + hl.light + ": what that does to you"; }
-      if (c.type === "pair") return them ? "You (" + s.name + ") and them (" + them.name + ")" : "You and them (add their birthday for this one)";
+      if (c.type === "strength") return "Your blind spot, and what steadies you";
+      if (c.type === "balance") return "What you have too much of, and what you\u2019re missing";
+      if (c.type === "pair") return them ? "You (" + s.nick + ") and them (" + them.nick + ")" : "You and them (add their birthday for this one)";
       if (name && /^Your\s/.test(t)) t = name + "'s " + t.slice(5);
       return t;
     }
     function lockKicker(c, s, them) {
       if (c.type === "situation") { var a = ansLabels(); return a.length ? "Because you said: " + a.join(" · ") : "Written for not knowing"; }
-      return "Written for " + s.name + (them && c.type !== "pair" && PAIR ? " + " + them.name : "");
+      return "Written for " + s.nick + (them && c.type !== "pair" && PAIR ? " + " + them.nick : "");
     }
     /* teaser UX 2026-10-21: the result opens with the COMIC. The reading's cover art as a webtoon panel with Bom + Yeon speech
        bubbles, then a plain-English headline ("You're Sin Metal. The Jewel.") and one human line. The hanja chart sits folded below. */
@@ -413,13 +420,13 @@
       "work-style": "how you work", "k-pop-position": "how you shine in a group", "glow-up-aura": "how people see you", "brutally-honest": "who you are, minus the filter" };
     function coverImg() { var im = document.querySelector(".phero img"); return im ? { src: im.getAttribute("src"), set: im.getAttribute("srcset") || "", alt: im.getAttribute("alt") || "" } : null; }
     function chartHTML(R, s, them, cols) {
-      return '<details class="tz-chart"><summary>See your chart <small>(saju pillars)</small></summary><div class="tz-chart__b">' +
+      return '<details class="tz-chart"><summary>See the chart</summary><div class="tz-chart__b">' +
         '<div class="pillars' + (cols.length > 3 ? " pillars--4" : "") + '">' + cols.map(function (c) {
           var p = c[1]; return '<div class="pillar' + (c[0] === "Day" ? " is-dm" : "") + '"><span class="pl-l">' + c[0] + '</span><span class="hz" style="color:' + D.EL_COLOR[p.stemEl] + '">' + p.stemHanja +
             '</span><span class="hz" style="color:' + D.EL_COLOR[p.branchEl] + '">' + p.branchHanja + '</span><span class="pl-e">' + p.stemEl + " · " + p.animal + "</span></div>";
         }).join("") + "</div>" +
-        '<p class="small muted">Saju turns your birth date' + (R.pillars.hour ? " and time" : "") + ' into these pillars: year, month, day' + (R.pillars.hour ? ", hour" : "") +
-        '. The top of the Day pillar, <span class="hz" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</span>, is your Day Master: " + esc(s.name) + ". The reading is written from it." +
+        '<p class="small muted">Saju turns your birth date' + (R.pillars.hour ? " and time" : "") + ' into these columns: year, month, day' + (R.pillars.hour ? ", hour" : "") +
+        '. The top of the Day column, <span class="hz" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</span>, is your birthday type: " + esc(s.name) + ". Your comic is written from it." +
         (them ? " Theirs is " + esc(them.name) + ' (<span class="hz" style="color:' + D.EL_COLOR[them.el] + '">' + them.hanja + "</span>)." : "") + "</p></div></details>";
     }
     function coverHTML(R, s, them, title) {
@@ -436,10 +443,11 @@
         '<p class="tz-say tz-say--bom"><b>Bom</b>' + esc(bomLine) + "</p>" +
         '<p class="tz-say tz-say--yeon"><b>Yeon</b>' + esc(yeonLine) + "</p>" +
         "</figure>" +
-        '<div class="tz-intro"><h2 class="tz-h">You\u2019re ' + esc(s.name) + ". <em>" + esc(s.nick) + ".</em></h2>" +
-        '<p class="tz-why">Your birthday\u2019s day element. It\u2019s ' + esc(how) + ".</p>" +
-        (them ? '<p class="tz-them">They\u2019re <b>' + esc(them.name) + "</b>, " + esc(them.nick.replace(/^The /, "the ")) + (PAIR === "required" ? ". This reading is the two of you." : ". Their chart is in your reading too.") + "</p>" : "") +
+        '<div class="tz-intro"><h2 class="tz-h">You\u2019re <em>' + esc(s.nick) + ".</em></h2>" +
+        '<p class="tz-why">Your birthday type (' + esc(s.name) + ' in Korean saju). It shapes ' + esc(how) + ".</p>" +
+        (them ? '<p class="tz-them">They\u2019re <b>' + esc(them.nick) + "</b> (" + esc(them.name) + ")" + (PAIR === "required" ? ". This comic is about the two of you." : ". They\u2019re in your comic too.") + "</p>" : "") +
         '<ul class="tz-traits" aria-label="Your traits">' + (s.traits || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
+        '<p class="tz-next">Your first 2 chapters are right below. Scroll to read.</p>' +
         chartHTML(R, s, them, cols) +
         '<p class="small muted center"><button type="button" class="linkbtn small" data-redo>Change my answers</button></p></div></header>';
     }
@@ -455,9 +463,10 @@
         '<p class="small">Finish paying in the Gumroad tab. Your full comic opens right here the moment it goes through, usually within a minute.</p>' +
         '<p class="small"><a href="#" data-pay-cancel="' + P.slug + (SHELF ? " all-readings" : "") + '">Not paid yet? Show the price again</a></p></div>' +
         (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>From chapter ' + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
-        '<p class="pw-price2"><span class="pw-amt">$' + P.price + '</span><span class="pw-sub">one time · all ' + total + " chapters" + (per ? "<br>$" + per + " a chapter" : "") + "</span></p>" +
-        '<div class="pw-btn">' + PAY.buyLink(P.slug, "Continue my comic", "btn--block") + "</div>" +
-        (SHELF ? '<p class="pw-alt">or ' + PAY.buyLink("all-readings", "all " + SHELF.count + " readings for $" + SHELF.price + " (save $" + SHELF.save + ")", "pw-link") + "</p>" : "") +
+        '<p class="pw-what">One-time <b>$' + P.price + '</b>. All ' + total + ' chapters, yours forever, PDF included.</p>' +
+        '<p class="pw-per2">No subscription.' + (per ? " That\u2019s $" + per + " a chapter." : "") + "</p>" +
+        '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest \u00B7 $" + P.price, "btn--block") + "</div>" +
+        (SHELF ? '<p class="pw-alt">or ' + PAY.buyLink("all-readings", "get all " + SHELF.count + " comics for $" + SHELF.price + ", one time", "pw-link") + "</p>" : "") +
         '<p class="pw-tiny">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
     }
     function wirePaywall() {}
@@ -496,7 +505,7 @@
         var lock = document.createElement("section"); lock.className = "lock-list rise";
         // teaser UX 2026-10-21: full chapter titles (they tease), each with its own blurred scene thumbnail and a lock; no half-word blur
         lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") +
-          '<div class="lock-head"><p class="kicker">Locked \u00B7 ' + rest.length + ' more chapters</p><h3 class="lock-h">Still to come for you, ' + esc(name || s.name) + '</h3></div><ol class="lock-ol lock-ol--v2">' + rest.map(function (c, i) {
+          '<div class="lock-head"><p class="kicker">Locked \u00B7 ' + rest.length + ' more chapters about you</p><h3 class="lock-h">The rest of your comic, ' + esc(name || s.nick) + '</h3></div><ol class="lock-ol lock-ol--v2">' + rest.map(function (c, i) {
           var sc = sceneFor(c.id, R), th = sc ? sc.src.replace("/img/scenes/", "/img/scenes-t/") : "";
           return '<li><span class="lk-th"' + (th ? ' style="background-image:url(' + th + ')"' : "") + '><i>' + (i + 3) + '</i></span><span class="lk-tx"><b>' + esc(lockTitle(c, R, s, them)) +
             '</b><small>' + esc(lockKicker(c, s, them)) + '</small></span><svg class="lk-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></li>';
@@ -538,8 +547,8 @@
     function stickyPaywall() {
       var pw = out.querySelector(".paywall"), sb = $("stickyBuy"); if (!sb || !pw) return;
       var btn = sb.querySelector("[data-buy]"), sp = sb.querySelector("p");
-      if (btn) btn.textContent = "Continue · $" + P.price;
-      if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + '</strong><span class="sb-price">$' + P.price + "</span> · all " + (out.querySelectorAll(".lock-ol li").length + 2) + " chapters";
+      if (btn) btn.textContent = "Read the rest · $" + P.price;
+      if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong><span class=\"sb-n\">" + (out.querySelectorAll(".lock-ol li").length + 2) + " chapters, one time</span>";
       // hide the bar while the paywall's own button is on screen, so there are never two buy buttons at once
       var area = pw.querySelector(".pw-btn") || pw;
       if ("IntersectionObserver" in window) {
@@ -594,7 +603,7 @@
       BY.track("exit-shown-" + P.slug, "Leave sheet shown (" + via + "): " + P.slug);
       var sh = document.createElement("div"); sh.className = "exit-sheet no-print"; sh.setAttribute("role", "dialog"); sh.setAttribute("aria-labelledby", "exH");
       sh.innerHTML = '<div class="exit-sheet__in"><button type="button" class="exit-x" data-x aria-label="Close">\u00D7</button>' +
-        '<div class="say say--bom"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="44" height="44"></span><p class="bubble" id="exH"><b>Bom</b>Not now? I\u2019ll email you your first 2 chapters.</p></div>' +
+        '<div class="say say--bom"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="44" height="44"></span><p class="bubble" id="exH"><b>Bom</b>Not now? I\u2019ll email you the 2 chapters you just read, so you can finish later.</p></div>' +
         '<form class="form-stack" novalidate><label><span class="sr">Email address</span><input class="input" type="email" name="em" inputmode="email" autocomplete="email" placeholder="you@email.com"></label>' +
         '<label class="check"><input type="checkbox" name="ds"> <span>Also send me Yeon\'s Daily Soul, one line every morning. Free, 18+.</span></label>' +
         '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">Email them to me</button>' +

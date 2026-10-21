@@ -920,3 +920,61 @@ body:has(.paywall.is-pending) .sticky-buy { display: none !important; }
 .pw-sub { font-size: 13px; line-height: 1.4; color: var(--mute); }
 .paywall.is-pending .pw-price2 { display: none !important; }
 .sticky-buy { background: #0E0F1A; }
+
+/* ---------- clarity pass 2026-10-21: home hero says what it is, wizard type reveal, plain paywall ---------- */
+.hero2 { padding: 10px 0 18px; }
+.h2-panel { position: relative; margin: 0 0 14px; border-radius: 6px; overflow: hidden; border: 2px solid #0B0C14; box-shadow: 0 0 0 1px var(--hair), 0 14px 34px rgba(0,0,0,.5); aspect-ratio: 16 / 10; background: #151729; }
+.h2-panel img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; }
+.h2-say { position: absolute; z-index: 2; margin: 0; max-width: 52%; padding: 6px 10px 7px; border-radius: 14px; border: 2px solid #16161F; font: 400 13.5px/1.32 var(--serif); color: #16161F; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+.h2-say b { display: block; font: 700 9.5px/1.2 var(--sans); letter-spacing: .16em; text-transform: uppercase; margin-bottom: 1px; }
+.h2-say::after { content: ""; position: absolute; width: 11px; height: 11px; border: 2px solid #16161F; border-top: 0; border-left: 0; background: inherit; }
+.h2-say--bom { left: 8px; top: 8px; background: #FBF7EE; max-width: 44%; }
+.h2-say--bom b { color: #8A6A2E; }
+.h2-say--bom::after { bottom: -7px; right: 22px; transform: rotate(45deg); }
+.h2-say--yeon { right: 8px; bottom: 8px; background: #F6DCCF; }
+.h2-say--yeon b { color: #9C4A36; }
+.h2-say--yeon::after { top: -7px; left: 26px; transform: rotate(-135deg); }
+.hero2 h1 { font-size: clamp(27px, 7.4vw, 46px); line-height: 1.16; margin: 0 0 8px; text-wrap: balance; }
+.hero2 h1 em { font-style: normal; color: var(--gold2); }
+.h2-sub { margin: 0 0 14px; color: var(--mute); font-size: 15.5px; line-height: 1.45; }
+.h2-go { margin: 0 0 12px; }
+.how { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.how li { display: flex; align-items: center; gap: 6px; font-size: 12.5px; line-height: 1.25; color: var(--moon); }
+.how b { flex: 0 0 auto; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--gold); color: var(--gold2); font: 700 12px/1 var(--sans); }
+.start { padding: 22px 0 10px; scroll-margin-top: 64px; }
+.start h2 { font-size: 26px; margin: 4px 0 14px; }
+.start + #readings { padding-top: 18px; }
+@media (min-width: 900px) {
+  .hero2 .wrap { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0 40px; align-items: center; }
+  .h2-panel { grid-row: 1 / span 4; margin: 0; }
+  .start .chooser { max-width: 640px; }
+}
+/* wizard: one-line hint under each question */
+.wiz__hint { margin: -6px 0 14px; font-size: 14px; line-height: 1.4; color: var(--mute); }
+/* wizard: type reveal (replaces the hanja pillars screen) */
+.tr-pic { position: relative; margin: 0 0 14px; border-radius: 10px; overflow: hidden; border: 1px solid var(--hair); aspect-ratio: 16 / 10; background: #151729; }
+.tr-pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.tr-pic figcaption { position: absolute; left: 10px; bottom: 10px; padding: 4px 10px; border-radius: 999px; background: rgba(14,15,26,.82); color: var(--moon); font-size: 12px; }
+.tr-h { font-size: 30px; line-height: 1.15; margin: 4px 0 6px; }
+.tr-h em { font-style: normal; color: var(--gold2); }
+.tr-what { margin: 0 0 8px; font-size: 14.5px; line-height: 1.45; color: var(--mute); }
+.tr-what b { color: var(--moon); font-weight: 600; }
+.tr-tag { margin: 0 0 10px; font: 400 17px/1.45 var(--serif); color: var(--moon); }
+.tr-traits { justify-content: flex-start; margin: 0 0 12px; }
+.tr-them { margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--hair); border-radius: 10px; font-size: 14.5px; line-height: 1.4; color: var(--mute); }
+.tr-them b { color: var(--moon); font-weight: 600; }
+.tr-chart { margin: 0 0 14px; }
+.tr-chart summary { justify-content: flex-start; }
+.tr-chart .pillars { margin: 4px 0 10px; }
+/* teaser: what's below */
+.tz-next { margin: 14px auto 0; font-size: 14px; color: var(--moon); }
+.tz-next::after { content: " \2193"; color: var(--gold2); }
+/* paywall: one plain sentence */
+.pw-what { margin: 0 0 4px; font: 600 18px/1.4 var(--serif); color: var(--moon); text-align: center; text-wrap: balance; }
+.pw-what b { color: var(--gold2); }
+.pw-per2 { margin: 0 0 14px; font-size: 13px; color: var(--mute); text-align: center; }
+.wiz-load__k { margin: 0 0 4px; font: 600 12px/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.wiz-load__dm2 { margin: 0 0 18px; font: 700 34px/1.15 var(--serif); color: var(--gold2); animation: breathe 2.4s ease-in-out infinite; }
+.tr-pic { aspect-ratio: 4 / 3; }
+.tr-pic img { object-position: 50% 62%; }
+.sb-n { display: block; white-space: nowrap; font-size: 13px; }
