@@ -553,3 +553,32 @@ a.gl:hover { color: var(--gold2); }
 .bundle-item h3 { font-size: 18px; margin: 0 0 4px; }
 .bundle-item p { margin: 0 0 4px; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .bundle-item a { transition: none; } .bundle-item a:hover { transform: none; } }
+
+/* ---------- funnel 2026-10-21: next step, paywall, topic landings, known birthday ---------- */
+.next-card { display: grid; grid-template-columns: 38% 1fr; gap: 0; padding: 0; overflow: hidden; text-decoration: none; color: var(--moon); border: 1px solid var(--gold); }
+.next-card img { width: 100%; height: 100%; object-fit: cover; }
+.next-card__b { padding: 18px 16px; display: flex; flex-direction: column; gap: 8px; }
+.next-card h2 { font-size: 22px; margin: 0; }
+.next-card .bubble-line { font-size: 14px; color: var(--mute); margin: 0; }
+.next-card .bubble-line b { color: var(--gold2); }
+.next-card .note { margin: 0; }
+.next-card:hover { color: var(--moon); border-color: var(--gold2); }
+@media (max-width: 420px) { .next-card { grid-template-columns: 1fr; } .next-card img { max-height: 220px; object-position: 50% 25%; } }
+.more-h { margin: 34px 0 10px; font-size: 18px; color: var(--mute); }
+.shelf--more { grid-auto-columns: 56%; }
+.shelf--more .pcard p { display: none; }
+@media (min-width: 760px) { .shelf--more { grid-template-columns: repeat(4, 1fr); } }
+.paywall { border-color: var(--gold); }
+.paywall h3 { margin: 4px 0 6px; font-size: 24px; }
+.pw-price { font: 700 26px/1.2 var(--sans); color: var(--gold2); margin: 6px 0 8px; }
+.pw-price s, .price-row s { color: var(--faint, #8a8597); font-weight: 400; font-size: .7em; margin-right: 6px; }
+.pw-promise { color: var(--mute); margin: 10px 0 0; }
+.pay-status { margin: 10px 0 0; }
+.pay-fallback { margin: 14px 0 0; }
+.pay-key { max-width: 420px; margin: 8px auto 0; text-align: left; }
+.upsell { margin: 0 auto 22px; max-width: 560px; border-color: var(--gold); }
+.thanks { margin-bottom: 14px; }
+.bknown { margin: 0 0 6px; font-size: 15px; color: var(--mute); }
+.bknown b { color: var(--moon); }
+.topic__cover { width: 180px; border-radius: 14px; margin: 0 auto 16px; box-shadow: 0 14px 30px rgba(0, 0, 0, .45); }
+.topic-form { max-width: 460px; margin: 0 auto; text-align: left; }

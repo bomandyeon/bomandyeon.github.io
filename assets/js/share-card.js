@@ -72,8 +72,8 @@
         if (I.counts[i] > 0) { var w = Math.max(22, 520 * I.counts[i] / max); round(ctx, 330, y, w, 22, 11); ctx.fillStyle = COL[n]; ctx.fill(); }
         ctx.textAlign = "right"; ctx.fillStyle = "rgba(237,230,214,.8)"; ctx.fillText(I.counts[i].toFixed(1), 930, y + 22);
       });
-      // code
-      center(ctx, I.code, 1758, "700 46px " + SANS, GOLD);
+      // (no reading code on anything public)
+      center(ctx, "What's your soul?", 1740, "italic 600 40px " + SERIF, GOLD);
       // avatars + url
       [[bom, 90], [yeon, W - 186]].forEach(function (a) {
         if (!a[0]) return;
@@ -97,18 +97,18 @@
     sheet.addEventListener("click", function (e) { if (e.target === sheet || e.target.closest("[data-close]")) close(); });
     BY.drawStory(I).then(function (cv) {
       cv.toBlob(function (blob) {
-        var url = URL.createObjectURL(blob), fname = "bom-and-yeon-" + I.code.replace(/[^A-Za-z0-9-]/g, "").toLowerCase() + ".png";
+        var url = URL.createObjectURL(blob), fname = "bom-and-yeon-" + String(I.dmName || "reading").replace(/[^A-Za-z0-9]+/g, "-").toLowerCase() + ".png";
         var file = null; try { file = new File([blob], fname, { type: "image/png" }); } catch (x) { file = null; }
         var canShare = file && navigator.canShare && navigator.canShare({ files: [file] });
         var box = sheet.querySelector(".story-box");
-        box.innerHTML = '<img src="' + url + '" alt="Your Bom and Yeon story card: ' + I.dmName + ", " + I.code + '" width="1080" height="1920">' +
+        box.innerHTML = '<img src="' + url + '" alt="Your Bom and Yeon story card: ' + I.dmName + ", " + BY.esc(I.title || "") + '" width="1080" height="1920">' +
           '<p class="muted small center">1080 × 1920, sized for Instagram stories. On a phone you can also press and hold the image to save it.</p>' +
           '<div class="actions">' + (canShare ? '<button class="btn" type="button" data-sh>Share</button>' : "") +
           '<a class="btn' + (canShare ? " btn--ghost" : "") + '" href="' + url + '" download="' + fname + '">Download image</a><button class="btn btn--ghost" type="button" data-close>Close</button></div>';
         var dl = box.querySelector("a[download]");
         if (dl && BY.track) dl.addEventListener("click", function () { BY.track("story-download", "Story image downloaded"); });
         var sh = box.querySelector("[data-sh]");
-        if (sh) sh.addEventListener("click", function () { navigator.share({ files: [file], title: "Bom & Yeon", text: "My reading code: " + I.code + " bomandyeon.com" }).catch(function () {}); });
+        if (sh) sh.addEventListener("click", function () { navigator.share({ files: [file], title: "Bom & Yeon", text: "My Bom and Yeon reading: bomandyeon.com" }).catch(function () {}); });
       }, "image/png");
     });
   };

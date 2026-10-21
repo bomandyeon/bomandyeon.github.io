@@ -24,7 +24,7 @@
 <link rel="preload" href="/assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/gowun-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/css/fonts.css?v=6fb4c80a">
-<link rel="stylesheet" href="/assets/css/site.css?v=89cec24a">
+<link rel="stylesheet" href="/assets/css/site.css?v=611f31e6">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What's in All Readings?","acceptedAnswer":{"@type":"Answer","text":"All 9 Bom and Yeon readings: Will Your Ex Come Back?, The Situationship Reading, Brutally Honest: Yeon's Reading, What Kind of Lover Are You?, Your Glow-Up Aura, The Couple Reading, Your 2027, Month by Month, Your Work Style, Your K-pop Position. Each one is personal to your birthday, and the two-person readings take a second birthday."}},{"@type":"Question","name":"Do I have to read them all at once?","acceptedAnswer":{"@type":"Answer","text":"No. Open any reading whenever you like. Each has its own page, preview and reading link, and your birthday is remembered in this browser so you don't have to type it again."}},{"@type":"Question","name":"Is it really free right now?","acceptedAnswer":{"@type":"Answer","text":"Yes. During the founding period every reading opens free on the site, no checkout, no card, no email. The bundle price applies once paid readings start."}}]},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://bomandyeon.com/"},{"@type":"ListItem","position":2,"name":"All Readings","item":"https://bomandyeon.com/readings/all-readings/"}]}]}</script>
 </head>
 <body>
@@ -51,6 +51,7 @@
     <p class="lede">Every reading Bom and Yeon have written, from your love style to your 2027, your work style and your K-pop position. One birthday, 9 readings.</p>
     <div class="price-row"><strong>$29.99</strong><span class="muted small">9 readings, $96.91 if bought one by one</span></div>
     <div id="buyTop"><a class="btn" href="#list">Pick a reading · free</a></div>
+    <div id="bundlePay" data-price="29.99" hidden></div>
     <p class="gift"><b>Founding reader gift</b>Right now every reading opens free for our first readers. No checkout, no card, no email.</p>
    </div>
   </div>
@@ -95,9 +96,9 @@
  </div>
 </footer>
 
-<script src="/assets/js/site.js?v=829fbb2e"></script>
+<script src="/assets/js/site.js?v=b6e40b12"></script>
 <script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-bundle]');if(a&&window.BY&&BY.track)BY.track('bundle-open-'+a.getAttribute('data-bundle'),'Bundle: opened '+a.getAttribute('data-bundle'));});if(window.BY&&BY.track)BY.track('bundle-view','Bundle page viewed');</script>
-
+<script src="/assets/js/pay.js?v=d4cc3ebc"></script>
 <script>if(/^(localhost|127\.|0\.0\.0\.0$|\[::1\]$)|\.local$/.test(location.hostname)||location.protocol==="file:")window.goatcounter={no_onload:true,no_events:true};</script>
 <script data-goatcounter="https://bomandyeon.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
