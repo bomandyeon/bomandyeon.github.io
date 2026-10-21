@@ -54,6 +54,7 @@
       '<p class="small muted" style="margin-top:12px"><button type="button" class="linkbtn small" id="charmShare">Save as image</button>' +
       (pk.hasHour ? "" : " · No birth time, so three pillars checked.") + "</p></div>";
     $("charmOut").hidden = false;
+    if (BY.watch) BY.watch(res);
     BY.track("charm-" + key, "Peach blossom check: " + key);
     res.querySelector("[data-charm-cta]").addEventListener("click", function () { BY.track("charm-cta-lover", "Charm check to lover reading"); });
     $("charmShare").addEventListener("click", function () {
