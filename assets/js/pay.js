@@ -115,7 +115,7 @@
     /* call once per page per slug: resumes a pending checkout and runs onPaid(slug) when it goes through */
     watch: function (slug, onPaid) { handlers[slug] = onPaid; poll(slug); },
     statusEl: function (slug) { return '<p class="muted small pay-status" data-paystatus="' + slug + '" role="status" aria-live="polite" hidden></p>'; },
-    guarantee: "Free redo or refund within 14 days.",
+    guarantee: "Free redo or refund within 30 days.",
     methods: "Card, Apple Pay or PayPal."
   };
 

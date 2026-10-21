@@ -251,7 +251,7 @@
       var btn = sb.querySelector("[data-buy]"), sp = sb.querySelector("p");
       if (!pw) return;
       if (btn) btn.textContent = "Continue · $" + P.price;
-      if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong><s>$" + PAY.anchor(P.price) + "</s> $" + P.price + " · 14-day refund";
+      if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong><s>$" + PAY.anchor(P.price) + "</s> $" + P.price + " · 30-day refund";
       // hide the bar while the paywall's own button is on screen, so there are never two buy buttons at once
       var pb = pw.querySelector("[data-pay]");
       if (pb && "IntersectionObserver" in window) new IntersectionObserver(function (ents) { ents.forEach(function (en) { sb.classList.toggle("is-hidden", en.isIntersecting); }); }).observe(pb);
