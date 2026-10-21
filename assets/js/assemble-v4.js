@@ -16,6 +16,7 @@
   var SLUGS = ["gap-wood", "eul-wood", "byeong-fire", "jeong-fire", "mu-earth", "gi-earth", "gyeong-metal", "sin-metal", "im-water", "gye-water"];
   var NAMES = ["Gap", "Eul", "Byeong", "Jeong", "Mu", "Gi", "Gyeong", "Sin", "Im", "Gye"];
   var HANJA = "甲乙丙丁戊己庚辛壬癸";
+  var NICKS = ["The Tall Pine", "The Climbing Flower", "The Sun", "The Candle", "The Mountain", "The Garden Field", "The Sword", "The Jewel", "The Ocean", "The Rain"];
   var REL = ["peer", "output", "wealth", "power", "resource"];
   var BRANCH_OF = { spring: "辰", summer: "未", autumn: "戌", winter: "丑" };
   var SEASON_HZ = { spring: "春", summer: "夏", autumn: "秋", winter: "冬" };
@@ -60,7 +61,7 @@
     var map = { dm: NAMES[R.dayMaster] + " " + EL[R.dayMasterEl], dm_short: NAMES[R.dayMaster], dm_el: EL[R.dayMasterEl],
       heavy_el: k.heavyEl == null ? "" : EL[k.heavyEl], press_el: k.pressEl == null ? "" : EL[k.pressEl],
       miss_el: k.missEl == null ? "" : EL[k.missEl], helper_el: EL[k.helperEl], second_el: k.secondEl == null ? "" : EL[k.secondEl],
-      easy_el: EL[k.easyEl], season: R.season, dm_hanja: HANJA.charAt(R.dayMaster), slug: s,
+      easy_el: EL[k.easyEl], season: R.season, nick: NICKS[R.dayMaster], nick_word: NICKS[R.dayMaster].split(" ").slice(-1)[0], dm_hanja: HANJA.charAt(R.dayMaster), slug: s,
       day_animal: k.dayBranch == null ? "" : ANIMALS[k.dayBranch], day_branch: k.dayBranch == null ? "" : BRANCH_HZ.charAt(k.dayBranch) };
     if (R.partner && R.partner.dayMaster != null) { map.them = NAMES[R.partner.dayMaster] + " " + EL[R.partner.dayMaster >> 1]; map.them_short = NAMES[R.partner.dayMaster]; map.them_el = EL[R.partner.dayMaster >> 1]; }
     var T = TERMS && TERMS[s]; if (T) for (var tk in T) if (T.hasOwnProperty(tk)) map[tk] = T[tk];
@@ -136,6 +137,16 @@
   var MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var MON3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   function P(p, nar) { if (!p) return null; var o = { speaker: p.speaker, text: CUR ? CUR(p.text) : p.text }; if (nar) o.nar = nar; return o; }
+  // copy rewrite 2026-10-21: comic rhythm. Reorder a chapter's panels so Bom and Yeon alternate whenever the mix allows (stable otherwise).
+  function alternate(list) {
+    var rest = list.slice(), out = [];
+    while (rest.length) {
+      var last = out.length ? out[out.length - 1].speaker : null, i = 0;
+      while (i < rest.length && rest[i].speaker === last) i++;
+      out.push(rest.splice(i < rest.length ? i : 0, 1)[0]);
+    }
+    return out;
+  }
   function join(parts) { return parts.filter(function (x) { return x && String(x).trim(); }).join("\n\n"); }
 
   function assemble(R, V, opts) {
@@ -145,20 +156,40 @@
     var F = function (t) { return fill(t, R, k); }; CUR = F;
     var base = V.base[dm], bp = V.base_panels[dm] || [], used = 0, out = [];
     function nextBase() { return used < bp.length ? P(bp[used++]) : null; }
+    // answer echo (copy rewrite 2026-10-21): plan c.echo = [qid] -> V.echo[qid][answer] panel ("You said ..."); "mood" = the wizard mood answer
+    function echoPanels(c, ch) {
+      (c.echo || []).forEach(function (q) {
+        var E = (V.echo || {})[q]; if (!E) return;
+        var Q = (V.intake || []).filter(function (z) { return z.id === q; })[0], a = answers[q] || (Q ? Q.skip_value : "unsaid");
+        var x = E[a] || E[Q ? Q.skip_value : "unsaid"] || E.unsaid; if (x) ch.panels.push(P(x));
+      });
+    }
     var them = R.partner ? SLUGS[R.partner.dayMaster] : null;
 
     V.plan.forEach(function (c) {
       var ch = { id: c.id, kicker: c.kicker || "", title: c.title || "", text: "", panels: [] };
       var take = c.base_panels || 0;
       for (var i = 0; i < take; i++) { var bpX = nextBase(); if (bpX) { if (used === 1) bpX.nar = HANJA.charAt(R.dayMaster) + " · " + dmName + "."; ch.panels.push(bpX); } }
-      if (c.type === "season") {
+      if (c.type === "season" && V.open && V.open[dm]) { // copy rewrite 2026-10-21: plain-English opener, hook title, answer echo
+        var s = V.season[dm][k.season], O = V.open[dm];
+        if (ch.panels[0]) ch.panels[0].nar = HANJA.charAt(R.dayMaster) + " \u00B7 " + NICKS[R.dayMaster] + ".";
+        ch.kicker = NICKS[R.dayMaster] + " \u00B7 born in " + (R.seasonKey === "earth" || R.seasonEarth ? "late " : "") + R.season;
+        ch.title = F(O.title);
+        var ep = { panels: [] }; echoPanels(c, ep);
+        var lastSp = ch.panels.length ? ch.panels[ch.panels.length - 1].speaker : null, inl = [];
+        ep.panels.forEach(function (x) { if (x.speaker === lastSp) inl.push((x.speaker === "bom" ? "Bom: " : "Yeon: ") + x.text); else ch.panels.push(x); });
+        var oParas = F(O.text).split(/\n\s*\n/), oText = join([oParas[0]].concat(inl, oParas.slice(1)));
+        // the season line is a labelled caption + one bubble inside the text, so the chapter reads as alternating beats
+        var sLab = "### " + SEASON_HZ[R.season] + " \u00B7 Born in " + (R.seasonKey === "earth" || R.seasonEarth ? "late " : "") + R.season + "\n";
+        ch.text = join([oText, sLab + F(s.intro), (s.panel.speaker === "bom" ? "Bom: " : "Yeon: ") + F(s.panel.text), F(O.end)]);
+      } else if (c.type === "season") {
         var s = V.season[dm][k.season];
         ch.kicker = seasonLabel(R); ch.title = seasonTitle(R, dmName);
         ch.panels.push(P(s.panel, seasonNar(R)));
         ch.text = F(s.intro);
       } else if (c.type === "base") {
         var e = (V.ext[c.id] || {})[k.strength], adds = (c.add || []).map(function (id) { return V.extra[dm][id]; });
-        ch.text = join([base[c.id], e && F(e.text)].concat(adds.map(function (x) { return (x.heading ? "### " + F(x.heading) + "\n\n" : "") + F(x.text); })));
+        ch.text = join([F(base[c.id]), e && F(e.text)].concat(adds.map(function (x) { return (x.heading ? "### " + F(x.heading) + "\n\n" : "") + F(x.text); })));
         if (e && e.panel) ch.panels.push(P(e.panel));
         if (c.branch && V.day_branch && k.dayBranch != null) {
           var db = V.day_branch[BRANCH_SLUG[k.dayBranch]];
@@ -178,8 +209,8 @@
           if (!b) { a = Q.skip_value; b = S[a + "_" + k.strength] || S[a]; }
           txt.push(F(b.text)); if (b.panel) ch.panels.push(P(b.panel));
         });
-        ch.text = join([c.lead_base ? base[c.lead_base] : "", txt.join("\n\n")]);
-        if (c.with_ext) { var e2 = (V.ext[c.with_ext] || {})[k.strength]; if (e2) { ch.text = join([base[c.with_ext], F(e2.text), txt.join("\n\n")]); if (e2.panel) ch.panels.unshift(P(e2.panel)); } }
+        ch.text = join([c.lead_base ? F(base[c.lead_base]) : "", txt.join("\n\n")]);
+        if (c.with_ext) { var e2 = (V.ext[c.with_ext] || {})[k.strength]; if (e2) { ch.text = join([F(base[c.with_ext]), F(e2.text), txt.join("\n\n")]); if (e2.panel) ch.panels.unshift(P(e2.panel)); } }
       } else if (c.type === "balance") {
         var blocks = [];
         if (k.bridge) {
@@ -195,12 +226,12 @@
         blocks.push({ h: k.missEl == null ? "All five elements turn up" : "No " + EL[k.missEl] + " in the pillars we can see", t: F(M.text),
           note: k.missEl != null && !R.hasHour ? "Your birth hour would add two more characters, and " + EL[k.missEl] + " could be hiding there." : "" });
         ch.panels.push(P(M.panel, k.missEl == null ? "All five elements turn up." : "No " + EL[k.missEl] + " in the pillars we can see."));
-        ch.kicker = "Your element balance"; ch.title = c.title || "What you have plenty of, and what you lack";
+        ch.kicker = "Too much of one thing, none of another"; ch.title = c.title || "What you have plenty of, and what you lack";
         ch.blocks = blocks; ch.text = blocks.map(function (b) { return "### " + b.h + "\n\n" + b.t + (b.note ? "\n\n" + b.note : ""); }).join("\n\n");
       } else if (c.type === "strength") {
         var hr = V.helper ? V.helper.roles[k.helperRole] : null, he = V.helper ? V.helper.elements[EL[k.helperEl].toLowerCase()] : null;
-        ch.kicker = (R.dmStrength === "strong" ? "Strong chart" : "Weak chart") + " · " + R.strengthScore + " of " + R.strengthMax;
-        ch.title = R.dmStrength === "strong" ? "A strong chart: your blind spot is pushing" : "A weak chart: your blind spot is giving too much";
+        ch.kicker = (R.dmStrength === "strong" ? "Built strong" : "Built soft") + " \u00B7 " + R.strengthScore + " of " + R.strengthMax + " on your chart";
+        ch.title = (V.strength_titles || {})[R.dmStrength] || (R.dmStrength === "strong" ? "Your blind spot: you push" : "Your blind spot: you give too much");
         ch.text = join([strengthBridge(R), F(V.strength[dm][k.strength]), hr && "### " + F(hr.title), hr && F(hr.text), he && F(he.text)]);
         var sp = (V.strength_panels || {})[dm]; if (sp && sp[k.strength]) ch.panels.push(P(sp[k.strength]));
         if (hr) ch.panels.push(P(hr.panel)); if (he && he.panel) ch.panels.push(P(he.panel));
@@ -212,7 +243,7 @@
         ch.panels.push(P(pr.panel)); ch.panels.push(P(L.panel));
       } else if (c.type === "mix") { // new products: optional lead base chapter (+ext) then keyed parts
         var mt = [];
-        if (c.lead) { var le = (V.ext[c.lead] || {})[k.strength]; mt.push(base[c.lead]); if (le) { mt.push(F(le.text)); if (le.panel) ch.panels.push(P(le.panel)); } }
+        if (c.lead) { var le = (V.ext[c.lead] || {})[k.strength]; mt.push(F(base[c.lead])); if (le) { mt.push(F(le.text)); if (le.panel) ch.panels.push(P(le.panel)); } }
         ch.text = join(mt);
       } else if (c.type === "months") { // 2027: saju months of the Fire Goat year (R.months2027 from the engine)
         var MS = R.months2027 || [], MV = V.months, mt2 = [], combos = 0, best = 0, hard = 0;
@@ -251,7 +282,11 @@
         });
         ch.text = join(mp);
       }
-      ch.panels = ch.panels.filter(Boolean);
+      if (c.type !== "season" && c.echo) { var tmp = { panels: [] }; echoPanels(c, tmp); ch.panels.splice.apply(ch.panels, [Math.min(1, ch.panels.length), 0].concat(tmp.panels)); }
+      var ci = out.length; // copy rewrite 2026-10-21: the paywall cliffhanger is the real opening line of the first locked chapter
+      if (V.cliff && V.cliff[dm] && ci === 2) ch.text = join([F(V.cliff[dm]).replace(" | ", " "), ch.text]);
+      if (V.sample && V.sample[dm] && V.sample[dm].id === c.id) ch.panels.unshift(P(V.sample[dm]));
+      ch.panels = alternate(ch.panels.filter(Boolean));
       out.push(ch);
     });
     CUR = null; TERMS = null;

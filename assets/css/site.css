@@ -978,3 +978,13 @@ body:has(.paywall.is-pending) .sticky-buy { display: none !important; }
 .tr-pic { aspect-ratio: 4 / 3; }
 .tr-pic img { object-position: 50% 62%; }
 .sb-n { display: block; white-space: nowrap; font-size: 13px; }
+/* copy rewrite 2026-10-21: dialogue lines inside chapter text (PDF + plain chapters) */
+.tx-say { border-left: 3px solid var(--gold); padding: 2px 0 2px 10px; }
+.tx-say b { font: 700 12px/1.2 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); margin-right: 4px; }
+.tx-say--yeon { border-left-color: #C46A52; }
+.tx-say--yeon b { color: #C46A52; }
+.pp-text .tx-say { background: #f6f0e3; border: 1px solid #e8dcc2; border-left: 3px solid var(--pp-gold2); border-radius: 2mm; padding: 2mm 3mm; font-size: 13.5px; }
+.pp-text .tx-say--yeon { background: #eef0f5; border-color: #d9dde8; border-left-color: #4F5E86; }
+.pp-text .tx-say b { color: var(--pp-gold); }
+.pp-text .tx-say--yeon b { color: #4F5E86; }
+.cliff__t b { font: 700 12px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: #E39A82; margin-right: 4px; }
