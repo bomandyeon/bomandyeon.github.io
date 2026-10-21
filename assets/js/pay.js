@@ -31,7 +31,9 @@
   }
   function owns(slug) { return !!(BY.load("lic_" + slug) || BY.load("lic_" + BUNDLE)); }
   function anchor(price) { return (Math.round(price * 1.54) - 0.01).toFixed(2); }
-  function checkoutUrl(slug) { return SHOP + slug + "?wanted=true&token=" + token(slug); }
+  // ?code=XYZ on any page carries a Gumroad discount code into checkout (Gumroad's checkout has no code field)
+  var OFFER = (function () { try { var c = new URLSearchParams(location.search).get("code"); if (c && /^[A-Za-z0-9_-]{2,40}$/.test(c)) sessionStorage.setItem("by_offer", c); return sessionStorage.getItem("by_offer") || ""; } catch (e) { return ""; } })();
+  function checkoutUrl(slug) { return SHOP + slug + "?wanted=true&token=" + token(slug) + (OFFER ? "&offer_code=" + encodeURIComponent(OFFER) : ""); }
   function loadGumroad() { /* kept as a no-op for callers; see header */ }
   /* our own gold button, no Gumroad styling: checkout opens in a new tab, this tab keeps polling */
   function buyLink(slug, label, cls) {
