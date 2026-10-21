@@ -205,19 +205,22 @@
     return (base || "daily_soul") + (src ? ";src=" + src : "") + (vs ? ";vs=" + vs : "");
   };
 
-  /* ---------- Kit: Daily Soul (form 10071361) ---------- */
-  var KIT_URL = "https://app.kit.com/forms/10071361/subscriptions";
+  /* ---------- Kit: Daily Soul (form 10071361) + "send my reading" (form 10077528) ----------
+     Two forms on purpose: Daily Soul subscribers confirm by email (double opt-in) and get the daily broadcast; the reading-copy
+     form has no confirmation email and its subscribers never get the Daily Soul (the daily broadcasts only go to the Kit tag
+     "daily-soul", which the Daily Soul worker gives to confirmed Daily Soul form subscribers). */
+  var KIT_FORMS = { daily: 10071361, reading: 10077528 };
   BY.EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  BY.subscribe = function (email, source) {
+  // resolves {ok:true} | {ok:true, check:url} (Kit's bot guard wants one click) | {ok:false}. Never opens a popup.
+  BY.kitPost = function (formId, email, fields) {
     var b = BY.load("birth"), dm = "";
     try { if (b && window.SajuEngine) dm = window.BY_DATA.SOULS[BY.analyze(b).dayMaster].name; } catch (e) { dm = ""; }
     var params = new URLSearchParams();
     params.append("email_address", email);
     params.append("fields[day_master]", dm);
     params.append("fields[birth_date]", BY.iso(b));
-    params.append("fields[source]", BY.sourceTag(source));
-    // resolves {ok:true} | {ok:true, check:url} (Kit's bot guard wants one click) | {ok:false}. Never opens a popup.
-    return fetch(KIT_URL, { method: "POST", headers: { Accept: "application/json" }, body: params })
+    Object.keys(fields || {}).forEach(function (k) { if (fields[k] != null) params.append("fields[" + k + "]", String(fields[k]).slice(0, 500)); });
+    return fetch("https://app.kit.com/forms/" + formId + "/subscriptions", { method: "POST", headers: { Accept: "application/json" }, body: params })
       .then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }); })
       .then(function (x) {
         var j = x.j || {};
@@ -225,6 +228,13 @@
         if (j.status === "quarantined" && j.url && /^https:\/\/app\.kit\.com\//.test(j.url)) return { ok: true, check: j.url };
         return { ok: false };
       }).catch(function () { return { ok: false }; });
+  };
+  BY.subscribe = function (email, source) { return BY.kitPost(KIT_FORMS.daily, email, { source: BY.sourceTag(source) }); };
+  /* teaser email step: source "teaser-<slug>;product=<slug>;daily=yes|no" (+ ;src= ;vs=), plus product and the reading link.
+     Daily Soul box ticked -> the Daily Soul form (its own confirm email); not ticked -> the reading-copy form only. */
+  BY.captureReading = function (email, slug, daily, url) {
+    var src = BY.sourceTag("teaser-" + slug) + ";product=" + slug + ";daily=" + (daily ? "yes" : "no");
+    return BY.kitPost(daily ? KIT_FORMS.daily : KIT_FORMS.reading, email, { source: src, product: slug, reading_url: url || "" });
   };
   BY.MIN_AGE = 18; // site terms (18+); this also covers the GDPR Art. 8 under-16 limit
   BY.ageOn = function (b, now) {
