@@ -168,81 +168,319 @@
   function strengthWord(R) { return R.dmStrength === "strong" ? "Strong chart" : "Weak chart"; }
 
   /* ======================= PRODUCT PAGE ======================= */
+  /* SajuTight-style funnel (2026-10-21): one question per screen with a step counter.
+     Situation taps (the reading's own intake questions, or one cover question) -> your birthday (pre-filled) -> their birthday
+     (where the reading uses it) -> birth time ("I don't know" is fine) -> your four pillars -> a short Bom/Yeon moment ->
+     optional "send my reading to me" email -> teaser: personal cover + first two chapters + the rest of the chapter titles,
+     personalised and locked -> paywall (this reading or the whole shelf). Everything entered is kept in this browser and
+     pre-fills every other reading. */
   function productPage() {
-    var form = $("pvForm"), out = $("pvOut"), dataP = null;
+    var wiz = $("pvWizard"), out = $("pvOut"), dataP = null;
+    var MOOD = P.mood || null, MOOD_KEY = "mood_" + P.slug, DONE_KEY = "wiz_" + P.slug;
+    var CH = P.chapters || [], SHELF = P.shelf || null;
+    var fromLink = !!qsDate("b");
     function data() { if (!dataP) dataP = fetch(P.dataUrl).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }); return dataP; }
-    fillForm(form);
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      if (!readForm(form, $("pvErr"))) return;
-      if (PAY && PAY.owns(P.slug)) { goRead(); return; }
-      renderPreview(true);
+    function smooth() { return BY.reduced ? "auto" : "smooth"; }
+
+    /* ---------- wizard ---------- */
+    var steps = [], at = 0, cur = {};
+    function buildSteps(skipDates) {
+      steps = [];
+      if (INTAKE.length) INTAKE.slice(0, 3).forEach(function (q) { steps.push({ k: "q", q: q }); });
+      else if (MOOD) steps.push({ k: "mood" });
+      if (!skipDates) { steps.push({ k: "you" }); if (PAIR) steps.push({ k: "them" }); }
+      steps.push({ k: "time" }); steps.push({ k: "pillars" });
+      if (!BY.load("email_given")) steps.push({ k: "email" });
+    }
+    function startWizard(skipDates) {
+      cur = Object.assign({}, answers || {}); buildSteps(skipDates); at = 0;
+      out.innerHTML = ""; wiz.hidden = false; step();
+      BY.trackOnce("wizard-start-" + P.slug, "Wizard started: " + P.slug);
+    }
+    function head(label) {
+      var n = steps.length, pct = Math.round((at + 1) / n * 100);
+      return '<div class="wiz__top"><p class="kicker">' + (steps[at].k === "email" ? "Last step" : "Step " + (at + 1) + " of " + n) + (label ? " · " + esc(label) : "") + "</p>" +
+        '<div class="wiz__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div></div>';
+    }
+    function nav(extra) {
+      return '<div class="wiz__nav">' + (at > 0 ? '<button type="button" class="linkbtn" data-w="back">Back</button>' : "<span></span>") + (extra || "<span></span>") + "</div>";
+    }
+    function opts(list, sel) {
+      return '<div class="wiz__opts">' + list.map(function (o) {
+        return '<button type="button" class="btn btn--ghost btn--block wiz__opt" data-v="' + esc(o.value) + '"' + (sel === o.value ? ' aria-pressed="true"' : "") + ">" + esc(o.label) + "</button>";
+      }).join("") + "</div>";
+    }
+    function dateRow(prefix, label) {
+      return '<div class="selects" role="group" aria-label="' + esc(label) + '">' + ["m", "d", "y"].map(function (k) {
+        var ph = { m: "Month", d: "Day", y: "Year" }[k];
+        return '<label><span class="sr">' + esc(label) + " " + ph.toLowerCase() + '</span><select name="' + prefix + k + '" data-kind="' + k + '"><option value="">' + ph + "</option></select></label>";
+      }).join("") + "</div>";
+    }
+    function step() {
+      var s = steps[at], h = "";
+      if (s.k === "q") {
+        var q = s.q;
+        h = head() + '<h2 class="wiz__q">' + esc(q.question) + "</h2>" + opts(q.options.filter(function (o) { return o.value !== q.skip_value; }), cur[q.id]) +
+          nav('<button type="button" class="linkbtn" data-v="' + esc(q.skip_value) + '">Skip</button>');
+      } else if (s.k === "mood") {
+        var m = BY.load(MOOD_KEY);
+        h = head() + '<h2 class="wiz__q">' + esc(MOOD.question) + "</h2>" +
+          opts(MOOD.options, m) + nav('<button type="button" class="linkbtn" data-v="">Skip</button>');
+      } else if (s.k === "you") {
+        var known = !!birth && !s.change;
+        h = head() + '<h2 class="wiz__q">' + (known ? "Still you?" : "When's your birthday?") + "</h2>" +
+          '<form class="form-stack wiz__form" novalidate>' +
+          (known ? '<p class="wiz__known"><b>' + esc(BY.prettyDate(birth)) + '</b> <button type="button" class="linkbtn" data-w="change">change</button></p>'
+                 : dateRow("b", "Your birthday")) +
+          '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">' + (known ? "Yes, that's me" : "Next") + "</button></form>" + nav();
+      } else if (s.k === "them") {
+        var req = PAIR === "required";
+        h = head() + '<h2 class="wiz__q">' + (req ? "And their birthday?" : "Know their birthday?") + "</h2>" +
+          '<p class="muted small">' + (req ? "Just the date." : "Optional. Adds a chapter on the two of you.") + "</p>" +
+          '<form class="form-stack wiz__form" novalidate>' + dateRow("t", "Their birthday") + '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">Next</button></form>' +
+          nav(req ? "" : '<button type="button" class="linkbtn" data-w="nothem">Skip, I don\'t know it</button>');
+      } else if (s.k === "time") {
+        h = head() + '<h2 class="wiz__q">Know your birth time?</h2>' +
+          '<button type="button" class="btn btn--block" data-w="notime">I don\'t know</button>' +
+          '<form class="form-stack wiz__form wiz__time" novalidate><p class="wiz__or"><span>or</span></p>' +
+          '<div class="selects selects--2" role="group" aria-label="Birth time"><label><span class="field-label">Birth time</span><select name="bh"><option value="">Pick an hour</option></select></label>' +
+          '<label><span class="field-label">Minute</span><select name="bmi"><option value="">:00</option></select></label></div>' +
+          '<details class="extras"><summary>Born in another country? <small>(optional)</small></summary><div class="extras__b">' +
+          '<label><span class="field-label">Country where you were born</span><input class="input" type="text" name="bzq" list="bzList-wz" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Where I am now"></label>' +
+          '<input type="hidden" name="bz" value=""><datalist id="bzList-wz"></datalist><p class="note" data-bzhint aria-live="polite"></p></div></details>' +
+          '<p class="err" role="alert"></p><button class="btn btn--ghost btn--block" type="submit">Use this time</button></form>' + nav();
+      } else if (s.k === "pillars") {
+        h = head() + pillarsHTML() + '<button type="button" class="btn btn--block" data-w="go">Write my reading</button>' + nav();
+      } else if (s.k === "email") {
+        h = head() + '<h2 class="wiz__q">Ready. Send my reading to me?</h2>' +
+          '<form class="form-stack wiz__form" novalidate><label><span class="sr">Email address</span><input class="input" type="email" name="em" inputmode="email" autocomplete="email" placeholder="you@email.com"></label>' +
+          '<label class="check"><input type="checkbox" name="ds"> <span>Also send me Yeon\'s Daily Soul, one line every morning. Free, 18+.</span></label>' +
+          '<p class="note">Sent via Kit, our email provider. Unsubscribe in one tap. <a href="/privacy/">Privacy</a></p>' +
+          '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">Send my reading to me</button></form>' +
+          '<p class="center"><button type="button" class="linkbtn" data-w="noemail">Skip</button></p>';
+      }
+      wiz.innerHTML = h;
+      BY.fillSelects(wiz);
+      var f = wiz.querySelector("form");
+      if (s.k === "you" && f) BY.setDate(f, "b", birth);
+      if (s.k === "them" && f) BY.setDate(f, "t", their);
+      if (s.k === "time" && f) BY.fillExtras(f);
+      if (s.k === "q" || s.k === "mood") { var b0 = wiz.querySelector('[aria-pressed="true"]') || wiz.querySelector(".wiz__opt"); if (b0 && at > 0) b0.focus({ preventScroll: true }); }
+      if (at > 0) { var r = wiz.getBoundingClientRect(); if (r.top < 0 || r.top > window.innerHeight * 0.4) wiz.scrollIntoView({ behavior: smooth(), block: "start" }); }
+    }
+    function next() { at++; if (at < steps.length) step(); else finish(); }
+    function finish() {
+      BY.store(DONE_KEY, 1);
+      loading(function () { wiz.hidden = true; wiz.innerHTML = ""; renderPreview(true); });
+    }
+    function saveAnswers() {
+      if (!INTAKE.length) return;
+      INTAKE.forEach(function (q) { if (!cur[q.id]) cur[q.id] = q.skip_value; });
+      answers = cleanAns(cur); BY.store(ANS_KEY, answers);
+    }
+    wiz.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b || b.type === "submit") return;
+      var s = steps[at], w = b.getAttribute("data-w");
+      if (w === "back") { at = Math.max(0, at - 1); step(); return; }
+      if (w === "change") { s.change = true; step(); return; }
+      if (w === "nothem") { their = null; BY.store(THEIR_KEY, null); next(); return; }
+      if (w === "notime") { var tf = wiz.querySelector("form"); tf.querySelector('[name="bh"]').value = ""; BY.readExtras(tf); next(); return; }
+      if (w === "go") {
+        if (steps[at + 1] && steps[at + 1].k === "email") { loading(function () { at++; step(); }); return; }
+        next(); return;
+      }
+      if (w === "noemail") { BY.track("email-skip-" + P.slug, "Teaser email skipped: " + P.slug); next(); return; }
+      if (b.hasAttribute("data-v")) {
+        var v = b.getAttribute("data-v");
+        if (s.k === "q") {
+          cur[s.q.id] = v;
+          var isLast = !steps[at + 1] || steps[at + 1].k !== "q";
+          if (isLast) { saveAnswers(); var nA = INTAKE.filter(function (q) { return answers && answers[q.id] !== q.skip_value; }).length;
+            BY.track((nA ? "intake-answered-" : "intake-skipped-") + P.slug, "Intake in the wizard (" + nA + " of " + INTAKE.length + "): " + P.slug); }
+        }
+        if (s.k === "mood") BY.store(MOOD_KEY, v || null);
+        next();
+      }
     });
+    wiz.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var f = e.target, s = steps[at], err = f.querySelector(".err");
+      if (s.k === "you") {
+        var b = s.change || !birth ? BY.readDate(f, "b") : birth;
+        if (b.error) { err.textContent = b.error; return; }
+        if (!birth || BY.iso(birth) !== BY.iso(b)) BY.store("btime", null); // a different birthday: the old birth time doesn't belong to it
+        birth = b; BY.store("birth", b); s.change = false;
+        next(); return;
+      }
+      if (s.k === "them") {
+        var t = BY.readDate(f, "t");
+        if (t.error) { err.textContent = t.error; return; }
+        their = t; BY.store(THEIR_KEY, t); next(); return;
+      }
+      if (s.k === "time") {
+        if (f.querySelector('[name="bh"]').value === "") { err.textContent = "Pick the hour, or tap \u201CI don't know\u201D above."; return; }
+        BY.readExtras(f); next(); return;
+      }
+      if (s.k === "email") {
+        var em = f.querySelector('[name="em"]'), v = em.value.trim(), ds = f.querySelector('[name="ds"]').checked;
+        if (!BY.EMAIL_RE.test(v)) { err.textContent = "That email doesn't look right. Check it, or skip this step."; em.focus(); return; }
+        if (ds && BY.ageOn(birth) < BY.MIN_AGE) ds = false;
+        BY.store("email_given", 1);
+        BY.track("email-teaser-" + P.slug, "Teaser email given: " + P.slug + (ds ? " + Daily Soul" : ""));
+        mailNote = { email: v, daily: ds, pending: true };
+        BY.captureReading(v, P.slug, ds, "https://bomandyeon.com" + readUrl()).then(function (res) {
+          mailNote.pending = false; mailNote.res = res; paintMailNote();
+          if (res.ok) BY.track(ds ? "kit-signup-teaser" : "kit-reading-copy", ds ? "Daily Soul signup from teaser" : "Reading copy email saved");
+        });
+        next(); return;
+      }
+    });
+
+    /* the four pillars screen */
+    function pillarsHTML() {
+      var R = analyze(), s = D.SOULS[R.dayMaster], pl = R.pillars, them = PAIR && R.partner ? D.SOULS[R.partner.dayMaster] : null;
+      var cols = [["Year", pl.year], ["Month", pl.month], ["Day", pl.day], ["Hour", pl.hour]];
+      var grid = cols.map(function (c) {
+        var p = c[1];
+        if (!p) return '<div class="pillar pillar--empty"><span class="pl-l">' + c[0] + '</span><span class="hz">?</span><span class="hz">?</span><span class="pl-e">No birth time</span></div>';
+        return '<div class="pillar' + (c[0] === "Day" ? " is-dm" : "") + '"><span class="pl-l">' + c[0] + '</span><span class="hz" style="color:' + D.EL_COLOR[p.stemEl] + '">' + p.stemHanja + "</span>" +
+          '<span class="hz" style="color:' + D.EL_COLOR[p.branchEl] + '">' + p.branchHanja + '</span><span class="pl-e">' + p.stemEl + "<br>" + p.branchEl + " · " + p.animal + "</span></div>";
+      }).join("");
+      return '<h2 class="wiz__q">Your four pillars</h2>' +
+        '<div class="pillars pillars--4 wiz-pillars" aria-label="Your four pillars">' + grid + "</div>" +
+        '<p class="center wiz-dm">Your Day Master: <span class="hz" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</span> <b>" + esc(s.name) + "</b>, " + esc(s.nick) + "</p>" +
+        (them ? '<p class="center muted small">Theirs: <span class="hz" style="color:' + D.EL_COLOR[them.el] + '">' + them.hanja + "</span> " + esc(them.name) + ", " + esc(them.nick) + "</p>" : "") +
+        "";
+    }
+    /* a few honest seconds: the chart is already worked out, Bom and Yeon just pick your chapters */
+    var LINES = [["bom", "Finding your season…"], ["yeon", "Counting your elements. You have a lot of one of them."], ["yeon", "Done. Brace yourself a little."]];
+    function loading(done) {
+      var i = 0, R = analyze(), s = D.SOULS[R.dayMaster];
+      wiz.innerHTML = '<div class="wiz-load" role="status" aria-live="polite"><p class="hz wiz-load__dm" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + '</p><div class="wiz-load__say"></div></div>';
+      var box = wiz.querySelector(".wiz-load__say"), ms = BY.reduced ? 300 : 650;
+      (function tick() {
+        if (i >= LINES.length) { done(); return; }
+        var l = LINES[i++], w = who(l[0]);
+        box.innerHTML = '<div class="say say--' + l[0] + '"><span class="av av--' + l[0] + '"><img src="/assets/img/av-' + l[0] + '.webp" alt="" width="44" height="44"></span><p class="bubble"><b>' + w + "</b>" + esc(l[1]) + "</p></div>";
+        setTimeout(tick, ms);
+      })();
+    }
+
+    /* ---------- teaser ---------- */
+    var mailNote = null;
+    function paintMailNote() {
+      var el = out.querySelector(".mail-note"); if (!el || !mailNote) return;
+      var m = mailNote, r = m.res;
+      if (m.pending) { el.innerHTML = '<p class="small muted">Saving ' + esc(m.email) + "…</p>"; return; }
+      if (r && r.ok && r.check) { el.innerHTML = '<p class="small">Our email provider wants one quick check that you\'re a person. <a href="' + esc(r.check) + '" target="_blank" rel="noopener">Do the check</a></p>'; return; }
+      if (r && r.ok) { el.innerHTML = '<p class="small ok">Saved: ' + esc(m.email) + "." + (m.daily ? " Tap the confirm link in your inbox to start the Daily Soul." : "") + "</p>"; return; }
+      el.innerHTML = '<p class="small err">That email didn\'t save. Your chapters are below either way.</p>';
+    }
+    function moodLine(R, s) {
+      var m = MOOD && BY.load(MOOD_KEY), o = m && MOOD.options.filter(function (x) { return x.value === m; })[0];
+      if (o) return { who: o.who || "yeon", text: o.line };
+      return { who: P.voice || "yeon", text: D.SPICY[R.dayMaster][P.spicy != null ? P.spicy : 4] };
+    }
+    function heavyLight(R) {
+      var c = R.counts, mx = 0, mn = 0;
+      c.forEach(function (v, i) { if (v > c[mx]) mx = i; if (v < c[mn]) mn = i; });
+      return { heavy: D.EL_NAMES[mx], light: D.EL_NAMES[mn], none: c[mn] === 0 };
+    }
+    function ansLabels() {
+      if (!INTAKE.length || !answers) return [];
+      return INTAKE.map(function (q) { var o = q.options.filter(function (x) { return x.value === answers[q.id]; })[0]; return answers[q.id] === q.skip_value || !o ? null : o.label; }).filter(Boolean);
+    }
+    function lockTitle(c, R, s, them) {
+      var t = planTitle(c), hl;
+      if (c.type === "strength") return (R.dmStrength === "strong" ? "Strong " : "Weak ") + s.name + ": your blind spot, and what steadies you";
+      if (c.type === "balance") { hl = heavyLight(R); return "Plenty of " + hl.heavy + ", " + (hl.none ? "no " : "not much ") + hl.light + ": what that does to you"; }
+      if (c.type === "pair") return them ? "You (" + s.name + ") and them (" + them.name + ")" : "You and them (add their birthday for this one)";
+      if (name && /^Your\s/.test(t)) t = name + "'s " + t.slice(5);
+      return t;
+    }
+    function lockKicker(c, s, them) {
+      if (c.type === "situation") { var a = ansLabels(); return a.length ? "Because you said: " + a.join(" · ") : "Written for not knowing"; }
+      return "Written for " + s.name + (them && c.type !== "pair" && PAIR ? " + " + them.name : "");
+    }
+    function coverHTML(R, s, them, title) {
+      var pl = R.pillars, ml = moodLine(R, s);
+      var cols = [["Year", pl.year], ["Month", pl.month], ["Day", pl.day]].concat(pl.hour ? [["Hour", pl.hour]] : []);
+      return '<header class="cover-card teaser-cover rise"><p class="kicker">' + esc(title) + "</p>" +
+        '<p class="cv-name">' + (name ? esc(name) : "Your reading") + "</p>" +
+        '<p class="hz cv-dm" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</p><h2>" + esc(s.name) + '</h2><p class="muted">' + esc(s.nick) +
+        (them ? ' · with <span class="hz" style="color:' + D.EL_COLOR[them.el] + '">' + them.hanja + "</span> " + esc(them.name) : "") + "</p>" +
+        '<div class="pillars' + (cols.length > 3 ? " pillars--4" : "") + '">' + cols.map(function (c) {
+          var p = c[1]; return '<div class="pillar' + (c[0] === "Day" ? " is-dm" : "") + '"><span class="pl-l">' + c[0] + '</span><span class="hz" style="color:' + D.EL_COLOR[p.stemEl] + '">' + p.stemHanja +
+            '</span><span class="hz" style="color:' + D.EL_COLOR[p.branchEl] + '">' + p.branchHanja + '</span><span class="pl-e">' + p.animal + "</span></div>";
+        }).join("") + "</div>" +
+        '<div class="say say--' + ml.who + '"><span class="av av--' + ml.who + '"><img src="/assets/img/av-' + ml.who + '.webp" alt="" width="44" height="44"></span><p class="bubble"><b>' + who(ml.who) + "</b>" + esc(ml.text) + "</p></div>" +
+        '<p class="small muted"><button type="button" class="linkbtn small" data-redo>Change my answers</button></p></header>';
+    }
+    function paywallHTML(restCount) {
+      if (!PAY) return "";
+      if (PAY.owns(P.slug)) return '<div class="chapter-lock rise"><a class="btn" href="' + esc(readUrl()) + '">Open my full reading</a></div>';
+      return '<div class="chapter-lock paywall rise" id="paywall"><h3>Keep reading</h3>' +
+        '<p class="pw-big"><s>$' + PAY.anchor(P.price) + "</s> $" + P.price + "</p>" +
+        '<div class="pw-btn">' + PAY.buyLink(P.slug, "Continue my comic", "btn--block") + "</div>" +
+        (SHELF ? '<p class="pw-alt">or ' + PAY.buyLink("all-readings", "all " + SHELF.count + " readings for $" + SHELF.price + " (save $" + SHELF.save + ")", "pw-link") + "</p>" : "") +
+        '<p class="pw-tiny">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
+    }
+    function wirePaywall() {}
     function renderPreview(scroll) {
-      var R = analyze(), s = D.SOULS[R.dayMaster];
+      var R = analyze(), s = D.SOULS[R.dayMaster], them = PAIR && R.partner ? D.SOULS[R.partner.dayMaster] : null;
       out.innerHTML = '<p class="center muted">Bom and Yeon are pulling your chapters…</p>';
       data().then(function (J) {
         var d = J.by_day_master[s.slug];
-        if (!d || !A4) { out.innerHTML = '<p class="err">This reading is still being written for ' + esc(s.name) + ". Try another one for now.</p>"; return; }
-        out.innerHTML = "";
-        var head = document.createElement("div");
-        head.className = "center rise";
-        head.innerHTML = '<p class="kicker">' + (name ? esc(name) + "'s preview" : "Your preview") + '</p><h2><span class="hz" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</span> " + esc(s.name) + "</h2>" +
-          '<ul class="tags"><li>' + seasonHz(R) + " " + esc(seasonLine(R)) + "</li><li>" + esc(strengthWord(R)) + "</li>" +
-          (PAIR && R.partner ? "<li>You + " + esc(D.SOULS[R.partner.dayMaster].name) + "</li>" : "") + "</ul>" +
-          termBanner(R);
-        out.appendChild(head);
+        if (!d || !A4) { out.innerHTML = '<p class="err">This reading isn\'t ready for ' + esc(s.name) + " yet. Try another one for now.</p>"; return; }
+        out.innerHTML = '<div class="mail-note no-print"></div>' + coverHTML(R, s, them, J.title) + termBanner(R);
+        paintMailNote();
         // the reading's real opening: the first two plan chapters, assembled exactly as on the reading page
-        var V = { plan: J.plan2, intake: J.intake, ext: J.ext || {}, day_branch: J.day_branch, day_branch_heading: J.day_branch_heading, heavy: {}, missing: {},
+        var V = { plan: J.plan2, intake: J.intake, ext: J.ext || {}, keyed: J.keyed || {}, day_branch: J.day_branch, day_branch_heading: J.day_branch_heading, heavy: {}, missing: {},
           base: {}, base_panels: {}, season: {}, extra: {} };
         V.base[s.slug] = d.base; V.base_panels[s.slug] = d.base_panels; V.season[s.slug] = d.season; V.extra[s.slug] = d.extra || {};
-        var asm = A4.assemble(R, V, {}), art = counter(), lockHTML = "";
-        var rest = J.plan.slice(2).filter(function (c) { return !(c.type === "pair" && c.optional && !R.partner); });
-        var extra = ["your " + (R.dmStrength === "strong" ? "strong" : "weak") + "-chart chapter", "your element balance"];
-        if (PAIR && R.partner) extra.push("the chapter on you and " + D.SOULS[R.partner.dayMaster].name);
-        else if (PAIR === "optional") extra.push("a chapter on the two of you if you add their birthday");
-        if (INTAKE.length) extra.push("the sections your answers pick (" + INTAKE.length + " optional questions, one tap each)");
-        var chips = '<ul class="chips">' + rest.map(function (c) { return "<li>" + esc(planTitle(c)) + "</li>"; }).join("") + "</ul>";
-        if (PAY && !PAY.owns(P.slug)) {
-          lockHTML = '<div class="chapter-lock paywall rise"><p class="kicker">To be continued</p><h3>Continue your comic</h3>' +
-            '<p class="pw-price"><s>$' + PAY.anchor(P.price) + '</s> <strong>$' + P.price + "</strong></p>" +
-            '<p class="muted small">' + rest.length + " more chapters, written for your chart. Including " + esc(extra.join(", ")) + ".</p>" + chips +
-            PAY.buyLink(P.slug, "Continue my comic · $" + P.price, "btn--block") +
-            '<p class="small pw-promise">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl(P.slug) + PAY.fallback() + "</div>";
-        } else {
-          lockHTML = '<div class="chapter-lock rise"><p class="kicker">' + rest.length + ' more chapters</p><p class="muted small">Including ' + esc(extra.join(", ")) + ".</p>" + chips +
-            '<button class="btn" type="button" data-buy>' + buyLabel() + "</button>" + giftNote() + "</div>";
-        }
-        asm.chapters.forEach(function (ch, i) {
-          out.appendChild(comicChapter(ch, R, art, i === asm.chapters.length - 1 ? { tail: lockHTML } : null));
+        if (d.terms) { V.terms = {}; V.terms[s.slug] = d.terms; }
+        var asm = A4.assemble(R, V, { answers: answers || {} }), art = counter();
+        // trimmed so the paywall comes fast: up to 3 panels and the first 2 paragraphs of each free chapter
+        asm.chapters.forEach(function (ch) {
+          var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim(); });
+          var t = Object.assign({}, ch, { panels: (ch.panels || []).slice(0, 3), text: paras.slice(0, 2).join("\n\n") });
+          out.appendChild(comicChapter(t, R, art));
         });
+        var rest = J.plan.slice(2).filter(function (c) { return !(c.type === "pair" && c.optional && !R.partner && PAIR !== "optional"); });
+        var tz = {}; CH.forEach(function (x, i) { tz[i] = x[1]; });
+        var lock = document.createElement("section"); lock.className = "lock-list rise";
+        lock.innerHTML = '<p class="kicker center">' + rest.length + ' more chapters, written for you</p><ol class="lock-ol" start="3">' + rest.map(function (c) {
+          var w = lockTitle(c, R, s, them).split(" "), cut = Math.min(3, Math.ceil(w.length / 2));
+          return '<li><span>' + esc(w.slice(0, cut).join(" ")) + '</span> <span class="lock-blur" aria-hidden="true">' + esc(w.slice(cut).join(" ")) + "</span></li>";
+        }).join("") + "</ol>" + paywallHTML(rest.length);
+        out.appendChild(lock);
+        wirePaywall();
         BY.watch(out);
+        BY.trackOnce("teaser-" + P.slug, "Teaser shown: " + P.slug);
         if (PAY) stickyPaywall();
-        if (scroll) out.scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth", block: "start" });
-      }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and press the button again.</p>'; });
+        if (scroll) out.scrollIntoView({ behavior: smooth(), block: "start" });
+      }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and tap the button again.</p>'; });
     }
-    function buyLabel() { return PAY ? "Open my full reading" : "Open my full reading · free"; }
-    function giftNote() { return PAY ? "" : '<p class="gift"><b>Founding reader gift</b>This reading is $' + P.price + ". Our first readers get it free. No checkout, no card, no email.</p>"; }
+    out.addEventListener("click", function (e) {
+      if (e.target.closest("[data-redo]")) { e.preventDefault(); startWizard(false); wiz.scrollIntoView({ behavior: smooth(), block: "start" }); }
+    });
+
+    /* hero, sticky bar and any [data-buy] button: start (or jump to) the free preview, or the paywall once it is on the page */
     document.addEventListener("click", function (e) {
       if (!e.target.closest("[data-buy]")) return;
       e.preventDefault();
-      if (!birth || (PAIR === "required" && !their)) {
-        $("pvErr").textContent = PAIR === "required" ? "Add both birthdays first, so the reading is written for the two of you." : "Add your birthday first, so the reading is written for you.";
-        $("preview").scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth" }); form.querySelector("select").focus({ preventScroll: true }); return;
-      }
-      if (PAY && !PAY.owns(P.slug)) {
-        var pw = out.querySelector(".paywall"), pb = pw && pw.querySelector("[data-pay]");
-        // sticky bar once the reader has reached the paywall: open checkout straight away
-        if (pb && e.target.closest("#stickyBuy") && pw.getBoundingClientRect().top < window.innerHeight) { pb.click(); return; } (pw || $("preview")).scrollIntoView({ behavior: BY.reduced ? "auto" : "smooth", block: pw ? "center" : "start" }); if (!pw) renderPreview(true); return; }
-      location.href = readUrl();
+      if (PAY && PAY.owns(P.slug)) { goRead(); return; }
+      var pw = out.querySelector(".paywall"), pb = pw && pw.querySelector("[data-pay]");
+      if (pb && e.target.closest("#stickyBuy") && pw.getBoundingClientRect().top < window.innerHeight) { pb.click(); return; }
+      if (pw) { pw.scrollIntoView({ behavior: smooth(), block: "center" }); return; }
+      if (wiz.hidden) startWizard(false);
+      $("preview").scrollIntoView({ behavior: smooth(), block: "start" });
     });
     if (PAY) {
-      // hero + sticky bar: price with anchor, a free-preview button instead of "free" copy
-      var gift = document.querySelector(".phero .gift"); if (gift) { gift.className = "small pw-promise"; gift.textContent = "First two chapters free, written for your birthday. " + PAY.guarantee; }
       var pr = document.querySelector(".phero .price-row strong"); if (pr) pr.innerHTML = '<s class="muted">$' + PAY.anchor(P.price) + "</s> $" + P.price;
-      [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { b.textContent = PAY.owns(P.slug) ? "Open my full reading" : "Read 2 chapters free"; });
-      var sp = document.querySelector("#stickyBuy p"); if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong>$" + P.price + " · first 2 chapters free";
+      [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { if (PAY.owns(P.slug)) b.textContent = "Open my full reading"; });
       PAY.watch(P.slug, function () { BY.store("thanks_" + P.slug, 1); goRead(); });
+      if (SHELF) PAY.watch("all-readings", function () { BY.store("thanks_" + P.slug, 1); goRead(); });
       // ?key=<license> on the product page: restore quietly, then open the reading (or show it as owned)
       if (PAY.hasKey()) PAY.restore(P.slug).then(function (ok) {
         if (!ok) return;
@@ -250,26 +488,30 @@
         goRead(true);
       });
     }
-    /* paytest: when the paywall card is on the page, the sticky bar sells instead of offering the free preview again */
+    /* once the paywall card is on the page, the sticky bar sells instead of offering the free preview again */
+    var stickyIO = null;
     function stickyPaywall() {
-      var pw = out.querySelector(".paywall"), sb = $("stickyBuy"); if (!sb) return;
+      var pw = out.querySelector(".paywall"), sb = $("stickyBuy"); if (!sb || !pw) return;
       var btn = sb.querySelector("[data-buy]"), sp = sb.querySelector("p");
-      if (!pw) return;
       if (btn) btn.textContent = "Continue · $" + P.price;
       if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong><s>$" + PAY.anchor(P.price) + "</s> $" + P.price + " · 30-day refund";
       // hide the bar while the paywall's own button is on screen, so there are never two buy buttons at once
-      var pb = pw.querySelector("[data-pay]");
-      if (pb && "IntersectionObserver" in window) new IntersectionObserver(function (ents) { ents.forEach(function (en) { sb.classList.toggle("is-hidden", en.isIntersecting); }); }).observe(pb);
+      var area = pw.querySelector(".pw-btn") || pw;
+      if ("IntersectionObserver" in window) {
+        if (stickyIO) stickyIO.disconnect();
+        stickyIO = new IntersectionObserver(function (ents) { ents.forEach(function (en) { sb.classList.toggle("is-hidden", en.isIntersecting); }); });
+        stickyIO.observe(area);
+      }
     }
-    var fromLink = !!qsDate("b");
     if (PAY && PAY.owns(P.slug) && !PAY.hasKey()) { goRead(true); return; }
-    if (birth && (PAIR !== "required" || their)) renderPreview(fromLink);
+    var complete = !!birth && (PAIR !== "required" || !!their) && (!INTAKE.length || !!answers);
+    if (complete && (BY.load(DONE_KEY) || (fromLink && !INTAKE.length))) { wiz.hidden = true; renderPreview(fromLink); }
+    else startWizard(fromLink && !!birth && (PAIR !== "required" || !!their));
     var sb = $("stickyBuy");
     if (sb && "IntersectionObserver" in window) {
       new IntersectionObserver(function (ents) { ents.forEach(function (en) { sb.classList.toggle("is-on", !en.isIntersecting && window.scrollY > 300); }); }).observe($("buyTop"));
     }
   }
-
   /* ======================= READING PAGE ======================= */
   function readPage() {
     var form = $("rdForm"), out = $("rdOut");

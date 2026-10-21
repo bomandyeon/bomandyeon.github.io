@@ -17,7 +17,13 @@
     vb.innerHTML = "<b>" + who + '</b> is <span class="hz" style="color:' + EL_COLOR[VS.soul.el] + '">' + VS.soul.hanja + "</span> " + esc(VS.soul.nick) + ". What are you?";
     vb.hidden = false;
     var sb = form.querySelector("button[type=submit]"); if (sb) sb.textContent = "Reveal mine and our match";
+    setTimeout(function () { var so = $("soul"); if (so) so.scrollIntoView({ block: "start" }); }, 250); // compare links land on the soul form
   }
+  /* hero chooser + catalogue cards: which question people pick (event name only) */
+  document.addEventListener("click", function (e) {
+    var c = e.target.closest && e.target.closest("[data-choose],[data-card]"); if (!c) return;
+    var k = c.getAttribute("data-choose"); BY.track(k ? "choose-" + k : "card-" + c.getAttribute("data-card"), k ? "Home chooser: " + k : "Catalogue card: " + c.getAttribute("data-card"));
+  });
   BY.vsLink = function (idx, name) {
     var n = BY.cleanName(name);
     return "https://bomandyeon.com/?vs=" + D.SLUGS[idx] + (n ? "&n=" + encodeURIComponent(n) : "");

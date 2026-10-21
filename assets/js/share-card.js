@@ -184,7 +184,7 @@
         items.push({ h: 30, draw: function () {} });
         items.push({ h: hs2, draw: function (y) { ctx.font = "700 " + hs2 + "px " + HZ; ctx.fillStyle = o.color; ctx.fillText(o.hanja, W / 2, y + hs2 * 0.88); } });
         items.push({ h: 76, draw: function (y) { var s = fitOne(ctx, o.nick, "700", 60, SERIF, TW); ctx.fillStyle = MOON; ctx.fillText(o.nick, W / 2, y + s + 6); } });
-        items.push({ h: 48, draw: function (y) { var t = o.name + " \u00B7 Korean saju soul"; var s = fitOne(ctx, t, "500", 30, SANS, TW); ctx.fillStyle = "rgba(237,230,214,.65)"; ctx.fillText(t, W / 2, y + s); } });
+        items.push({ h: 48, draw: function (y) { var t = o.name + " \u00B7 " + (o.sub || "Korean saju soul"); var s = fitOne(ctx, t, "500", 30, SANS, TW); ctx.fillStyle = "rgba(237,230,214,.65)"; ctx.fillText(t, W / 2, y + s); } });
       }
       var tot = items.reduce(function (a, b) { return a + b.h + 18; }, -18), yy = top + Math.max(0, (bottom - top - tot) / 2);
       ctx.textAlign = "center";
