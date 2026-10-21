@@ -37,6 +37,9 @@
   }
   var answers = INTAKE.length ? (qsAns() || cleanAns(BY.load(ANS_KEY))) : {};
   function ansParam() { return INTAKE.length && answers ? "&a=" + INTAKE.map(function (q) { return answers[q.id]; }).join(".") : ""; }
+  function ready() { return !!birth && (PAIR !== "required" || !!their); }
+  /* owned reading: straight to the comic; the read page asks for birthdays itself when they are missing */
+  function goRead(replace) { var u = ready() ? readUrl() : P.readUrl; if (replace) location.replace(u); else location.href = u; }
   function readUrl() { return P.readUrl + "?b=" + BY.iso(birth) + (PAIR && their ? "&t=" + BY.iso(their) : "") + ansParam(); }
   function pairSlug(a, b) { var x = Math.min(a, b), y = Math.max(a, b); return D.SLUGS[x] + "-and-" + D.SLUGS[y]; }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -171,7 +174,9 @@
     fillForm(form);
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      if (readForm(form, $("pvErr"))) renderPreview(true);
+      if (!readForm(form, $("pvErr"))) return;
+      if (PAY && PAY.owns(P.slug)) { goRead(); return; }
+      renderPreview(true);
     });
     function renderPreview(scroll) {
       var R = analyze(), s = D.SOULS[R.dayMaster];
@@ -237,18 +242,12 @@
       var pr = document.querySelector(".phero .price-row strong"); if (pr) pr.innerHTML = '<s class="muted">$' + PAY.anchor(P.price) + "</s> $" + P.price;
       [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { b.textContent = PAY.owns(P.slug) ? "Open my full reading" : "Read 2 chapters free"; });
       var sp = document.querySelector("#stickyBuy p"); if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong>$" + P.price + " · first 2 chapters free";
-      PAY.watch(P.slug, function () { BY.store("thanks_" + P.slug, 1); location.href = readUrl(); });
-      // already bought (Gumroad page, receipt, another device): paste the license key right in the hero
-      if (!PAY.owns(P.slug) && !PAY.hasKey()) {
-        var bt = document.getElementById("buyTop");
-        if (bt) bt.insertAdjacentHTML("afterend", '<details class="pay-restore" style="margin:12px 0 0;text-align:left"' + (location.hash === "#restore" ? " open" : "") + '><summary>Already bought? Paste your license key</summary>' +
-          '<form class="pay-restore-form"><input name="k" autocomplete="off" spellcheck="false" placeholder="License key from your receipt" aria-label="License key from your receipt"><button class="btn btn--ghost btn--sm" type="submit">Open</button></form></details>');
-      }
+      PAY.watch(P.slug, function () { BY.store("thanks_" + P.slug, 1); goRead(); });
       // ?key=<license> on the product page: restore quietly, then open the reading (or show it as owned)
       if (PAY.hasKey()) PAY.restore(P.slug).then(function (ok) {
         if (!ok) return;
         [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { b.textContent = "Open my full reading"; });
-        if (birth && (PAIR !== "required" || their)) location.href = readUrl(); else renderPreview(false);
+        goRead(true);
       });
     }
     /* paytest: when the paywall card is on the page, the sticky bar sells instead of offering the free preview again */
@@ -263,6 +262,7 @@
       if (pb && "IntersectionObserver" in window) new IntersectionObserver(function (ents) { ents.forEach(function (en) { sb.classList.toggle("is-hidden", en.isIntersecting); }); }).observe(pb);
     }
     var fromLink = !!qsDate("b");
+    if (PAY && PAY.owns(P.slug) && !PAY.hasKey()) { goRead(true); return; }
     if (birth && (PAIR !== "required" || their)) renderPreview(fromLink);
     var sb = $("stickyBuy");
     if (sb && "IntersectionObserver" in window) {
