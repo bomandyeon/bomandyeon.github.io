@@ -87,6 +87,7 @@
     var dh = document.querySelector("#daily h2"); if (dh) dh.textContent = "One line from Yeon for " + s.nick + ", every morning.";
     renderSpicy();
     personaliseShelf(s);
+    paintNext(R, s);
     if (state.crush) runMatch(false);
     $("rvName").setAttribute("tabindex", "-1"); $("rvName").focus({ preventScroll: true });
     BY.watch();
@@ -138,6 +139,29 @@
       alt: "Share card: " + s.nick + " and " + o.nick + ", " + pd.s + "% match", text: s.nick + " + " + o.nick + ": " + pd.s + "%. #MyKoreanSoul bomandyeon.com" });
   });
 
+  /* ONE next step after the reveal: the reading that fits best, with the birthday carried over */
+  var NEXT = {
+    "will-your-ex-come-back": { title: "Will your ex come back?", cover: "ex", tab: 2 },
+    "situationship": { title: "What is this, actually?", cover: "situationship", tab: 1 },
+    "brutally-honest": { title: "Brutally honest, from Yeon", cover: "brutal", tab: 0 }
+  };
+  function nextSlug() {
+    var src = String(BY.load("src") || "");
+    if (/brutal/.test(src)) return "brutally-honest";
+    if (/situation/.test(src) || state.crush || BY.load("their")) return "situationship";
+    return "will-your-ex-come-back";
+  }
+  function paintNext(R, s) {
+    var slug = nextSlug(), n = NEXT[slug], their = state.crush || BY.load("their");
+    var q = "?b=" + BY.iso(state.birth) + (slug === "situationship" && their ? "&t=" + BY.iso(their) : "");
+    $("nextCard").href = "/readings/" + slug + "/" + q;
+    $("nextImg").src = "/assets/img/cover-" + n.cover + ".webp";
+    $("nextTitle").textContent = n.title;
+    $("nextLine").textContent = D.SPICY[R.dayMaster][n.tab];
+    $("nextNote").textContent = slug === "situationship" && !their ? "Written for " + s.name + ". Add their birthday on the next page." : "Written for " + s.name + ". Your birthday is already in.";
+    $("next").hidden = false;
+    $("nextCard").onclick = function () { BY.track("next-" + slug, "Next step after reveal: " + slug); };
+  }
   function personaliseShelf(s) {
     [].forEach.call(document.querySelectorAll(".pcard"), function (a) {
       var f = a.querySelector(".for"); if (f) f.textContent = "Written for " + s.name;
@@ -198,6 +222,7 @@
   var cform = $("crushForm");
   cform.addEventListener("submit", function (e) {
     e.preventDefault();
+    if (!state.R && BY.load("birth")) { state.birth = BY.load("birth"); state.R = BY.analyze(state.birth, null); }
     if (!state.R) { $("crushErr").textContent = "Reveal your own soul first, at the top of the page."; return; }
     var c = BY.readDate(cform, "c");
     if (c.error) { $("crushErr").textContent = c.error; return; }

@@ -139,6 +139,33 @@
   BY.iso = function (b) { return b ? b.year + "-" + ("0" + b.month).slice(-2) + "-" + ("0" + b.day).slice(-2) : ""; };
   BY.fromIso = function (s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); if (!m) return null; var b = { year: +m[1], month: +m[2], day: +m[3] }; return BY.validDate(b.year, b.month, b.day) ? b : null; };
 
+  BY.prettyDate = function (b) { return b ? MONTHS[b.month - 1] + " " + b.day + ", " + b.year : ""; };
+  /* paid-flow test mode: ?paytest=1 turns it on for this tab (sessionStorage), ?paytest=0 turns it off.
+     Normal visitors never see it: the public site stays free. */
+  BY.paytest = (function () {
+    try {
+      var v = new URLSearchParams(location.search).get("paytest");
+      if (v === "1") sessionStorage.setItem("by_paytest", "1");
+      if (v === "0") sessionStorage.removeItem("by_paytest");
+      return sessionStorage.getItem("by_paytest") === "1";
+    } catch (e) { return false; }
+  })();
+  /* birthday entered once: a form with .bknown + .bfield shows "Reading for <date> · change" instead of the date selects */
+  BY.knownBirth = function (form, onChange) {
+    var known = form.querySelector(".bknown"), field = form.querySelector(".bfield"), b = BY.load("birth");
+    if (!known || !field) return false;
+    BY.setDate(form, "b", b);
+    if (!b) { known.hidden = true; field.hidden = false; return false; }
+    known.querySelector("[data-bdate]").textContent = BY.prettyDate(b);
+    known.hidden = false; field.hidden = true;
+    var ch = known.querySelector("[data-bchange]");
+    if (ch && !ch.getAttribute("data-wired")) {
+      ch.setAttribute("data-wired", "1");
+      ch.addEventListener("click", function () { known.hidden = true; field.hidden = false; var s = field.querySelector("select"); if (s) s.focus(); if (onChange) onChange(); });
+    }
+    return true;
+  };
+
   /* ---------- attribution: ?src (TikTok bio, landing pages) and ?vs (compare links) ride into Kit's source field ---------- */
   (function () {
     try {
