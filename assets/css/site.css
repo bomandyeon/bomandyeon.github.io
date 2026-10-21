@@ -588,12 +588,15 @@ a.gl:hover { color: var(--gold2); }
 @media (max-width: 360px) { .pay-btn { font-size: 15px; } }
 .pay-btn .logo-full { display: none !important; }
 .pay-help { font-size: 12px; line-height: 1.5; margin: 12px auto 0; max-width: 360px; color: var(--faint, #8a8597); }
-.pay-restore { max-width: 360px; margin: 10px auto 0; font-size: 12px; color: var(--faint, #8a8597); text-align: center; }
-.pay-restore summary { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; list-style: none; }
-.pay-restore summary::-webkit-details-marker { display: none; }
-.pay-restore-form { display: flex; gap: 8px; margin-top: 10px; }
-.pay-restore-form input { flex: 1; min-width: 0; background: rgba(237,230,214,.06); border: 1px solid rgba(201,164,92,.35); color: #EDE6D6; border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 13px; }
+.pay-restore, .pay-code { max-width: 360px; margin: 10px auto 0; font-size: 12px; color: var(--faint, #8a8597); text-align: center; }
+.pay-restore summary, .pay-code summary { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; list-style: none; }
+.pay-restore summary::-webkit-details-marker, .pay-code summary::-webkit-details-marker { display: none; }
+.pay-restore-form, .pay-code-form { display: flex; gap: 8px; margin-top: 10px; }
+.pay-restore-form input, .pay-code-form input { flex: 1; min-width: 0; background: rgba(237,230,214,.06); border: 1px solid rgba(201,164,92,.35); color: #EDE6D6; border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 13px; }
 .pay-help a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .sticky-buy s { color: var(--faint, #8a8597); margin-right: 4px; }
 .sticky-buy.is-on.is-hidden { transform: translateY(110%); }
 .sticky-buy .btn { white-space: nowrap; }
+
+.pay-code { margin-top: 14px; }
+.pay-code-msg { margin: 8px 0 0; }
