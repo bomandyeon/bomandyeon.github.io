@@ -206,7 +206,7 @@
   /* SajuTight-style funnel (2026-10-21): one question per screen with a step counter.
      Situation taps (the reading's own intake questions, or one cover question) -> your birthday (pre-filled) -> their birthday
      (where the reading uses it) -> birth time ("I don't know" is fine) -> your four pillars -> a short Bom/Yeon moment ->
-     optional "send my reading to me" email -> teaser: personal cover + first two chapters + the rest of the chapter titles,
+     teaser (no email step since 2026-10-21 teaser UX): comic cover + first two chapters + the rest of the chapter titles,
      personalised and locked -> paywall (this reading or the whole shelf). Everything entered is kept in this browser and
      pre-fills every other reading. */
   function productPage() {
@@ -227,7 +227,6 @@
       else if (MOOD) steps.push({ k: "mood" });
       if (!skipDates) { steps.push({ k: "you" }); if (PAIR) steps.push({ k: "them" }); }
       steps.push({ k: "time" }); steps.push({ k: "pillars" });
-      if (!BY.load("email_given")) steps.push({ k: "email" });
     }
     function extras(show) { [].forEach.call(document.querySelectorAll(".pv-faq, .pv-more"), function (x) { x.hidden = !show; }); var px = document.querySelector(".pv-extra"); if (px && !show) px.hidden = true; }
     function startWizard(skipDates) {
@@ -238,7 +237,7 @@
     }
     function head(label) {
       var n = steps.length, pct = Math.round((at + 1) / n * 100);
-      return (at === 0 && /preview/.test(location.hash) ? '<p class="wiz__ctx">' + esc(document.querySelector(".phero h1").textContent) + "</p>" : "") + '<div class="wiz__top"><p class="kicker">' + (steps[at].k === "email" ? "Last step" : at >= n - 2 ? "Almost there" : "Step " + (at + 1)) + (label ? " · " + esc(label) : "") + "</p>" +
+      return (at === 0 && /preview/.test(location.hash) ? '<p class="wiz__ctx">' + esc(document.querySelector(".phero h1").textContent) + "</p>" : "") + '<div class="wiz__top"><p class="kicker">' + (at >= n - 2 ? "Almost there" : "Step " + (at + 1)) + (label ? " · " + esc(label) : "") + "</p>" +
         '<div class="wiz__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div></div>';
     }
     function nav(extra) {
@@ -290,13 +289,6 @@
           '<p class="err" role="alert"></p><button class="btn btn--ghost btn--block" type="submit">Use this time</button></form>' + nav();
       } else if (s.k === "pillars") {
         h = head() + pillarsHTML() + '<button type="button" class="btn btn--block" data-w="go">Write my reading</button>' + nav();
-      } else if (s.k === "email") {
-        h = head() + '<h2 class="wiz__q">Ready. Send my reading to me?</h2>' +
-          '<form class="form-stack wiz__form" novalidate><label><span class="sr">Email address</span><input class="input" type="email" name="em" inputmode="email" autocomplete="email" placeholder="you@email.com"></label>' +
-          '<label class="check"><input type="checkbox" name="ds"> <span>Also send me Yeon\'s Daily Soul, one line every morning. Free, 18+.</span></label>' +
-          '<p class="note">Sent via Kit, our email provider. Unsubscribe in one tap. <a href="/privacy/">Privacy</a></p>' +
-          '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">Send my reading to me</button></form>' +
-          '<p class="center"><button type="button" class="linkbtn" data-w="noemail">Skip</button></p>';
       }
       wiz.innerHTML = h;
       BY.fillSelects(wiz);
@@ -324,11 +316,7 @@
       if (w === "change") { s.change = true; step(); return; }
       if (w === "nothem") { their = null; BY.store(THEIR_KEY, null); next(); return; }
       if (w === "notime") { var tf = wiz.querySelector("form"); tf.querySelector('[name="bh"]').value = ""; BY.readExtras(tf); next(); return; }
-      if (w === "go") {
-        if (steps[at + 1] && steps[at + 1].k === "email") { loading(function () { at++; step(); }); return; }
-        next(); return;
-      }
-      if (w === "noemail") { BY.track("email-skip-" + P.slug, "Teaser email skipped: " + P.slug); next(); return; }
+      if (w === "go") { next(); return; }
       if (b.hasAttribute("data-v")) {
         var v = b.getAttribute("data-v");
         if (s.k === "q") {
@@ -359,21 +347,6 @@
       if (s.k === "time") {
         if (f.querySelector('[name="bh"]').value === "") { err.textContent = "Pick the hour, or tap \u201CI don't know\u201D above."; return; }
         BY.readExtras(f); next(); return;
-      }
-      if (s.k === "email") {
-        var em = f.querySelector('[name="em"]'), v = em.value.trim(), ds = f.querySelector('[name="ds"]').checked;
-        if (!BY.EMAIL_RE.test(v)) { err.textContent = "That email doesn't look right. Check it, or skip this step."; em.focus(); return; }
-        if (ds && BY.ageOn(birth) < BY.MIN_AGE) ds = false;
-        BY.store("email_given", 1);
-        BY.track("email-teaser-" + P.slug, "Teaser email given: " + P.slug + (ds ? " + Daily Soul" : ""));
-        mailNote = { email: v, daily: ds, pending: true };
-        var rUrl = "https://bomandyeon.com" + readUrl();
-        BY.captureReading(v, P.slug, ds, rUrl).then(function (res) {
-          mailNote.pending = false; mailNote.res = res; paintMailNote();
-          if (res && res.ok && !res.check && !ds) BY.teaserMail(v, P.slug, rUrl);
-          if (res.ok) BY.track(ds ? "kit-signup-teaser" : "kit-reading-copy", ds ? "Daily Soul signup from teaser" : "Reading copy email saved");
-        });
-        next(); return;
       }
     });
 
@@ -408,15 +381,6 @@
     }
 
     /* ---------- teaser ---------- */
-    var mailNote = null;
-    function paintMailNote() {
-      var el = out.querySelector(".mail-note"); if (!el || !mailNote) return;
-      var m = mailNote, r = m.res;
-      if (m.pending) { el.innerHTML = '<p class="small muted">Saving ' + esc(m.email) + "…</p>"; return; }
-      if (r && r.ok && r.check) { el.innerHTML = '<p class="small">Our email provider wants one quick check that you\'re a person. <a href="' + esc(r.check) + '" target="_blank" rel="noopener">Do the check</a></p>'; return; }
-      if (r && r.ok) { el.innerHTML = '<p class="small ok">Saved: ' + esc(m.email) + "." + (m.daily ? " Tap the confirm link in your inbox to start the Daily Soul." : " Your first 2 chapters are on their way to your inbox.") + "</p>"; return; }
-      el.innerHTML = '<p class="small err">That email didn\'t save. Your chapters are below either way.</p>';
-    }
     function moodLine(R, s) {
       var m = MOOD && BY.load(MOOD_KEY), o = m && MOOD.options.filter(function (x) { return x.value === m; })[0];
       if (o) return { who: o.who || "yeon", text: o.line };
@@ -443,19 +407,41 @@
       if (c.type === "situation") { var a = ansLabels(); return a.length ? "Because you said: " + a.join(" · ") : "Written for not knowing"; }
       return "Written for " + s.name + (them && c.type !== "pair" && PAIR ? " + " + them.name : "");
     }
-    function coverHTML(R, s, them, title) {
-      var pl = R.pillars, ml = moodLine(R, s);
-      var cols = [["Year", pl.year], ["Month", pl.month], ["Day", pl.day]].concat(pl.hour ? [["Hour", pl.hour]] : []);
-      return '<header class="cover-card teaser-cover rise"><p class="kicker">' + esc(title) + "</p>" +
-        '<p class="cv-name">' + (name ? esc(name) : "Your reading") + "</p>" +
-        '<p class="hz cv-dm" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</p><h2>" + esc(s.name) + '</h2><p class="muted">' + esc(s.nick) +
-        (them ? ' · with <span class="hz" style="color:' + D.EL_COLOR[them.el] + '">' + them.hanja + "</span> " + esc(them.name) : "") + "</p>" +
+    /* teaser UX 2026-10-21: the result opens with the COMIC. The reading's cover art as a webtoon panel with Bom + Yeon speech
+       bubbles, then a plain-English headline ("You're Sin Metal. The Jewel.") and one human line. The hanja chart sits folded below. */
+    var HOW = { "will-your-ex-come-back": "how you love", "situationship": "how you love", "what-kind-of-lover": "how you love", "couple-reading": "how you love",
+      "work-style": "how you work", "k-pop-position": "how you shine in a group", "glow-up-aura": "how people see you", "brutally-honest": "who you are, minus the filter" };
+    function coverImg() { var im = document.querySelector(".phero img"); return im ? { src: im.getAttribute("src"), set: im.getAttribute("srcset") || "", alt: im.getAttribute("alt") || "" } : null; }
+    function chartHTML(R, s, them, cols) {
+      return '<details class="tz-chart"><summary>See your chart <small>(saju pillars)</small></summary><div class="tz-chart__b">' +
         '<div class="pillars' + (cols.length > 3 ? " pillars--4" : "") + '">' + cols.map(function (c) {
           var p = c[1]; return '<div class="pillar' + (c[0] === "Day" ? " is-dm" : "") + '"><span class="pl-l">' + c[0] + '</span><span class="hz" style="color:' + D.EL_COLOR[p.stemEl] + '">' + p.stemHanja +
-            '</span><span class="hz" style="color:' + D.EL_COLOR[p.branchEl] + '">' + p.branchHanja + '</span><span class="pl-e">' + p.animal + "</span></div>";
+            '</span><span class="hz" style="color:' + D.EL_COLOR[p.branchEl] + '">' + p.branchHanja + '</span><span class="pl-e">' + p.stemEl + " · " + p.animal + "</span></div>";
         }).join("") + "</div>" +
-        '<div class="say say--' + ml.who + '"><span class="av av--' + ml.who + '"><img src="/assets/img/av-' + ml.who + '.webp" alt="" width="44" height="44"></span><p class="bubble"><b>' + who(ml.who) + "</b>" + esc(ml.text) + "</p></div>" +
-        '<p class="small muted"><button type="button" class="linkbtn small" data-redo>Change my answers</button></p></header>';
+        '<p class="small muted">Saju turns your birth date' + (R.pillars.hour ? " and time" : "") + ' into these pillars: year, month, day' + (R.pillars.hour ? ", hour" : "") +
+        '. The top of the Day pillar, <span class="hz" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</span>, is your Day Master: " + esc(s.name) + ". The reading is written from it." +
+        (them ? " Theirs is " + esc(them.name) + ' (<span class="hz" style="color:' + D.EL_COLOR[them.el] + '">' + them.hanja + "</span>)." : "") + "</p></div></details>";
+    }
+    function coverHTML(R, s, them, title) {
+      var pl = R.pillars, ml = moodLine(R, s), cv = coverImg(), how = HOW[P.slug] || "the core of who you are";
+      var cols = [["Year", pl.year], ["Month", pl.month], ["Day", pl.day]].concat(pl.hour ? [["Hour", pl.hour]] : []);
+      // Bom says the soul's own line, Yeon the reading's spicy line; a mood answer replaces the line of whoever says it (never the same line twice)
+      var spicy = D.SPICY[R.dayMaster][P.spicy != null ? P.spicy : 4], mood = ml.text !== spicy;
+      var bomLine = mood && ml.who === "bom" ? ml.text : s.bom, yeonLine = mood && ml.who !== "bom" ? ml.text : spicy;
+      return '<header class="tz-hero rise">' +
+        '<figure class="tz-panel"' + (cv ? "" : ' data-noimg="1"') + ">" +
+        (cv ? '<img src="' + esc(cv.src) + '"' + (cv.set ? ' srcset="' + esc(cv.set) + '" sizes="(min-width: 600px) 520px, 100vw"' : "") + ' alt="' + esc(cv.alt) + '" width="720" height="894" decoding="async">' : "") +
+        '<p class="tz-cap">' + esc(title) + "<span>" + (name ? esc(name) + "\u2019s reading" : "Your reading") + "</span></p>" +
+        '<span class="tz-seal hz" aria-hidden="true">' + s.hanja + "</span>" +
+        '<p class="tz-say tz-say--bom"><b>Bom</b>' + esc(bomLine) + "</p>" +
+        '<p class="tz-say tz-say--yeon"><b>Yeon</b>' + esc(yeonLine) + "</p>" +
+        "</figure>" +
+        '<div class="tz-intro"><h2 class="tz-h">You\u2019re ' + esc(s.name) + ". <em>" + esc(s.nick) + ".</em></h2>" +
+        '<p class="tz-why">Your birthday\u2019s day element. It\u2019s ' + esc(how) + ".</p>" +
+        (them ? '<p class="tz-them">They\u2019re <b>' + esc(them.name) + "</b>, " + esc(them.nick.replace(/^The /, "the ")) + (PAIR === "required" ? ". This reading is the two of you." : ". Their chart is in your reading too.") + "</p>" : "") +
+        '<ul class="tz-traits" aria-label="Your traits">' + (s.traits || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
+        chartHTML(R, s, them, cols) +
+        '<p class="small muted center"><button type="button" class="linkbtn small" data-redo>Change my answers</button></p></div></header>';
     }
     /* real chapter count for this reader (2 free + the locked list): price per chapter rounded UP to the cent, never flattering */
     function perChapter(total) { return total > 2 ? (Math.ceil(P.price / total * 100) / 100).toFixed(2) : ""; }
@@ -469,8 +455,7 @@
         '<p class="small">Finish paying in the Gumroad tab. Your full comic opens right here the moment it goes through, usually within a minute.</p>' +
         '<p class="small"><a href="#" data-pay-cancel="' + P.slug + (SHELF ? " all-readings" : "") + '">Not paid yet? Show the price again</a></p></div>' +
         (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>From chapter ' + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
-        '<p class="pw-big">$' + P.price + "</p>" +
-        (per ? '<p class="pw-per">All ' + total + " chapters, $" + per + " a chapter</p>" : "") +
+        '<p class="pw-price2"><span class="pw-amt">$' + P.price + '</span><span class="pw-sub">one time · all ' + total + " chapters" + (per ? "<br>$" + per + " a chapter" : "") + "</span></p>" +
         '<div class="pw-btn">' + PAY.buyLink(P.slug, "Continue my comic", "btn--block") + "</div>" +
         (SHELF ? '<p class="pw-alt">or ' + PAY.buyLink("all-readings", "all " + SHELF.count + " readings for $" + SHELF.price + " (save $" + SHELF.save + ")", "pw-link") + "</p>" : "") +
         '<p class="pw-tiny">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
@@ -478,9 +463,10 @@
     function wirePaywall() {}
     /* the free part ends mid-sentence: the first words of a locked chapter clear, the rest blurred */
     function cliffHTML(text, at) {
-      var w = String(text).split(/\s+/), keep = Math.max(4, Math.min(9, Math.round(w.length * 0.4)));
+      // teaser UX: clear words, then three words that fade out word by word, mid-sentence. Nothing after them is on the page.
+      var w = String(text).split(/\s+/), keep = Math.max(4, Math.min(9, Math.round(w.length * 0.4))), fade = w.slice(keep, keep + 3), op = [0.55, 0.3, 0.12];
       return '<div class="cliff"><p class="kicker">Chapter ' + at.n + " \u00B7 " + esc(at.title) + '</p><p class="cliff__t">' + esc(w.slice(0, keep).join(" ")) +
-        ' <span class="cliff__blur" aria-hidden="true">' + esc(w.slice(keep).join(" ")) + "</span></p></div>";
+        fade.map(function (x, i) { return ' <span class="cliff__f" aria-hidden="true" style="opacity:' + op[i] + '">' + esc(x) + "</span>"; }).join("") + "</p></div>";
     }
     function renderPreview(scroll) {
       var R = analyze(), s = D.SOULS[R.dayMaster], them = PAIR && R.partner ? D.SOULS[R.partner.dayMaster] : null;
@@ -488,8 +474,7 @@
       data().then(function (J) {
         var d = J.by_day_master[s.slug];
         if (!d || !A4) { out.innerHTML = '<p class="err">This reading isn\'t ready for ' + esc(s.name) + " yet. Try another one for now.</p>"; return; }
-        out.innerHTML = '<div class="mail-note no-print"></div>' + coverHTML(R, s, them, J.title) + termBanner(R);
-        paintMailNote();
+        out.innerHTML = coverHTML(R, s, them, J.title) + termBanner(R);
         // the reading's real opening: the first two plan chapters, assembled exactly as on the reading page
         var V = { plan: J.plan2, intake: J.intake, ext: J.ext || {}, keyed: J.keyed || {}, day_branch: J.day_branch, day_branch_heading: J.day_branch_heading, heavy: {}, missing: {},
           base: {}, base_panels: {}, season: {}, extra: {} };
@@ -509,10 +494,12 @@
         var hook = d.hook || {}, numOf = function (id) { for (var i = 0; i < rest.length; i++) if (rest[i].id === id) return { n: i + 3, title: lockTitle(rest[i], R, s, them) }; return null; };
         var cl = hook.cliff && numOf(hook.cliff.id), sm = hook.sample && numOf(hook.sample.id);
         var lock = document.createElement("section"); lock.className = "lock-list rise";
+        // teaser UX 2026-10-21: full chapter titles (they tease), each with its own blurred scene thumbnail and a lock; no half-word blur
         lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") +
-          '<h3 class="lock-h">' + esc(s.name) + ', here\u2019s what you\u2019d be skipping</h3><ol class="lock-ol" start="3">' + rest.map(function (c) {
-          var w = lockTitle(c, R, s, them).split(" "), cut = Math.min(3, Math.ceil(w.length / 2));
-          return '<li><span>' + esc(w.slice(0, cut).join(" ")) + '</span> <span class="lock-blur" aria-hidden="true">' + esc(w.slice(cut).join(" ")) + "</span></li>";
+          '<div class="lock-head"><p class="kicker">Locked \u00B7 ' + rest.length + ' more chapters</p><h3 class="lock-h">Still to come for you, ' + esc(name || s.name) + '</h3></div><ol class="lock-ol lock-ol--v2">' + rest.map(function (c, i) {
+          var sc = sceneFor(c.id, R), th = sc ? sc.src.replace("/img/scenes/", "/img/scenes-t/") : "";
+          return '<li><span class="lk-th"' + (th ? ' style="background-image:url(' + th + ')"' : "") + '><i>' + (i + 3) + '</i></span><span class="lk-tx"><b>' + esc(lockTitle(c, R, s, them)) +
+            '</b><small>' + esc(lockKicker(c, s, them)) + '</small></span><svg class="lk-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></li>';
         }).join("") + "</ol>" + paywallHTML(rest.length, sm ? { text: hook.sample.text, n: sm.n, title: sm.title } : null);
         out.appendChild(lock);
         wirePaywall();
@@ -629,7 +616,8 @@
         var btn = f.querySelector("button[type=submit]"); btn.disabled = true; btn.textContent = "Saving\u2026";
         var rUrl = "https://bomandyeon.com" + readUrl();
         BY.captureReading(v, P.slug, ds, rUrl, "exit").then(function (res) {
-          if (res && res.ok && !res.check && !ds) BY.teaserMail(v, P.slug, rUrl);
+          // the sheet promises the first 2 chapters: the teaser mail goes out with or without the Daily Soul box (teaser UX 2026-10-21)
+          if (res && res.ok && !res.check) BY.teaserMail(v, P.slug, rUrl);
           var box = sh.querySelector(".exit-sheet__in");
           if (res && res.ok && res.check) { f.innerHTML = '<p class="small">Our email provider wants one quick check that you\'re a person. <a href="' + esc(res.check) + '" target="_blank" rel="noopener">Do the check</a></p>'; return; }
           if (res && res.ok) {
