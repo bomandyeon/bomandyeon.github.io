@@ -238,6 +238,12 @@
       [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { b.textContent = PAY.owns(P.slug) ? "Open my full reading" : "Read 2 chapters free"; });
       var sp = document.querySelector("#stickyBuy p"); if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong>$" + P.price + " · first 2 chapters free";
       PAY.watch(P.slug, function () { BY.store("thanks_" + P.slug, 1); location.href = readUrl(); });
+      // already bought (Gumroad page, receipt, another device): paste the license key right in the hero
+      if (!PAY.owns(P.slug) && !PAY.hasKey()) {
+        var bt = document.getElementById("buyTop");
+        if (bt) bt.insertAdjacentHTML("afterend", '<details class="pay-restore" style="margin:12px 0 0;text-align:left"' + (location.hash === "#restore" ? " open" : "") + '><summary>Already bought? Paste your license key</summary>' +
+          '<form class="pay-restore-form"><input name="k" autocomplete="off" spellcheck="false" placeholder="License key from your receipt" aria-label="License key from your receipt"><button class="btn btn--ghost btn--sm" type="submit">Open</button></form></details>');
+      }
       // ?key=<license> on the product page: restore quietly, then open the reading (or show it as owned)
       if (PAY.hasKey()) PAY.restore(P.slug).then(function (ok) {
         if (!ok) return;
