@@ -75,6 +75,16 @@
     status(slug, "");
     var h = handlers[slug]; if (h) h(s);
   }
+  /* checkout finished after the 10-minute poll window (captcha, slow card, came back later from Gumroad's "Open my comic"):
+     one quiet check of this browser's last checkout token, up to 30 days old */
+  function lateCheck(slug) {
+    if (owns(slug) || polls[slug]) return;
+    var p = BY.load("pend_" + slug), t = BY.load("tok_" + slug);
+    if (!p || !t || p.tok !== t || Date.now() - p.t > 30 * 864e5) return;
+    fetch(API + encodeURIComponent(t), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.paid) paid(slug, j.license_key, j.slug);
+    }).catch(function () {});
+  }
   function poll(slug) {
     if (polls[slug]) return;
     var p = pendingFresh(slug); if (!p) return;
@@ -136,7 +146,7 @@
   BY.pay = {
     on: !!BY.paytest, owns: owns, anchor: anchor, buyLink: buyLink, fallback: fallback, loadGumroad: loadGumroad, restore: restore, hasKey: function () { return !!keyParam(); },
     /* call once per page per slug: resumes a pending checkout and runs onPaid(slug) when it goes through */
-    watch: function (slug, onPaid) { handlers[slug] = onPaid; poll(slug); },
+    watch: function (slug, onPaid) { handlers[slug] = onPaid; poll(slug); lateCheck(slug); },
     statusEl: function (slug) { return '<p class="muted small pay-status" data-paystatus="' + slug + '" role="status" aria-live="polite" hidden></p>'; },
     guarantee: "Free redo or refund within 30 days.",
     methods: "Card, Apple Pay or PayPal."
