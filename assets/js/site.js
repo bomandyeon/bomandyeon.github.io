@@ -147,8 +147,8 @@
       var v = new URLSearchParams(location.search).get("paytest");
       if (v === "1") sessionStorage.setItem("by_paytest", "1");
       if (v === "0") sessionStorage.removeItem("by_paytest");
-      return sessionStorage.getItem("by_paytest") === "1";
-    } catch (e) { return false; }
+      return true; // paid launch 2026-10-21: paid flow for everyone (?paytest kept harmless)
+    } catch (e) { return true; }
   })();
   /* birthday entered once: a form with .bknown + .bfield shows "Reading for <date> · change" instead of the date selects */
   BY.knownBirth = function (form, onChange) {
