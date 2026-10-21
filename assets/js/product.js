@@ -297,6 +297,8 @@
       if (s.k === "you" && f) BY.setDate(f, "b", birth);
       if (s.k === "them" && f) BY.setDate(f, "t", their);
       if (s.k === "time" && f) BY.fillExtras(f);
+      // the type reveal comes next: fetch its picture now so it is there when the screen opens
+      if (s.k === "time" && birth) { try { var pre = new Image(); pre.src = "/assets/img/scenes/soul/" + D.SOULS[analyze().dayMaster].slug + ".webp"; } catch (x) { /* no chart yet */ } }
       if (s.k === "q" || s.k === "mood") { var b0 = wiz.querySelector('[aria-pressed="true"]') || wiz.querySelector(".wiz__opt"); if (b0 && at > 0) b0.focus({ preventScroll: true }); }
       if (at > 0) { var r = wiz.getBoundingClientRect(); if (r.top < 0 || r.top > window.innerHeight * 0.4) wiz.scrollIntoView({ behavior: smooth(), block: "start" }); }
     }
