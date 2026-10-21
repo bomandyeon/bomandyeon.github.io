@@ -582,3 +582,13 @@ a.gl:hover { color: var(--gold2); }
 .bknown b { color: var(--moon); }
 .topic__cover { width: 180px; border-radius: 14px; margin: 0 auto 16px; box-shadow: 0 14px 30px rgba(0, 0, 0, .45); }
 .topic-form { max-width: 460px; margin: 0 auto; text-align: left; }
+
+/* paywall v2 2026-10-21: our own buy button (no Gumroad styling), tiny help line, sticky bar at the paywall */
+.pay-btn { white-space: nowrap; font-size: 17px; padding-left: 16px; padding-right: 16px; }
+@media (max-width: 360px) { .pay-btn { font-size: 15px; } }
+.pay-btn .logo-full { display: none !important; }
+.pay-help { font-size: 12px; line-height: 1.5; margin: 12px auto 0; max-width: 360px; color: var(--faint, #8a8597); }
+.pay-help a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.sticky-buy s { color: var(--faint, #8a8597); margin-right: 4px; }
+.sticky-buy.is-on.is-hidden { transform: translateY(110%); }
+.sticky-buy .btn { white-space: nowrap; }
