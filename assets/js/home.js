@@ -170,7 +170,7 @@
   }
   function personaliseShelf(s) {
     [].forEach.call(document.querySelectorAll(".pcard"), function (a) {
-      var f = a.querySelector(".for"); if (f) f.textContent = "Written for " + s.name;
+      /* the small label keeps the reading's name (2026-10-21 funnel); only the heading gets personal */
     });
     var h = $("shelfH"); if (h) h.textContent = "Readings for " + s.name;
   }
