@@ -39,11 +39,25 @@
   function buyLink(slug, label, cls) {
     return '<a class="btn pay-btn ' + (cls || "") + '" href="' + BY.esc(checkoutUrl(slug)) + '" target="_blank" rel="noopener" data-pay="' + slug + '">' + label + "</a>";
   }
+  function codeBox() {
+    return '<details class="pay-code"' + (OFFER ? " open" : "") + '><summary>Have a code?</summary>' +
+      '<form class="pay-code-form"><input name="c" autocomplete="off" spellcheck="false" placeholder="Discount code" aria-label="Discount code" value="' + BY.esc(OFFER) + '"><button class="btn btn--ghost btn--sm" type="submit">Apply</button></form>' +
+      '<p class="small muted pay-code-msg"' + (OFFER ? "" : " hidden") + '>' + (OFFER ? "Code " + BY.esc(OFFER) + " goes to checkout with you." : "") + '</p></details>';
+  }
   function fallback() {
-    return '<p class="pay-help muted">Paid? Your comic opens here by itself. Nothing after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>' +
+    return codeBox() + '<p class="pay-help muted">Paid? Your comic opens here by itself. Nothing after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>' +
       '<details class="pay-restore"><summary>Bought on another phone or straight on Gumroad?</summary>' +
       '<form class="pay-restore-form"><input name="k" autocomplete="off" spellcheck="false" placeholder="License key from your receipt" aria-label="License key from your receipt"><button class="btn btn--ghost btn--sm" type="submit">Open</button></form></details>';
   }
+  document.addEventListener("submit", function (e) {
+    var f = e.target; if (!f || !f.classList || !f.classList.contains("pay-code-form")) return;
+    e.preventDefault(); var c = (f.c.value || "").trim();
+    if (!/^[A-Za-z0-9_-]{2,40}$/.test(c)) { f.c.focus(); return; }
+    OFFER = c; try { sessionStorage.setItem("by_offer", c); } catch (x) {}
+    [].forEach.call(document.querySelectorAll("a[data-pay]"), function (el) { el.href = checkoutUrl(el.getAttribute("data-pay")); });
+    var m = f.parentNode.querySelector(".pay-code-msg"); if (m) { m.textContent = "Code " + c + " goes to checkout with you."; m.hidden = false; }
+    BY.track("code-applied", "Discount code applied");
+  });
   document.addEventListener("submit", function (e) {
     var f = e.target; if (!f || !f.classList || !f.classList.contains("pay-restore-form")) return;
     e.preventDefault(); var v = (f.k.value || "").replace(/\s+/g, ""); if (!/^[A-Za-z0-9-]{16,80}$/.test(v)) { f.k.focus(); return; }
