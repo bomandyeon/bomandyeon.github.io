@@ -38,8 +38,15 @@
     return '<a class="btn pay-btn ' + (cls || "") + '" href="' + BY.esc(checkoutUrl(slug)) + '" target="_blank" rel="noopener" data-pay="' + slug + '">' + label + "</a>";
   }
   function fallback() {
-    return '<p class="pay-help muted">Paid? Your comic opens here by itself. Nothing after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>';
+    return '<p class="pay-help muted">Paid? Your comic opens here by itself. Nothing after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>' +
+      '<details class="pay-restore"><summary>Bought on another phone or straight on Gumroad?</summary>' +
+      '<form class="pay-restore-form"><input name="k" autocomplete="off" spellcheck="false" placeholder="License key from your receipt" aria-label="License key from your receipt"><button class="btn btn--ghost btn--sm" type="submit">Open</button></form></details>';
   }
+  document.addEventListener("submit", function (e) {
+    var f = e.target; if (!f || !f.classList || !f.classList.contains("pay-restore-form")) return;
+    e.preventDefault(); var v = (f.k.value || "").replace(/\s+/g, ""); if (!/^[A-Za-z0-9-]{16,80}$/.test(v)) { f.k.focus(); return; }
+    var u = new URL(location.href); u.searchParams.set("key", v); location.href = u.pathname + u.search;
+  });
 
   var polls = {}, handlers = {};
   function setPending(slug) { BY.store("pend_" + slug, { t: Date.now(), tok: token(slug) }); }
