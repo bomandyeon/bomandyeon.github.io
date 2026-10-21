@@ -50,7 +50,7 @@
       '<div class="pillars' + (pk.list.length > 3 ? " pillars--4" : "") + '">' + cells + "</div>" +
       "<p>" + esc(t.line) + "</p>" +
       '<div class="say say--' + t.who + '"><span class="av av--' + t.who + '"><img src="/assets/img/av-' + t.who + '.webp" alt="" width="44" height="44"></span><p class="bubble"><b>' + (t.who === "yeon" ? "Yeon" : "Bom") + "</b>" + esc(t.say) + "</p></div>" +
-      '<a class="btn btn--block" href="/readings/what-kind-of-lover/?b=' + BY.iso(b) + '#preview" data-charm-cta>See how you love · first 2 chapters free</a>' +
+      '<a class="btn btn--block" href="/readings/what-kind-of-lover/?b=' + BY.iso(b) + '#preview" data-charm-cta>See how you love</a><p class="small muted center" style="margin:8px 0 0">First 2 chapters free. No sign-up.</p>' +
       '<p class="small muted" style="margin-top:12px"><button type="button" class="linkbtn small" id="charmShare">Save as image</button>' +
       (pk.hasHour ? "" : " · No birth time, so three pillars checked.") + "</p></div>";
     $("charmOut").hidden = false;

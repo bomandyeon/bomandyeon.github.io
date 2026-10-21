@@ -44,10 +44,12 @@
       '<form class="pay-code-form"><input name="c" autocomplete="off" spellcheck="false" placeholder="Discount code" aria-label="Discount code" value="' + BY.esc(OFFER) + '"><button class="btn btn--ghost btn--sm" type="submit">Apply</button></form>' +
       '<p class="small muted pay-code-msg"' + (OFFER ? "" : " hidden") + '>' + (OFFER ? "Code " + BY.esc(OFFER) + " goes to checkout with you." : "") + '</p></details>';
   }
+  /* conversion boost 2026-10-21: code box + restore + help folded into one small line under the buy button (same forms, same handlers) */
   function fallback() {
-    return codeBox() + '<p class="pay-help muted">Paid? Your comic opens here by itself. Nothing after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>' +
+    return '<details class="pay-more"' + (OFFER ? " open" : "") + '><summary>Have a code, or already paid?</summary>' + codeBox() +
+      '<p class="pay-help muted">Paid? Your comic opens here by itself. Nothing after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>' +
       '<details class="pay-restore"><summary>Bought on another phone or straight on Gumroad?</summary>' +
-      '<form class="pay-restore-form"><input name="k" autocomplete="off" spellcheck="false" placeholder="License key from your receipt" aria-label="License key from your receipt"><button class="btn btn--ghost btn--sm" type="submit">Open</button></form></details>';
+      '<form class="pay-restore-form"><input name="k" autocomplete="off" spellcheck="false" placeholder="License key from your receipt" aria-label="License key from your receipt"><button class="btn btn--ghost btn--sm" type="submit">Open</button></form></details></details>';
   }
   document.addEventListener("submit", function (e) {
     var f = e.target; if (!f || !f.classList || !f.classList.contains("pay-code-form")) return;
@@ -156,7 +158,7 @@
   var bp = document.getElementById("bundlePay");
   if (bp && BY.pay.on) {
     var price = +bp.getAttribute("data-price") || 29.99, top = document.getElementById("buyTop"), gift = document.querySelector(".phero .gift");
-    var pr = document.querySelector(".phero .price-row strong"); if (pr) pr.innerHTML = '<s class="muted">$' + anchor(price) + "</s> $" + price;
+    // no strike-through anchor here: the honest comparison ("9 readings, $X if bought one by one") already sits next to the price
     var paint = function () {
       if (owns(BUNDLE)) { bp.innerHTML = '<p class="small pw-promise">All Readings is yours on this browser. Pick any reading below and it opens in full.</p><a class="btn" href="#list">Pick a reading</a>'; return; }
       bp.innerHTML = buyLink(BUNDLE, "Get All Readings · $" + price) + '<p class="small pw-promise">' + BY.pay.guarantee + " " + BY.pay.methods + " Every reading has a free 2-chapter preview too.</p>" + BY.pay.statusEl(BUNDLE) + fallback();
