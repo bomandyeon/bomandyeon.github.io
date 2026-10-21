@@ -236,6 +236,14 @@
     var src = BY.sourceTag("teaser-" + slug) + ";product=" + slug + ";daily=" + (daily ? "yes" : "no") + (via ? ";via=" + via : "");
     return BY.kitPost(daily ? KIT_FORMS.daily : KIT_FORMS.reading, email, { source: src, product: slug, reading_url: url || "" });
   };
+  /* "You left mid-sentence" (2026-10-21): after a successful reading-copy signup WITHOUT Daily Soul, ask the unlock Worker to
+     send ONE email with the reading link (Kit free has no automations). Fire and forget: never blocks, failures stay silent. */
+  BY.teaserMail = function (email, slug, url) {
+    try {
+      fetch("https://bom-yeon-unlock.bomandyeon.workers.dev/teaser-mail", { method: "POST", keepalive: true, headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ email: email, slug: slug, reading_url: url }) }).catch(function () {});
+    } catch (e) { /* old browser */ }
+  };
   BY.MIN_AGE = 18; // site terms (18+); this also covers the GDPR Art. 8 under-16 limit
   BY.ageOn = function (b, now) {
     now = now || new Date();
