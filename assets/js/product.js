@@ -199,7 +199,7 @@
     }
     function head(label) {
       var n = steps.length, pct = Math.round((at + 1) / n * 100);
-      return '<div class="wiz__top"><p class="kicker">' + (steps[at].k === "email" ? "Last step" : "Step " + (at + 1) + " of " + n) + (label ? " · " + esc(label) : "") + "</p>" +
+      return '<div class="wiz__top"><p class="kicker">' + (steps[at].k === "email" ? "Last step" : at >= n - 2 ? "Almost there" : "Step " + (at + 1)) + (label ? " · " + esc(label) : "") + "</p>" +
         '<div class="wiz__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div></div>';
     }
     function nav(extra) {
@@ -442,9 +442,10 @@
         var asm = A4.assemble(R, V, { answers: answers || {} }), art = counter();
         // trimmed so the paywall comes fast: up to 3 panels and the first 2 paragraphs of each free chapter
         asm.chapters.forEach(function (ch) {
-          var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim(); });
-          var t = Object.assign({}, ch, { panels: (ch.panels || []).slice(0, 3), text: paras.slice(0, 2).join("\n\n") });
-          out.appendChild(comicChapter(t, R, art));
+          var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim(); }), keep = [], wc = 0;
+          for (var pi = 0; pi < paras.length && keep.length < 2 && wc < 90; pi++) { keep.push(paras[pi]); if (!/^###/.test(paras[pi])) wc += paras[pi].split(/\s+/).length; }
+          var t = Object.assign({}, ch, { panels: (ch.panels || []).slice(0, 2), text: keep.join("\n\n") });
+          var sec = comicChapter(t, R, art); sec.classList.add("comic--teaser"); out.appendChild(sec);
         });
         var rest = J.plan.slice(2).filter(function (c) { return !(c.type === "pair" && c.optional && !R.partner && PAIR !== "optional"); });
         var tz = {}; CH.forEach(function (x, i) { tz[i] = x[1]; });

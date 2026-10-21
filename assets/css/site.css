@@ -668,3 +668,7 @@ a.gl:hover { color: var(--gold2); }
 @media (min-width: 1100px) { .shelf--grid { grid-template-columns: repeat(5, 1fr); } }
 .shelf--grid .pcard__b { padding: 10px 10px 12px; }
 .shelf--grid .pcard h3 { font-size: 15px; }
+/* teaser chapters are trimmed: the scene sits above the captions instead of pinned behind them */
+.comic--teaser .comic__stage { position: relative; top: 0; height: 46vw; max-height: 260px; margin-bottom: 12px; }
+.comic--teaser .comic__beats { gap: 12px; padding: 0 14px 16px; }
+.lock-blur { display: inline-block; margin-left: .25em; }
