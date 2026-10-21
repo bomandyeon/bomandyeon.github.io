@@ -36,6 +36,41 @@
     var v = m[1].split("."), o = {}; INTAKE.forEach(function (q, i) { o[q.id] = v[i]; }); return cleanAns(o);
   }
   var answers = INTAKE.length ? (qsAns() || cleanAns(BY.load(ANS_KEY))) : {};
+  var QS = (function () { try { return new URLSearchParams(location.search); } catch (e) { return { get: function () { return null; } }; } })();
+  var PRINT = P.mode === "read" && QS.get("print") === "1", FROM_GR = QS.get("from") === "gumroad";
+  /* reading inputs as one object (r= at checkout, in the purchase email and in the worker's record for the key) */
+  function stateObj() {
+    if (!birth) return null;
+    var o = { v: 1, s: P.slug, b: BY.iso(birth) }, mine = BY.load("birth"), bt = mine && BY.iso(mine) === BY.iso(birth) ? BY.load("btime") : null;
+    if (bt && bt.h != null) { o.h = bt.h; o.mi = bt.mi || 0; }
+    o.z = BY.birthZone();
+    if (PAIR && their) o.t = BY.iso(their);
+    if (INTAKE.length && answers) o.a = INTAKE.map(function (q) { return answers[q.id]; }).join(".");
+    if (name) o.n = String(name).slice(0, 24);
+    return o;
+  }
+  /* apply inputs that came with a link or with the worker's record: stored like the form would store them */
+  function applyState(o) {
+    var b = o && BY.fromIso(o.b); if (!b) return false;
+    birth = b; BY.store("birth", b);
+    var h = o.h === "" || o.h == null ? null : +o.h;
+    BY.store("btime", h != null && h >= 0 && h < 24 ? { h: h, mi: Math.max(0, Math.min(59, +o.mi || 0)) } : null);
+    if (typeof o.z === "string" && /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+){0,2}$/.test(o.z)) BY.store("bzone", o.z);
+    var t = BY.fromIso(o.t); if (PAIR && t) { their = t; BY.store(THEIR_KEY, t); }
+    if (INTAKE.length && typeof o.a === "string") {
+      var v = o.a.split("."), m = {}; INTAKE.forEach(function (q, i) { m[q.id] = q.options.some(function (x) { return x.value === v[i]; }) ? v[i] : q.skip_value; });
+      var c = cleanAns(m); if (c) { answers = c; BY.store(ANS_KEY, c); }
+    }
+    if (typeof o.n === "string" && o.n.trim()) { name = o.n.trim().slice(0, 24); BY.store("name", name); }
+    return true;
+  }
+  (function () {
+    var pay = BY.pay && BY.pay.on ? BY.pay : null; if (!pay) return;
+    pay.setState(stateObj);
+    var r = QS.get("r"); if (!r) return;
+    applyState(pay.decState(r));
+    if (P.mode === "read") try { var u = new URL(location.href); u.searchParams.delete("r"); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) { /* file:// */ }
+  })();
   function ansParam() { return INTAKE.length && answers ? "&a=" + INTAKE.map(function (q) { return answers[q.id]; }).join(".") : ""; }
   function ready() { return !!birth && (PAIR !== "required" || !!their); }
   /* owned reading: straight to the comic; the read page asks for birthdays itself when they are missing */
@@ -175,6 +210,8 @@
      personalised and locked -> paywall (this reading or the whole shelf). Everything entered is kept in this browser and
      pre-fills every other reading. */
   function productPage() {
+    // a key (email button, pasted key, old receipt links) or Gumroad's "Open my comic" button: the read page opens the reading
+    if (PAY && (PAY.hasKey() || FROM_GR)) { location.replace(P.readUrl + location.search); return; }
     var wiz = $("pvWizard"), out = $("pvOut"), dataP = null;
     var MOOD = P.mood || null, MOOD_KEY = "mood_" + P.slug, DONE_KEY = "wiz_" + P.slug;
     var CH = P.chapters || [], SHELF = P.shelf || null;
@@ -201,7 +238,7 @@
     }
     function head(label) {
       var n = steps.length, pct = Math.round((at + 1) / n * 100);
-      return (at === 0 && /preview/.test(location.hash) ? '<p class="wiz__ctx">' + esc(document.querySelector(".phero h1").textContent) + " \u00B7 first 2 chapters free</p>" : "") + '<div class="wiz__top"><p class="kicker">' + (steps[at].k === "email" ? "Last step" : at >= n - 2 ? "Almost there" : "Step " + (at + 1)) + (label ? " · " + esc(label) : "") + "</p>" +
+      return (at === 0 && /preview/.test(location.hash) ? '<p class="wiz__ctx">' + esc(document.querySelector(".phero h1").textContent) + "</p>" : "") + '<div class="wiz__top"><p class="kicker">' + (steps[at].k === "email" ? "Last step" : at >= n - 2 ? "Almost there" : "Step " + (at + 1)) + (label ? " · " + esc(label) : "") + "</p>" +
         '<div class="wiz__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div></div>';
     }
     function nav(extra) {
@@ -426,9 +463,13 @@
       if (!PAY) return "";
       if (PAY.owns(P.slug)) return '<div class="chapter-lock rise"><a class="btn" href="' + esc(readUrl()) + '">Open my full reading</a></div>';
       var total = restCount + 2, per = perChapter(total);
-      return '<div class="chapter-lock paywall rise" id="paywall">' +
+      var pend = PAY.pending(P.slug) || (SHELF && PAY.pending("all-readings"));
+      return '<div class="chapter-lock paywall rise' + (pend ? " is-pending" : "") + '" id="paywall" data-pw="' + P.slug + (SHELF ? " all-readings" : "") + '">' +
+        '<div class="pw-pending" role="status"><p class="pw-pend-h"><span class="pw-dot" aria-hidden="true"></span>Opening your comic…</p>' +
+        '<p class="small">Finish paying in the Gumroad tab. Your full comic opens right here the moment it goes through, usually within a minute.</p>' +
+        '<p class="small"><a href="#" data-pay-cancel="' + P.slug + (SHELF ? " all-readings" : "") + '">Not paid yet? Show the price again</a></p></div>' +
         (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>From chapter ' + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
-        '<p class="pw-big"><s>$' + PAY.anchor(P.price) + "</s> $" + P.price + "</p>" +
+        '<p class="pw-big">$' + P.price + "</p>" +
         (per ? '<p class="pw-per">All ' + total + " chapters, $" + per + " a chapter</p>" : "") +
         '<div class="pw-btn">' + PAY.buyLink(P.slug, "Continue my comic", "btn--block") + "</div>" +
         (SHELF ? '<p class="pw-alt">or ' + PAY.buyLink("all-readings", "all " + SHELF.count + " readings for $" + SHELF.price + " (save $" + SHELF.save + ")", "pw-link") + "</p>" : "") +
@@ -500,16 +541,10 @@
       $("preview").scrollIntoView({ behavior: smooth(), block: "start" });
     });
     if (PAY) {
-      var pr = document.querySelector(".phero .price-row strong"); if (pr) pr.innerHTML = '<s class="muted">$' + PAY.anchor(P.price) + "</s> $" + P.price;
+      var pr = document.querySelector(".phero .price-row strong"); if (pr) pr.innerHTML = "$" + P.price;
       [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { if (PAY.owns(P.slug)) b.textContent = "Open my full reading"; });
       PAY.watch(P.slug, function () { BY.store("thanks_" + P.slug, 1); goRead(); });
       if (SHELF) PAY.watch("all-readings", function () { BY.store("thanks_" + P.slug, 1); goRead(); });
-      // ?key=<license> on the product page: restore quietly, then open the reading (or show it as owned)
-      if (PAY.hasKey()) PAY.restore(P.slug).then(function (ok) {
-        if (!ok) return;
-        [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { b.textContent = "Open my full reading"; });
-        goRead(true);
-      });
     }
     /* once the paywall card is on the page, the sticky bar sells instead of offering the free preview again */
     var stickyIO = null;
@@ -608,7 +643,7 @@
       });
       setTimeout(function () { var i = sh.querySelector("input[type=email]"); if (i && window.matchMedia && matchMedia("(pointer: fine)").matches) i.focus({ preventScroll: true }); }, 350);
     }
-    if (PAY && PAY.owns(P.slug) && !PAY.hasKey()) { goRead(true); return; }
+    if (PAY && PAY.owns(P.slug)) { goRead(true); return; }
     var complete = !!birth && (PAIR !== "required" || !!their) && (!INTAKE.length || !!answers);
     if (complete && (BY.load(DONE_KEY) || (fromLink && !INTAKE.length))) { wiz.hidden = true; renderPreview(fromLink); }
     else startWizard(fromLink && !!birth && (PAIR !== "required" || !!their));
@@ -624,30 +659,90 @@
       out.innerHTML = '<div class="card center"><h1 style="font-size:28px">This reading opens after checkout</h1><p class="muted">Get it from the reading page.</p><a class="btn" href="' + P.productUrl + '">Go to the reading</a></div>';
       return;
     }
-    if (PAY && !PAY.owns(P.slug)) {
-      // ?key=<license from the receipt> restores a purchase on a new browser, without typing anything
-      if (PAY.hasKey()) {
-        out.innerHTML = '<p class="center muted">Opening your reading…</p>';
-        PAY.restore(P.slug).then(function (ok) {
-          if (ok) { start(); return; }
-          location.replace(P.productUrl + location.search + "#preview");
+    /* unlock fix 2026-10-21: a buyer never lands on the paywall. ?key= (email button, pasted key): the reading renders at once
+       when the inputs are known (link r=, this browser), the key is checked in the background (worker KV, then Gumroad).
+       ?from=gumroad (Gumroad's own button) or a checkout this browser started: render and confirm by polling.
+       Only a definite "not paid" shows the key box; nothing known at all -> "paid, enter the birthdays once". */
+    var banner = null, paidKey = "";
+    function need() { return !birth || (PAIR === "required" && !their); }
+    function showBanner(msg) {
+      if (!msg) { if (banner && banner.parentNode) banner.parentNode.removeChild(banner); banner = null; return; }
+      if (!banner) { banner = document.createElement("p"); banner.className = "rd-confirm no-print"; banner.setAttribute("role", "status"); out.parentNode.insertBefore(banner, out); }
+      banner.innerHTML = '<span class="pw-dot" aria-hidden="true"></span>' + esc(msg);
+    }
+    function failCard(head, line) {
+      showBanner(null); $("rdAsk").hidden = true; $("rdIntake").hidden = true; $("rdCross").hidden = true;
+      out.innerHTML = '<div class="card center pay-fail"><h1 style="font-size:28px">' + esc(head) + '</h1><p class="muted">' + line + "</p>" +
+        PAY.keyForm("Paste the license key from Gumroad or your purchase email:") +
+        '<p class="small muted" style="margin-top:14px">Still stuck? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a> and we open it for you.</p>' +
+        '<p><a class="link-arrow" href="' + P.productUrl + '#preview">Back to the free preview</a></p></div>';
+    }
+    function confirmed(slug, key) {
+      if (key) PAY.store(slug, key); showBanner(null);
+      BY.toast("Paid and opened. It's yours on this browser now.");
+    }
+    var key = PAY ? PAY.keyParam() : "";
+    if (PAY && PAY.owns(P.slug) && key && !need() || PRINT && key) { PAY.stripKey(); key = ""; }
+    if (PAY && (!PAY.owns(P.slug) || key)) {
+      if (key) {
+        PAY.stripKey();
+        var known = !need();
+        BY.track("key-open-" + P.slug, "Opened with key: " + P.slug);
+        showBanner("Opening your reading…");
+        if (known) start();
+        PAY.lookup(P.slug, key).then(function (res) {
+          if (res.paid) {
+            var hadInputs = !need();
+            if (res.state && !hadInputs) applyState(res.state);
+            confirmed(res.slug, key);
+            if (!known) start();
+            if (!res.r) { if (!need()) PAY.attach(key); else paidKey = key; }
+            return;
+          }
+          if (res.definitive) {
+            BY.track("key-fail-" + P.slug, "Key not accepted: " + P.slug);
+            failCard(res.refunded ? "This purchase was refunded" : "We couldn't match that key to this reading",
+              res.refunded ? "The key belongs to a refunded order, so it no longer opens the reading." : "Check the key on your Gumroad receipt (it looks like XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX). A key for another reading opens that reading.");
+            return;
+          }
+          // checker unreachable: keep what is open, try again on the next visit (key not stored)
+          if (known) showBanner("Couldn't reach the checkout right now. Your reading is open; it saves to this browser once we can confirm.");
+          else failCard("We couldn't reach the checkout", "Your connection or Gumroad didn't answer. Try the key again in a moment.");
         });
         return;
+      }
+      if (FROM_GR || PAY.pending(P.slug) || PAY.pending("all-readings")) {
+        var fresh = PAY.pending(P.slug) || PAY.pending("all-readings");
+        var onPaid = function (s) { confirmed(s, ""); };
+        var giveUp = function () { if (!PAY.owns(P.slug)) failCard("We haven't seen your payment yet", "Gumroad hasn't confirmed a purchase from this browser. If you paid, paste the license key from the Gumroad page or your email."); };
+        if (fresh) {
+          showBanner("Confirming your payment with Gumroad. Usually under a minute.");
+          start();
+          PAY.watch(P.slug, onPaid, giveUp); PAY.watch("all-readings", onPaid, giveUp);
+          return;
+        }
+        if (FROM_GR) {
+          // paid on Gumroad in another browser / app: the key from the Gumroad page opens it here (late check of an old checkout too)
+          failCard("Your reading is paid for", "Paste the license key shown on the Gumroad page, or tap the button in the email we just sent you. Either opens your reading on any phone.");
+          PAY.watch(P.slug, function (s) { confirmed(s, ""); out.innerHTML = ""; start(); });
+          return;
+        }
       }
       location.replace(P.productUrl + location.search + "#preview"); return;
     }
     start();
     function start() {
-    function need() { return !birth || (PAIR === "required" && !their); }
     if (need()) {
       out.innerHTML = ""; $("rdAsk").hidden = false; fillForm(form);
-      form.addEventListener("submit", function (e) {
+      if (PAY && PAY.owns(P.slug)) { var an = $("rdAskNote"); if (an) { an.textContent = "Your reading is paid for. Enter the birthdays once to open it" + (PAIR === "required" ? " (yours and theirs)." : "."); an.className = "pw-owned"; } }
+      if (!form.getAttribute("data-wired")) { form.setAttribute("data-wired", "1"); form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (!readForm(form, $("rdErr"))) return;
         $("rdAsk").hidden = true;
+        if (paidKey) { PAY.attach(paidKey); paidKey = ""; }
         try { history.replaceState(null, "", readUrl()); } catch (x) { /* file:// */ }
         next();
-      });
+      }); }
     } else next();
     }
     function next() { if (INTAKE.length && !answers) intake(); else render(); }
@@ -699,6 +794,7 @@
       var R = analyze(), s = D.SOULS[R.dayMaster], them = R.partner ? D.SOULS[R.partner.dayMaster] : null;
       out.innerHTML = '<p class="center muted">Opening your reading…</p>';
       fetch(P.files[s.slug]).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }).then(function (J) {
+        if (PRINT && (!PAY || PAY.owns(P.slug))) { renderPrint(R, s, them, J); return; }
         out.innerHTML = "";
         if (!opened) { opened = true; BY.track("read-" + P.slug, "Opened reading: " + P.slug); }
         var LEN = null, info = coverInfo(R, s, them, J.title);
@@ -731,7 +827,7 @@
         out.appendChild(html('<div class="say say--yeon rise"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b>' + esc(D.YEON_MSG[R.dayMasterEl]) + "</p></div>"));
         LEN = { words: asm.words, chapters: asm.chapters.length, panels: asm.panels };
         out.appendChild(html(aboutThis(R, LEN)));
-        var lenTag = $("rdLen"); if (lenTag) lenTag.textContent = LEN.chapters + " chapters · " + LEN.words.toLocaleString("en-US") + " words · a " + mins(LEN.words) + "-minute read";
+        var lenTag = $("rdLen"); if (lenTag) lenTag.textContent = LEN.chapters + " chapters · " + LEN.words.toLocaleString("en-US") + " words";
         out.appendChild(actions(true));
 
         requestAnimationFrame(function () { setTimeout(function () { [].forEach.call(out.querySelectorAll("[data-w]"), function (i) { i.style.width = i.getAttribute("data-w") + "%"; }); }, 200); });
@@ -752,6 +848,78 @@
       }).catch(function () { out.innerHTML = '<p class="err center">The reading didn\'t load. Check your connection and refresh the page.</p>'; });
     }
 
+    /* ---------- PDF: a dedicated print view (?print=1, owners only). Dark cover page with the reading's cover art, a chart
+       page, then one chapter per page run: scene image + Bom/Yeon lines beside it, the chapter text below. Light paper,
+       Gowun Batang headings, Inter body, gold accents. Opens the print dialog once the images are in. ---------- */
+    var INK = { Wood: "#3E7B4A", Fire: "#B8473C", Earth: "#97753A", Metal: "#6B717D", Water: "#3B6AA6" };
+    function renderPrint(R, s, them, J) {
+      var I = coverInfo(R, s, them, J.title), asm = A4.assemble(R, J, { answers: answers || {}, pairs: J.pairs || null });
+      document.body.classList.add("print-view");
+      document.title = J.title + (I.name ? " · " + I.name : "") + " · Bom & Yeon";
+      $("rdAsk").hidden = true; $("rdIntake").hidden = true; $("rdCross").hidden = true;
+      var back = ready() ? readUrl() : P.readUrl;
+      var pill = function (p, dark) {
+        var c1 = dark ? D.EL_COLOR[p.stemEl] : INK[p.stemEl], c2 = dark ? D.EL_COLOR[p.branchEl] : INK[p.branchEl];
+        return '<div class="pp-pillar"><span class="pp-pl">' + p.label + '</span><span class="hz" style="color:' + c1 + '">' + p.stem + '</span><span class="hz" style="color:' + c2 + '">' + p.branch + '</span><span class="pp-pe">' + p.stemEl + " · " + p.branchEl + "<br>" + p.animal + "</span></div>";
+      };
+      var h = '<div class="pp-bar no-print"><a href="' + esc(back) + '">← Back to my reading</a><button type="button" class="btn btn--sm" data-pp-print>Save as PDF</button>' +
+        '<p class="small">In the print window, pick <b>Save as PDF</b> as the printer.</p></div>';
+      // cover
+      h += '<section class="pp-page pp-cover"><p class="pp-brand">BOM &amp; YEON <span>봄연</span></p>' +
+        (P.cover ? '<img class="pp-cover-img" src="/assets/img/cover-' + P.cover + '.webp" alt="" width="720" height="894">' : "") +
+        '<p class="pp-title">' + esc(J.title) + '</p><h1 class="pp-name">' + (I.name ? esc(I.name) : "Your reading") + "</h1>" +
+        '<p class="pp-dm"><span class="hz" style="color:' + I.color + '">' + I.hanja + "</span> " + esc(I.dmName) + " · " + esc(I.nick) +
+        (I.them ? ' <span class="pp-with">with <span class="hz" style="color:' + I.them.color + '">' + I.them.hanja + "</span> " + esc(I.them.name) + "</span>" : "") + "</p>" +
+        '<div class="pp-pillars pp-pillars--dark">' + I.pillars.map(function (p) { return pill(p, true); }).join("") + "</div>" +
+        '<span class="pp-cover-rule"></span><p class="pp-cover-foot">A Korean saju reading, told as a webtoon by Bom and Yeon · bomandyeon.com</p></section>';
+      // chart page
+      var max = Math.max.apply(null, I.counts.concat([1]));
+      var bars = I.counts.map(function (c, i) {
+        var el = D.EL_NAMES[i]; return '<div class="pp-bar-row"><span>' + el + '</span><span class="pp-tr"><i style="width:' + Math.round(c / max * 100) + "%;background:" + INK[el] + '"></i></span><span>' + c.toFixed(1) + "</span></div>";
+      }).join("");
+      var words = asm.words, min = mins(words);
+      h += '<section class="pp-page pp-chart"><p class="pp-kicker">Your chart</p><h2>' + esc(I.dmName) + ' <span class="hz" style="color:' + INK[I.el] + '">' + I.hanja + "</span></h2>" +
+        '<p class="pp-lead">' + esc(I.nick) + ". " + esc(s.tag || "") + "</p>" +
+        '<div class="pp-pillars">' + I.pillars.map(function (p) { return pill(p, false); }).join("") + "</div>" +
+        '<div class="pp-facts"><p><b>Season</b>' + I.seasonHz + " " + esc(seasonLine(R)) + "</p><p><b>Strength</b>" + esc(strengthWord(R)) + " · " + I.score + " of " + I.max + "</p><p><b>Length</b>" + asm.chapters.length + " chapters · " + words.toLocaleString("en-US") + " words</p></div>" +
+        '<div class="pp-bars">' + bars + "</div>";
+      if (PAIR === "required" && them && R.compat) {
+        var pd = PAIRS[pairSlug(R.dayMaster, R.partner.dayMaster)] || {};
+        h += '<div class="pp-bond"><p class="pp-kicker">You and them</p><p class="pp-score"><span class="hz" style="color:' + INK[s.el] + '">' + s.hanja + '</span> + <span class="hz" style="color:' + INK[them.el] + '">' + them.hanja + "</span> · " + R.compat.score + "%</p>" + (pd.v ? "<p>" + esc(pd.v) + "</p>" : "") + "</div>";
+      }
+      h += '<div class="pp-toc"><p class="pp-kicker">In this reading</p><ol>' + asm.chapters.map(function (ch) { return "<li>" + esc(ch.title || "") + "</li>"; }).join("") + "</ol></div>" +
+        '<p class="pp-note">' + (R.hasHour ? "Four pillars from your birth date and time." : "Three pillars from your birth date (year, month, day).") + " Solar terms converted to " + esc(BY.zoneLabel(R.zone)) + " time.</p></section>";
+      // chapters
+      asm.chapters.forEach(function (ch, i) {
+        var sc = sceneFor(ch.id, R), lines = "";
+        (ch.panels || []).forEach(function (p) {
+          if (p.nar) lines += '<p class="pp-nar">' + esc(p.nar) + "</p>";
+          var sp = who(p.speaker), lo = sp.toLowerCase();
+          lines += '<div class="pp-say pp-say--' + lo + '"><img src="/assets/img/av-' + lo + '.webp" alt="" width="40" height="40"><p><b>' + sp + "</b>" + esc(p.text) + "</p></div>";
+        });
+        var body = "";
+        if (ch.id === "strength") body += '<p class="pp-aside">' + esc(strengthHow(R)) + "</p>";
+        if (ch.id === "balance" && ch.blocks) ch.blocks.forEach(function (b) { body += "<h4>" + esc(b.h || "") + "</h4>" + textHTML(b.t) + (b.note ? '<p class="pp-aside">' + esc(b.note) + "</p>" : ""); });
+        else body += textHTML(ch.text);
+        h += '<section class="pp-ch"><header class="pp-ch-h"><p class="pp-kicker">Chapter ' + (i + 1) + (ch.kicker ? " · " + esc(ch.kicker) : "") + "</p><h2>" + esc(ch.title || "") + "</h2></header>" +
+          '<div class="pp-open' + (sc ? "" : " pp-open--plain") + '">' + (sc ? '<figure class="pp-scene"><img src="' + sc.src + '" alt="" width="' + sc.w + '" height="' + sc.h + '"></figure>' : "") +
+          '<div class="pp-lines">' + lines + "</div></div>" + '<div class="pp-text">' + body + "</div></section>";
+      });
+      // close
+      h += '<section class="pp-end"><div class="pp-say pp-say--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="40" height="40"><p><b>Yeon</b>' + esc(D.YEON_MSG[R.dayMasterEl]) + "</p></div>" +
+        '<p class="pp-note">This reading uses ' + (R.hasHour ? "four pillars (birth year, month, day and hour)" : "three pillars (birth year, month and day)") + ". It doesn't include the 10-year luck cycles (대운). For entertainment and self-reflection.</p>" +
+        '<p class="pp-sign">Bom &amp; Yeon <span>봄연</span><br><small>bomandyeon.com</small></p></section>';
+      out.innerHTML = '<div class="pp">' + h + "</div>";
+      BY.track("pdf-view-" + P.slug, "PDF view: " + P.slug);
+      var go = function () { if (QS.get("noauto") !== "1") window.print(); };
+      out.querySelector("[data-pp-print]").addEventListener("click", function () { window.print(); });
+      var imgs = [].slice.call(out.querySelectorAll("img"));
+      var fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+      var all = Promise.all(imgs.map(function (im) { return im.decode ? im.decode().catch(function () {}) : Promise.resolve(); }).concat([fontsReady]));
+      Promise.race([all, new Promise(function (r) { setTimeout(r, 8000); })]).then(function () {
+        document.body.setAttribute("data-pp-ready", "1"); setTimeout(go, 300);
+      });
+    }
     function coverInfo(R, s, them, title) {
       var pl = R.pillars;
       return { name: name, title: title, hanja: s.hanja, dmName: s.name, nick: s.nick, el: s.el, color: D.EL_COLOR[s.el],
@@ -795,7 +963,11 @@
       [].forEach.call(out.querySelectorAll("[data-act]"), function (b) {
         b.addEventListener("click", function () {
           var a = b.getAttribute("data-act");
-          if (a === "pdf") { BY.track("pdf-" + P.slug, "Save as PDF: " + P.slug); window.print(); }
+          if (a === "pdf") {
+            if (PAY && !PAY.owns(P.slug)) { BY.toast("Your PDF unlocks the moment the purchase is confirmed."); return; }
+            BY.track("pdf-" + P.slug, "Save as PDF: " + P.slug);
+            location.href = (ready() ? readUrl() + "&" : P.readUrl + "?") + "print=1"; return;
+          }
           if (a === "answers") { intake(answers); return; }
           // the ex reading's title never goes on anything public: share text and story card use a neutral title
           var pub = /ex-come-back/.test(P.slug) ? "My saju reading" : title;
@@ -839,7 +1011,7 @@
     function mins(w) { return Math.max(1, Math.round(w / 238)); }
     function aboutThis(R, L) {
       var words = L.words, min = mins(words);
-      return '<section class="rise chap about-reading"><p class="kicker">About this reading</p><p class="muted small">This reading is ' + words.toLocaleString("en-US") + " words in " + L.chapters + " chapters and " + L.panels + " panels, roughly " + min + " minute" + (min > 1 ? "s" : "") + " of reading. " +
+      return '<section class="rise chap about-reading"><p class="kicker">About this reading</p><p class="muted small">This reading is ' + words.toLocaleString("en-US") + " words in " + L.chapters + " chapters and " + L.panels + " panels. " +
         (R.hasHour ? "It uses four pillars: your birth year, month, day and hour. " : "It uses three pillars: your birth year, month and day. A birth hour would add a fourth. ") +
         "It doesn't include your 10-year luck cycles (대운), which traditional readers use for timing. If you were born between 11 pm and midnight, some saju schools count you as the next day's Day Master" +
         (PAIR ? ". The chapter on the two of you compares your Day Masters (and notes your day branches); a full Korean compatibility reading (궁합) compares both whole charts" : "") +

@@ -11,7 +11,7 @@
   "use strict";
   var BY = window.BY; if (!BY) return;
   var SHOP = "https://bomandyeon.gumroad.com/l/";
-  var API = "https://bom-yeon-unlock.bomandyeon.workers.dev/status?token=";
+  var WK = "https://bom-yeon-unlock.bomandyeon.workers.dev", API = WK + "/status?token=";
   var BUNDLE = "all-readings";
   /* license verify product_id per Gumroad product (?key= restore only) */
   var PID = {
@@ -19,7 +19,19 @@
     "situationship": "z384UJ1a5uo0SKWoTXq0NA==", "will-your-ex-come-back": "S3HQgkOpj0zFweiQPtvYMg==", "k-pop-position": "Tu9IIvIG4r4tTupnWNEaAg==",
     "couple-reading": "uM7t1OZBZO7_86PxV1Ct8Q==", "your-2027": "zzdmRA-cpEp9eI_MD9Tqdw==", "work-style": "KV9UNaoBGBeBxlv8QwHvrw==", "all-readings": "v4LSCn29sif23xbXsHCPcA=="
   };
-  var POLL_MS = 3000, POLL_MAX = 10 * 60 * 1000;
+  var POLL_MS = 1500, POLL_MAX = 10 * 60 * 1000;
+  /* reading inputs travel with the checkout (Gumroad forwards url params in its Ping): the worker keeps them with the
+     license key, so the email button / a pasted key opens the exact reading on any device. r = base64url(JSON). */
+  var stateFn = null;
+  function encState(o) {
+    if (!o) return "";
+    try { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); } catch (e) { return ""; }
+  }
+  function decState(r) {
+    if (!r || !/^[A-Za-z0-9_-]{8,700}$/.test(r)) return null;
+    try { var o = JSON.parse(decodeURIComponent(escape(atob(r.replace(/-/g, "+").replace(/_/g, "/"))))); return o && typeof o === "object" ? o : null; } catch (e) { return null; }
+  }
+  function stateParam() { var r = encState(stateFn && stateFn()); return r && r.length <= 700 ? r : ""; }
 
   function token(slug, fresh) {
     var k = "tok_" + slug, t = !fresh && BY.load(k);
@@ -33,7 +45,7 @@
   function anchor(price) { return (Math.round(price * 1.54) - 0.01).toFixed(2); }
   // ?code=XYZ on any page carries a Gumroad discount code into checkout (Gumroad's checkout has no code field)
   var OFFER = (function () { try { var c = new URLSearchParams(location.search).get("code"); if (c && /^[A-Za-z0-9_-]{2,40}$/.test(c)) sessionStorage.setItem("by_offer", c); return sessionStorage.getItem("by_offer") || ""; } catch (e) { return ""; } })();
-  function checkoutUrl(slug) { return SHOP + slug + "?wanted=true&token=" + token(slug) + (OFFER ? "&offer_code=" + encodeURIComponent(OFFER) : ""); }
+  function checkoutUrl(slug) { var r = stateParam(); return SHOP + slug + "?wanted=true&token=" + token(slug) + (r ? "&r=" + r : "") + (OFFER ? "&offer_code=" + encodeURIComponent(OFFER) : ""); }
   function loadGumroad() { /* kept as a no-op for callers; see header */ }
   /* our own gold button, no Gumroad styling: checkout opens in a new tab, this tab keeps polling */
   function buyLink(slug, label, cls) {
@@ -45,11 +57,16 @@
       '<p class="small muted pay-code-msg"' + (OFFER ? "" : " hidden") + '>' + (OFFER ? "Code " + BY.esc(OFFER) + " goes to checkout with you." : "") + '</p></details>';
   }
   /* conversion boost 2026-10-21: code box + restore + help folded into one small line under the buy button (same forms, same handlers) */
+  /* unlock fix 2026-10-21: the license-key box is always visible (one line + input + button); discount code stays folded */
+  function keyForm(label) {
+    return '<form class="pay-restore-form pay-key-line"><label class="pay-key-l" for="pk' + (++kfN) + '">' + (label || "Already paid? Paste the license key from Gumroad or your email:") + '</label>' +
+      '<span class="pay-key-row"><input id="pk' + kfN + '" name="k" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="License key"><button class="btn btn--sm" type="submit">Open</button></span>' +
+      '<span class="pay-key-err small" role="alert" hidden></span></form>';
+  }
+  var kfN = 0;
   function fallback() {
-    return '<details class="pay-more"' + (OFFER ? " open" : "") + '><summary>Have a code, or already paid?</summary>' + codeBox() +
-      '<p class="pay-help muted">Paid? Your comic opens here by itself. Nothing after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>' +
-      '<details class="pay-restore"><summary>Bought on another phone or straight on Gumroad?</summary>' +
-      '<form class="pay-restore-form"><input name="k" autocomplete="off" spellcheck="false" placeholder="License key from your receipt" aria-label="License key from your receipt"><button class="btn btn--ghost btn--sm" type="submit">Open</button></form></details></details>';
+    return keyForm() + '<details class="pay-more"' + (OFFER ? " open" : "") + '><summary>Have a discount code?</summary>' + codeBox() + "</details>" +
+      '<p class="pay-help muted small">Paid and nothing opened after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>';
   }
   document.addEventListener("submit", function (e) {
     var f = e.target; if (!f || !f.classList || !f.classList.contains("pay-code-form")) return;
@@ -62,19 +79,25 @@
   });
   document.addEventListener("submit", function (e) {
     var f = e.target; if (!f || !f.classList || !f.classList.contains("pay-restore-form")) return;
-    e.preventDefault(); var v = (f.k.value || "").replace(/\s+/g, ""); if (!/^[A-Za-z0-9-]{16,80}$/.test(v)) { f.k.focus(); return; }
-    var u = new URL(location.href); u.searchParams.set("key", v); location.href = u.pathname + u.search;
+    e.preventDefault(); var v = (f.k.value || "").replace(/\s+/g, "").toUpperCase(), er = f.querySelector(".pay-key-err");
+    if (!/^[A-Za-z0-9-]{16,80}$/.test(v)) { if (er) { er.textContent = "That doesn't look like a license key. It looks like XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX."; er.hidden = false; } f.k.focus(); return; }
+    var b = f.querySelector("button"); if (b) { b.disabled = true; b.textContent = "Opening…"; }
+    var u = new URL(location.href); u.searchParams.set("key", v); u.searchParams.delete("from"); location.href = u.pathname + u.search;
   });
 
-  var polls = {}, handlers = {};
+  var polls = {}, handlers = {}, giveUp = {};
   function setPending(slug) { BY.store("pend_" + slug, { t: Date.now(), tok: token(slug) }); }
   function pendingFresh(slug) { var p = BY.load("pend_" + slug); return p && p.tok === BY.load("tok_" + slug) && Date.now() - p.t < POLL_MAX ? p : null; }
+  /* pending checkout: the paywall turns into an "opening" card (no price, no buy button) until Gumroad confirms */
+  function paintPending(slug, on) {
+    [].forEach.call(document.querySelectorAll('[data-pw~="' + slug + '"]'), function (el) { el.classList.toggle("is-pending", !!on); });
+  }
   function status(slug, msg) { [].forEach.call(document.querySelectorAll('[data-paystatus="' + slug + '"]'), function (el) { el.textContent = msg; el.hidden = !msg; }); }
   function paid(slug, key, realSlug) {
     var s = realSlug || slug;
     BY.store("lic_" + s, key || "worker"); BY.store("pend_" + slug, null); BY.store("tok_" + slug, null);
     BY.track("paid-" + s, "Paid and opened: " + s);
-    status(slug, "");
+    status(slug, ""); paintPending(slug, false);
     var h = handlers[slug]; if (h) h(s);
   }
   /* checkout finished after the 10-minute poll window (captcha, slow card, came back later from Gumroad's "Open my comic"):
@@ -90,11 +113,12 @@
   function poll(slug) {
     if (polls[slug]) return;
     var p = pendingFresh(slug); if (!p) return;
-    status(slug, "Waiting for your payment to go through. This page opens your comic by itself.");
+    status(slug, "Finish paying in the Gumroad tab. Your comic opens here by itself the moment it goes through.");
+    paintPending(slug, true);
     var tok = p.tok;
     polls[slug] = setInterval(function () {
       var q = pendingFresh(slug);
-      if (!q) { clearInterval(polls[slug]); polls[slug] = null; status(slug, ""); return; }
+      if (!q) { clearInterval(polls[slug]); polls[slug] = null; status(slug, ""); paintPending(slug, false); var g = giveUp[slug]; if (g) g(); return; }
       fetch(API + encodeURIComponent(tok), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
         if (j && j.paid) { clearInterval(polls[slug]); polls[slug] = null; paid(slug, j.license_key, j.slug); }
       }).catch(function () { /* network blip: keep polling */ });
@@ -116,7 +140,9 @@
 
   document.addEventListener("click", function (e) {
     var a = e.target.closest && e.target.closest("[data-pay]");
-    if (a) { var s = a.getAttribute("data-pay"); setPending(s); BY.track("checkout-" + s, "Checkout opened: " + s); setTimeout(function () { poll(s); }, 1500); return; }
+    if (a) { var s = a.getAttribute("data-pay"); a.href = checkoutUrl(s); setPending(s); BY.track("checkout-" + s, "Checkout opened: " + s); setTimeout(function () { poll(s); }, 800); return; }
+    var c = e.target.closest && e.target.closest("[data-pay-cancel]");
+    if (c) { e.preventDefault(); c.getAttribute("data-pay-cancel").split(" ").forEach(function (cs) { BY.store("pend_" + cs, null); if (polls[cs]) { clearInterval(polls[cs]); polls[cs] = null; } status(cs, ""); paintPending(cs, false); }); }
   }, true);
   /* back on this tab after checkout: check right away instead of waiting for the next tick */
   function checkNow() {
@@ -131,6 +157,26 @@
   window.addEventListener("pageshow", function (e) { if (e.persisted) checkNow(); });
   window.addEventListener("focus", checkNow);
 
+  /* key -> {paid, slug, r} via the worker (KV: instant, carries the reading inputs); worker unreachable -> Gumroad verify from
+     the browser. definitive=false only when nothing could be reached (then the caller keeps the benefit of the doubt). */
+  function lookup(slug, key) {
+    return fetch(WK + "/lookup?key=" + encodeURIComponent(key) + "&slug=" + encodeURIComponent(slug), { cache: "no-store" }).then(function (r) {
+      if (r.status === 400) return { paid: false, definitive: true };
+      if (!r.ok) throw new Error("worker " + r.status);
+      return r.json().then(function (j) {
+        if (j && j.paid) return { paid: true, slug: j.slug, r: j.r || null, state: decState(j.r) };
+        return { paid: false, refunded: !!(j && j.refunded), definitive: true };
+      });
+    }).catch(function () {
+      return verifyKey(slug, key).then(function (hit) { return hit ? { paid: true, slug: hit, r: null, state: null } : { paid: false, definitive: true }; })
+        .catch(function () { return { paid: false, definitive: false }; });
+    });
+  }
+  /* the buyer typed the birthdays once for a key that had none: keep them so other devices open straight away */
+  function attach(key) {
+    var r = stateParam(); if (!r || !key) return;
+    try { fetch(WK + "/attach", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ key: key, r: r }), keepalive: true }).catch(function () {}); } catch (e) { /* ignore */ }
+  }
   /* ?key=<license> restore: verify silently, store, drop the key from the address bar. Resolves true when it opened. */
   function keyParam() { try { var k = new URLSearchParams(location.search).get("key"); return k && /^[A-Za-z0-9-]{16,80}$/.test(k.trim()) ? k.trim() : ""; } catch (e) { return ""; } }
   function stripKey() {
@@ -139,16 +185,22 @@
   function restore(slug) {
     var k = keyParam(); if (!k) return Promise.resolve(false);
     stripKey();
-    return verifyKey(slug, k).then(function (hit) {
-      if (!hit) return false;
-      BY.store("lic_" + hit, k); BY.track("restore-" + hit, "Restored with key: " + hit); return true;
+    return lookup(slug, k).then(function (res) {
+      if (!res.paid) return false;
+      BY.store("lic_" + res.slug, k); BY.track("restore-" + res.slug, "Restored with key: " + res.slug); return true;
     }).catch(function () { return false; });
   }
 
   BY.pay = {
-    on: !!BY.paytest, owns: owns, anchor: anchor, buyLink: buyLink, fallback: fallback, loadGumroad: loadGumroad, restore: restore, hasKey: function () { return !!keyParam(); },
-    /* call once per page per slug: resumes a pending checkout and runs onPaid(slug) when it goes through */
-    watch: function (slug, onPaid) { handlers[slug] = onPaid; poll(slug); lateCheck(slug); },
+    on: !!BY.paytest, owns: owns, anchor: anchor, buyLink: buyLink, fallback: fallback, keyForm: keyForm, loadGumroad: loadGumroad, restore: restore, hasKey: function () { return !!keyParam(); },
+    keyParam: keyParam, stripKey: stripKey, lookup: lookup, attach: attach, decState: decState,
+    setState: function (fn) { stateFn = fn; },
+    /* this browser started a checkout for slug: fresh = within the 10-minute poll window, any = within 30 days */
+    pending: function (slug, any) { var p = BY.load("pend_" + slug), t = BY.load("tok_" + slug); return !!(p && t && p.tok === t && Date.now() - p.t < (any ? 30 * 864e5 : POLL_MAX)); },
+    store: function (slug, key) { BY.store("lic_" + slug, key); },
+    /* call once per page per slug: resumes a pending checkout and runs onPaid(slug) when it goes through, onGiveUp() when the
+       10-minute window ends without a payment */
+    watch: function (slug, onPaid, onGiveUp) { handlers[slug] = onPaid; if (onGiveUp) giveUp[slug] = onGiveUp; poll(slug); lateCheck(slug); },
     statusEl: function (slug) { return '<p class="muted small pay-status" data-paystatus="' + slug + '" role="status" aria-live="polite" hidden></p>'; },
     guarantee: "Free redo or refund within 30 days.",
     methods: "Card, Apple Pay or PayPal."
@@ -161,7 +213,7 @@
     // no strike-through anchor here: the honest comparison ("9 readings, $X if bought one by one") already sits next to the price
     var paint = function () {
       if (owns(BUNDLE)) { bp.innerHTML = '<p class="small pw-promise">All Readings is yours on this browser. Pick any reading below and it opens in full.</p><a class="btn" href="#list">Pick a reading</a>'; return; }
-      bp.innerHTML = buyLink(BUNDLE, "Get All Readings · $" + price) + '<p class="small pw-promise">' + BY.pay.guarantee + " " + BY.pay.methods + " Every reading has a free 2-chapter preview too.</p>" + BY.pay.statusEl(BUNDLE) + fallback();
+      bp.innerHTML = buyLink(BUNDLE, "Get All Readings · $" + price) + '<p class="small pw-promise">' + BY.pay.guarantee + " " + BY.pay.methods + "</p>" + BY.pay.statusEl(BUNDLE) + fallback();
     };
     if (top) top.hidden = true; if (gift) gift.hidden = true;
     bp.hidden = false; paint();
