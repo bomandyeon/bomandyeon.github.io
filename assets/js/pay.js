@@ -10,7 +10,7 @@
 (function () {
   "use strict";
   var BY = window.BY; if (!BY) return;
-  var SHOP = "https://rok8678.gumroad.com/l/";
+  var SHOP = "https://bomandyeon.gumroad.com/l/";
   var API = "https://bom-yeon-unlock.bomandyeon.workers.dev/status?token=";
   var BUNDLE = "all-readings";
   /* license verify product_id per Gumroad product (?key= restore only) */
