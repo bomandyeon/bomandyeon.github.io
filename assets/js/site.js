@@ -139,6 +139,78 @@
   BY.iso = function (b) { return b ? b.year + "-" + ("0" + b.month).slice(-2) + "-" + ("0" + b.day).slice(-2) : ""; };
   BY.fromIso = function (s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); if (!m) return null; var b = { year: +m[1], month: +m[2], day: +m[3] }; return BY.validDate(b.year, b.month, b.day) ? b : null; };
 
+  /* ---------- reading state in links (2026-10-22): no birthday or answer is ever readable in an address ----------
+     ?s=<id>   random id; the inputs stay in this browser (localStorage by_st_<id>), so the address bar shows only the id.
+     &x=<code> only on links that leave this browser (the "email me my chapters" link): a packed, scrambled copy of the
+               inputs so the link opens on another phone. Not encryption, just not human-readable.
+     Old links (?b= &t= &a=, and the purchase email's r=) still open; product.js rewrites the address to ?s= at once. */
+  var ST_SEED = [66, 111, 109, 38, 89, 101, 111, 110, 45, 115, 101, 111, 117, 108, 33, 55];
+  var ST_D0 = Date.UTC(1800, 0, 1);
+  function stDays(b) { return b ? Math.round((Date.UTC(b.year, b.month - 1, b.day) - ST_D0) / 864e5) : -1; }
+  function stDate(n) { if (!(n >= 0)) return null; var d = new Date(ST_D0 + n * 864e5); return BY.fromIso(d.getUTCFullYear() + "-" + ("0" + (d.getUTCMonth() + 1)).slice(-2) + "-" + ("0" + d.getUTCDate()).slice(-2)); }
+  function stXor(bytes, salt) { var out = [], k = salt; for (var i = 0; i < bytes.length; i++) { k = (k * 31 + ST_SEED[i % 16] + i) & 255; out.push(bytes[i] ^ k); } return out; }
+  function stB64(bytes) { var s = ""; bytes.forEach(function (c) { s += String.fromCharCode(c); }); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function stUnB64(t) { var s = atob(t.replace(/-/g, "+").replace(/_/g, "/")), a = []; for (var i = 0; i < s.length; i++) a.push(s.charCodeAt(i)); return a; }
+  function stClean(o) {
+    if (!o) return null;
+    var b = o.b && o.b.year ? o.b : BY.fromIso(o.b), t = o.t && o.t.year ? o.t : BY.fromIso(o.t), a = typeof o.a === "string" && /^[a-z0-9_.-]{1,80}$/.test(o.a) ? o.a : "";
+    return b ? { b: b, t: t || null, a: a } : null;
+  }
+  function stSig(o) { return BY.iso(o.b) + "|" + BY.iso(o.t) + "|" + o.a; }
+  BY.urlState = {
+    pack: function (o) {
+      o = stClean(o); if (!o) return "";
+      var plain = "1." + stDays(o.b).toString(36) + "." + (o.t ? stDays(o.t).toString(36) : "") + "." + o.a, bytes = [];
+      for (var i = 0; i < plain.length; i++) bytes.push(plain.charCodeAt(i) & 255);
+      var salt = 0; try { var r = new Uint8Array(1); (window.crypto || window.msCrypto).getRandomValues(r); salt = r[0]; } catch (e) { salt = Math.floor(Math.random() * 256); }
+      return stB64([salt].concat(stXor(bytes, salt)));
+    },
+    unpack: function (code) {
+      if (!code || !/^[A-Za-z0-9_-]{6,200}$/.test(code)) return null;
+      try {
+        var a = stUnB64(code), salt = a[0], bytes = stXor(a.slice(1), salt), s = "";
+        bytes.forEach(function (c) { s += String.fromCharCode(c); });
+        var m = /^1\.([0-9a-z]+)\.([0-9a-z]*)\.([a-z0-9_.-]*)$/.exec(s); if (!m) return null;
+        return stClean({ b: stDate(parseInt(m[1], 36)), t: m[2] ? stDate(parseInt(m[2], 36)) : null, a: m[3] });
+      } catch (e) { return null; }
+    },
+    /* the id for these inputs in this browser (same inputs, same id) */
+    id: function (o) {
+      o = stClean(o); if (!o) return "";
+      var map = BY.load("stids") || {}, sig = stSig(o), id = map[sig];
+      if (!id || !BY.load("st_" + id)) {
+        var abc = "abcdefghijkmnpqrstuvwxyz23456789", r = new Uint8Array(10); id = "";
+        try { (window.crypto || window.msCrypto).getRandomValues(r); } catch (e) { for (var j = 0; j < 10; j++) r[j] = Math.floor(Math.random() * 256); }
+        for (var i = 0; i < 10; i++) id += abc.charAt(r[i] % abc.length);
+        var keys = Object.keys(map);
+        if (keys.length >= 40) keys.slice(0, keys.length - 39).forEach(function (k) { BY.store("st_" + map[k], null); delete map[k]; });
+        map[sig] = id; BY.store("stids", map);
+      }
+      BY.store("st_" + id, { b: BY.iso(o.b), t: BY.iso(o.t), a: o.a });
+      return id;
+    },
+    /* "?s=<id>" (+ "&x=<code>" when the link leaves this browser); "" when there is no birthday yet */
+    query: function (o, portable) { var id = BY.urlState.id(o); return id ? "?s=" + id + (portable ? "&x=" + BY.urlState.pack(o) : "") : ""; },
+    /* inputs from the current address: {b, t, a, via: "x" | "s" | "legacy"} or null */
+    read: function () {
+      var q; try { q = new URLSearchParams(location.search); } catch (e) { return null; }
+      var x = BY.urlState.unpack(q.get("x")); if (x) { x.via = "x"; return x; }
+      var s = q.get("s"), st = s && /^[a-z0-9]{6,20}$/.test(s) ? stClean(BY.load("st_" + s)) : null; if (st) { st.via = "s"; return st; }
+      var b = BY.fromIso(q.get("b")); if (!b) return null;
+      var a = q.get("a"); return { b: b, t: BY.fromIso(q.get("t")), a: a && /^[a-z0-9_.-]{1,80}$/.test(a) ? a : "", via: "legacy" };
+    },
+    /* rewrite the address bar: drop b, t, a, x, r; s=<id> for these inputs (other params and the hash kept) */
+    clean: function (o) {
+      try {
+        var u = new URL(location.href), had = false;
+        ["b", "t", "a", "x", "r"].forEach(function (k) { if (u.searchParams.has(k)) { had = true; u.searchParams.delete(k); } });
+        var id = o ? BY.urlState.id(o) : "";
+        if (id && u.searchParams.get("s") !== id) { u.searchParams.delete("s"); u.search = "?s=" + id + (u.search ? "&" + u.search.slice(1) : ""); had = true; }
+        if (had) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      } catch (e) { /* file:// */ }
+    }
+  };
+
   BY.prettyDate = function (b) { return b ? MONTHS[b.month - 1] + " " + b.day + ", " + b.year : ""; };
   /* paid-flow test mode: ?paytest=1 turns it on for this tab (sessionStorage), ?paytest=0 turns it off.
      Normal visitors never see it: the public site stays free. */

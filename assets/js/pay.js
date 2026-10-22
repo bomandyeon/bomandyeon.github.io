@@ -103,6 +103,7 @@
     var s = realSlug || slug;
     BY.store("lic_" + s, key || "worker"); BY.store("pend_" + slug, null); BY.store("tok_" + slug, null);
     BY.track("paid-" + s, "Paid and opened: " + s);
+    purchased(s, key || ("tok:" + (BY.load("tok_" + slug) || slug)), true);
     status(slug, ""); paintPending(slug, false);
     var h = handlers[slug]; if (h) h(s);
   }
@@ -135,13 +136,19 @@
     function tryOne(i) {
       if (i >= ids.length) return Promise.resolve(null);
       var body = new URLSearchParams(); body.set("product_id", PID[ids[i]]); body.set("license_key", key); body.set("increment_uses_count", "false");
-      return fetch("https://api.gumroad.com/v2/licenses/verify", { method: "POST", body: body }).then(function (r) { return r.json(); }).then(function (j) {
+      return fetch("https://api.gumroad.com/v2/licenses/verify", { method: "POST", body: body }).then(function (r) {
+        if (r.status >= 500) throw new Error("gumroad " + r.status);
+        return r.json().catch(function () { return null; });
+      }).then(function (j) {
         var pu = j && j.purchase;
-        if (j && j.success && pu && !pu.refunded && !pu.chargebacked && !pu.disputed) return ids[i];
+        if (j && j.success && pu && (pu.refunded || pu.chargebacked || pu.disputed)) { refunded = true; return tryOne(i + 1); }
+        if (j && j.success && pu) return ids[i];
         return tryOne(i + 1);
       });
     }
-    return tryOne(0);
+    var refunded = false;
+    /* -> slug | {refunded:true} | null (not a key for this reading); rejects when Gumroad can't be reached */
+    return tryOne(0).then(function (hit) { return hit || (refunded ? { refunded: true } : null); });
   }
 
   document.addEventListener("click", function (e) {
@@ -174,8 +181,10 @@
         return { paid: false, refunded: !!(j && j.refunded), definitive: true };
       });
     }).catch(function () {
-      return verifyKey(slug, key).then(function (hit) { return hit ? { paid: true, slug: hit, r: null, state: null } : { paid: false, definitive: true }; })
-        .catch(function () { return { paid: false, definitive: false }; });
+      return verifyKey(slug, key).then(function (hit) {
+        if (typeof hit === "string") return { paid: true, slug: hit, r: null, state: null };
+        return { paid: false, refunded: !!(hit && hit.refunded), definitive: true };
+      }).catch(function () { return { paid: false, definitive: false }; });
     });
   }
   /* the buyer typed the birthdays once for a key that had none: keep them so other devices open straight away */
@@ -192,13 +201,49 @@
     var k = keyParam(); if (!k) return Promise.resolve(false);
     stripKey();
     return lookup(slug, k).then(function (res) {
-      if (!res.paid) return false;
-      BY.store("lic_" + res.slug, k); BY.track("restore-" + res.slug, "Restored with key: " + res.slug); return true;
+      if (!res.paid) { if (res.refunded) forget(k); return false; }
+      BY.store("lic_" + res.slug, k); BY.track("restore-" + res.slug, "Restored with key: " + res.slug);
+      purchased(res.slug, k, pendingAny(slug)); return true;
     }).catch(function () { return false; });
   }
 
+  /* ---------- purchase measurement (2026-10-22) ----------
+     First confirmed licence per key in this browser: GoatCounter evt-unlock-<slug>; when it is a fresh checkout from this
+     browser (the poll saw the sale, or a key/Gumroad return while this browser's checkout is pending) also evt-purchase-<slug>,
+     which consent.js turns into Meta Purchase {value, currency USD, content_name} only with Meta consent. Opening an
+     old purchase from the email on another device counts as an unlock, not a second purchase. Only a short hash of the key
+     is kept for the dedupe; no email, key or birthday goes into any event. */
+  function khash(k) { var h = 5381, t = String(k || ""); for (var i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); }
+  function purchased(slug, key, fresh) {
+    var seen = BY.load("pur") || [], h = khash(key) + ":" + slug;
+    if (seen.indexOf(h) >= 0) return false;
+    seen.push(h); BY.store("pur", seen.slice(-50));
+    BY.track("unlock-" + slug, "Licence confirmed: " + slug);
+    if (fresh) BY.track("purchase-" + slug, "Purchase: " + slug);
+    return true;
+  }
+  function pendingAny(slug) { return !!(BY.pay && (BY.pay.pending(slug, true) || BY.pay.pending(BUNDLE, true))) || /[?&]from=gumroad\b/.test(location.search); }
+  /* a key that turned out refunded/disputed stops opening anything in this browser */
+  function forget(key) {
+    Object.keys(PID).forEach(function (s) { if (BY.load("lic_" + s) === key) BY.store("lic_" + s, null); });
+  }
+  /* stored licences are re-checked at most once a day: refunded, disputed or charged back -> closed.
+     Resolves "ok" | "refunded" | "unknown" (no key to check, or the checker couldn't be reached: stays open). */
+  function recheck(slug) {
+    var s = BY.load("lic_" + slug) ? slug : (BY.load("lic_" + BUNDLE) ? BUNDLE : ""), k = s && BY.load("lic_" + s);
+    if (!k || typeof k !== "string" || !/^[A-Za-z0-9-]{16,80}$/.test(k)) return Promise.resolve("unknown");
+    var ck = BY.load("lchk") || {}, h = khash(k);
+    if (ck[h] && Date.now() - ck[h] < 864e5) return Promise.resolve("ok");
+    return lookup(s, k).then(function (res) {
+      if (res.paid) { ck[h] = Date.now(); BY.store("lchk", ck); return "ok"; }
+      if (res.definitive && res.refunded) { forget(k); BY.track("refunded-closed-" + slug, "Refunded licence closed: " + slug); return "refunded"; }
+      return "unknown"; // not reachable, or an odd answer: never lock a buyer out on a guess
+    }).catch(function () { return "unknown"; });
+  }
+
   BY.pay = {
-    on: !!BY.paytest, owns: owns, anchor: anchor, buyLink: buyLink, fallback: fallback, keyForm: keyForm, loadGumroad: loadGumroad, restore: restore, hasKey: function () { return !!keyParam(); },
+    on: !!BY.paytest, recheck: recheck, purchased: purchased, forget: forget, pendingAny: pendingAny,
+    refundedMsg: "This purchase was refunded, so the reading is closed.", netMsg: "Couldn't check your purchase. Try again.", owns: owns, anchor: anchor, buyLink: buyLink, fallback: fallback, keyForm: keyForm, loadGumroad: loadGumroad, restore: restore, hasKey: function () { return !!keyParam(); },
     keyParam: keyParam, stripKey: stripKey, lookup: lookup, attach: attach, decState: decState,
     setState: function (fn) { stateFn = fn; },
     /* this browser started a checkout for slug: fresh = within the 10-minute poll window, any = within 30 days */
@@ -208,6 +253,10 @@
        10-minute window ends without a payment */
     watch: function (slug, onPaid, onGiveUp) { handlers[slug] = onPaid; if (onGiveUp) giveUp[slug] = onGiveUp; poll(slug); lateCheck(slug); },
     statusEl: function (slug) { return '<p class="muted small pay-status" data-paystatus="' + slug + '" role="status" aria-live="polite" hidden></p>'; },
+    /* trust line + express-consent notice (2026-10-22): a notice, never a blocking checkbox. Every claim matches /refunds/,
+       /terms/ and the checkout itself (Gumroad takes card, Apple Pay, PayPal; the reading opens when the sale goes through). */
+    trust: '<p class="pw-trust">Secure checkout by Gumroad · card, Apple Pay or PayPal · opens right after payment · 30-day refund</p>',
+    consent: '<p class="pw-consent">By buying you ask for the reading right away. Your 30-day refund still applies. <a href="/terms/#checkout">Terms</a> · <a href="/refunds/">Refunds</a></p>',
     guarantee: "Free redo or refund within 30 days.",
     methods: "Card, Apple Pay or PayPal."
   };
@@ -219,7 +268,7 @@
     // no strike-through anchor here: the honest comparison ("9 readings, $X if bought one by one") already sits next to the price
     var paint = function () {
       if (owns(BUNDLE)) { bp.innerHTML = '<p class="small pw-promise">All Readings is yours on this browser. Pick any reading below and it opens in full.</p><a class="btn" href="#list">Pick a reading</a>'; return; }
-      bp.innerHTML = buyLink(BUNDLE, "Get All Readings · $" + price) + '<p class="small pw-promise">' + BY.pay.guarantee + " " + BY.pay.methods + "</p>" + BY.pay.statusEl(BUNDLE) + fallback();
+      bp.innerHTML = buyLink(BUNDLE, "Get All Readings · $" + price) + BY.pay.trust + BY.pay.consent + BY.pay.statusEl(BUNDLE) + fallback();
     };
     if (top) top.hidden = true; if (gift) gift.hidden = true;
     bp.hidden = false; paint();

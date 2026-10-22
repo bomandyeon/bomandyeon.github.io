@@ -568,6 +568,17 @@ a.gl:hover { color: var(--gold2); }
 .next-card .bubble-line b { color: var(--gold2); }
 .next-card .note { margin: 0; }
 .next-card:hover { color: var(--moon); border-color: var(--gold2); }
+.next-trio h2 { font-size: 22px; margin: 0 0 12px; }
+.next-trio__list { display: grid; gap: 10px; }
+.next-mini { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--hair); border-radius: 14px; background: rgba(255,255,255,.03); color: var(--moon); text-decoration: none; }
+.next-mini:hover { border-color: var(--gold); color: var(--moon); }
+.next-mini img { width: 64px; height: 79px; object-fit: cover; border-radius: 8px; }
+.next-mini__b { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.next-mini__b b { font: 700 16px/1.2 var(--serif); }
+.next-mini__b .small { line-height: 1.35; }
+.next-mini__p { font-size: 13px; color: var(--gold2); font-weight: 600; }
+.next-trio .note { margin: 10px 0 0; }
+@media (min-width: 700px) { .next-trio__list { grid-template-columns: repeat(3, 1fr); } .next-mini { grid-template-columns: 1fr; } .next-mini img { width: 100%; height: auto; aspect-ratio: 360/447; } }
 @media (max-width: 420px) { .next-card { grid-template-columns: 1fr; } .next-card img { max-height: 220px; object-position: 50% 25%; } }
 .more-h { margin: 34px 0 10px; font-size: 18px; color: var(--mute); }
 .shelf--more { grid-auto-columns: 56%; }
@@ -1054,3 +1065,8 @@ body:has(.paywall.is-pending) .sticky-buy { display: none !important; }
 .pw-up-s { margin: 0 0 10px; font-size: 13px; line-height: 1.45; color: var(--mute); }
 .btn.pw-up-btn { min-height: 44px; font-size: 15px; }
 .paywall.is-pending .pw-up { display: none !important; }
+
+/* trust line + express-consent notice under Gumroad buy buttons (2026-10-22) */
+.pw-trust, .pw-consent { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: var(--mute); text-align: center; }
+.pw-consent { margin-top: 4px; font-size: 11.5px; opacity: .9; }
+.pw-consent a { color: var(--mute); text-decoration: underline; text-underline-offset: 2px; }

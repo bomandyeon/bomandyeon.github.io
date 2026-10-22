@@ -9,6 +9,8 @@
  *   teaser-ch2-<slug>     -> TeaserView (custom) when chapter 2 of the free comic is on screen
  *   checkout-<slug>       -> InitiateCheckout {value, currency: USD, ...} + CheckoutClick (custom, same data)
  *   kit-reading-copy / kit-signup-teaser (leave sheet email saved) -> Lead {content_name: slug}
+ *   purchase-<slug>       -> Purchase {value: real price (bundle 29.99), currency: USD, content_name: slug}; pay.js fires it once
+ *                            per licence key in this browser, only for a fresh checkout (see pay.js "purchase measurement")
  * ?cookiebanner=1 shows the banner for a look even with no Pixel ID (the choice is saved, nothing loads). */
 (function () {
   "use strict";
@@ -93,6 +95,7 @@
     if ((m = /^teaser-ch2-([a-z0-9-]+)$/.exec(n))) meta("TeaserView", prod(m[1]), true);
     else if ((m = /^teaser-([a-z0-9-]+)$/.exec(n))) meta("ViewContent", prod(m[1]));
     else if ((m = /^checkout-([a-z0-9-]+)$/.exec(n))) { var p = prod(m[1]); p.num_items = 1; meta("InitiateCheckout", p); meta("CheckoutClick", p, true); }
+    else if ((m = /^purchase-([a-z0-9-]+)$/.exec(n))) { var v = { content_name: m[1], currency: "USD" }; if (PRICES[m[1]] != null) v.value = +PRICES[m[1]]; meta("Purchase", v); }
     else if (n === "kit-reading-copy" || n === "kit-signup-teaser") { var s = (window.BY_PRODUCT && window.BY_PRODUCT.slug) || ""; meta("Lead", s ? { content_name: s } : {}); }
   };
   BY.consent = { choice: choice, show: show, granted: granted, pixel: !!ID };
