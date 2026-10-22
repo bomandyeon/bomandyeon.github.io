@@ -1,0 +1,84 @@
+# Bom & Yeon
+
+> Korean saju as a personality language, like MBTI with about a thousand years of practice behind it. Free birthday type check, ten birthday types, compatibility for all 55 type pairs, and love guides by type. English. For entertainment and self-reflection, not prediction.
+
+Saju (사주, four pillars) reads a birth date as eight calendar characters. The character of the birth day is the person's core type, called the Day Master; this site calls it the birthday type and gives each of the ten a plain name: the Tall Pine (Gap Wood 甲), the Climbing Flower (Eul Wood 乙), the Sun (Byeong Fire 丙), the Candle (Jeong Fire 丁), the Mountain (Mu Earth 戊), the Garden Field (Gi Earth 己), the Sword (Gyeong Metal 庚), the Jewel (Sin Metal 辛), the Ocean (Im Water 壬) and the Rain (Gye Water 癸). Calculations use real solar terms and run in the visitor's browser.
+
+## Start here
+
+- [Free birthday type check](https://bomandyeon.com/): Enter a birth date and get one of the ten Korean birthday types, with a reveal by Bom and Yeon. Free, no sign-up.
+- [What is saju?](https://bomandyeon.com/what-is-saju/): Saju (사주, 'four pillars') is the Korean system that turns your birth year, month, day and hour into eight characters, and reads them as a personality profile, with the day you were born giving your core type.
+
+## Questions
+
+- [What is my Korean birthday type?](https://bomandyeon.com/what-is-my-korean-birthday-type/): Your Korean birthday type is one of ten saju types (the Tall Pine, the Climbing Flower, the Sun, the Candle, the Mountain, the Garden Field, the Sword, the Jewel, the Ocean and the Rain), and it is set by the day you were born, not the year.
+- [Saju vs MBTI: what is the difference?](https://bomandyeon.com/saju-vs-mbti/): Saju sorts you by your birth date into one of ten birthday types (and sixty day pillars), while MBTI sorts you by your questionnaire answers into one of sixteen types; one is fixed by when you were born, the other can change when your answers do.
+- [Korean zodiac compatibility in love](https://bomandyeon.com/korean-zodiac-compatibility/): In Korean love compatibility, the zodiac animal (from your birth year) is only a small part; a proper gunghap compares the two birthday types and the elements in both charts, which is why two Rats can get along very differently.
+- [How to find your Day Master](https://bomandyeon.com/how-to-find-my-day-master/): To find your Day Master, look up the heavenly stem of your birth day in a Korean saju calendar (manseryeok), or enter your birth date in a free check that does the day count for you; that stem is your birthday type.
+- [The Korean birthday personality test](https://bomandyeon.com/korean-birthday-personality-test/): The Korean birthday personality test reads your birth date with saju and gives you one of ten birthday types, like the Sword or the Rain, with a profile of how you love, argue and recharge; it takes ten seconds and needs no sign-up.
+- [Saju vs the zodiac](https://bomandyeon.com/saju-vs-zodiac/): Your Chinese zodiac animal comes from your birth year and your Western star sign from your birth month, but your Korean saju birthday type comes from your birth day, which is why saju splits people far more finely than either.
+- [Is saju accurate?](https://bomandyeon.com/is-saju-accurate/): The calculation in saju can be exact (the calendar maths is precise), but saju has not been shown to predict personality or events scientifically, so it works best as a mirror for reflection rather than as a forecast.
+- [What is gunghap?](https://bomandyeon.com/what-is-gunghap/): Gunghap (궁합) is the Korean practice of comparing two people's saju charts to see how they fit as a couple, looking mainly at their birthday types, elements and day branches.
+- [How to read a saju chart](https://bomandyeon.com/how-to-read-a-saju-chart/): A saju chart has four columns (most Korean charts show hour, day, month and year from left to right), each with a heavenly stem on top and an earthly branch below; start with the top character of the day column, because that is you.
+- [Which element are you? Five elements personality in saju](https://bomandyeon.com/five-elements-personality/): Your saju element is the element of your birthday type: Wood (the Tall Pine, the Climbing Flower), Fire (the Sun, the Candle), Earth (the Mountain, the Garden Field), Metal (the Sword, the Jewel) or Water (the Ocean, the Rain).
+- [Why do Koreans check saju before dating?](https://bomandyeon.com/saju-in-k-dramas/): Many Koreans check saju before or during a relationship because comparing two charts (gunghap) is a long-standing family tradition, and today it is mostly a fun, social way to talk about compatibility.
+- [Can you read saju without a birth time?](https://bomandyeon.com/saju-without-birth-time/): Yes, you can read saju without a birth time: your birthday type comes from the date alone, along with three of the four pillars, and the hour only adds the fourth pillar unless you were born close to midnight.
+
+## Birthday types
+
+- [The 10 Korean birthday types](https://bomandyeon.com/souls/): All ten saju birthday types (Day Masters) with a comparison table.
+- [The Tall Pine (Gap Wood 甲)](https://bomandyeon.com/souls/gap-wood/): Loyal, proud and steady. Protects first, talks later, and would rather fix your problem than say how they feel.
+- [The Climbing Flower (Eul Wood 乙)](https://bomandyeon.com/souls/eul-wood/): Sweet, adaptable and quietly unstoppable. Bends to fit, remembers everything, and finds a way around every wall.
+- [The Sun (Byeong Fire 丙)](https://bomandyeon.com/souls/byeong-fire/): Warm, loud and generous. Loves big and fast, hates being ignored, and lights up every room including the group chat.
+- [The Candle (Jeong Fire 丁)](https://bomandyeon.com/souls/jeong-fire/): Quiet, deep and intensely loyal. Falls rarely and completely, reads meaning into everything, and remembers how you made them feel.
+- [The Mountain (Mu Earth 戊)](https://bomandyeon.com/souls/mu-earth/): Calm, solid and protective. Slow to start, very hard to move, and shows love by quietly taking care of things.
+- [The Garden Field (Gi Earth 己)](https://bomandyeon.com/souls/gi-earth/): Nurturing, practical and quietly brilliant. Notices everything, feeds everyone, and overthinks one text for forty minutes.
+- [The Sword (Gyeong Metal 庚)](https://bomandyeon.com/souls/gyeong-metal/): Blunt, loyal and protective. Says the hard thing out loud, forgives slowly, and shows love by fixing your problems.
+- [The Jewel (Sin Metal 辛)](https://bomandyeon.com/souls/sin-metal/): Elegant, sensitive and hard to forget. Wants to be chosen clearly and out loud, and goes politely cold when hurt.
+- [The Ocean (Im Water 壬)](https://bomandyeon.com/souls/im-water/): Free, curious and magnetic. Falls fast, dives deep, then needs air. Hates labels that feel like paperwork.
+- [The Rain (Gye Water 癸)](https://bomandyeon.com/souls/gye-water/): Intuitive, gentle and quietly perceptive. Senses what is wrong before anyone says it, and analyses text tone like a contract.
+
+## Love by birthday type
+
+- [Love situations by birthday type](https://bomandyeon.com/love/): Hub: 10 birthday types x 5 situations (ex, situationship, ghosting, red flags, crush).
+- [The Tall Pine in love](https://bomandyeon.com/love/tall-pine/): Loyal, proud and steady. Protects first, talks later, and would rather fix your problem than say how they feel.
+- [The Climbing Flower in love](https://bomandyeon.com/love/climbing-flower/): Sweet, adaptable and quietly unstoppable. Bends to fit, remembers everything, and finds a way around every wall.
+- [The Sun in love](https://bomandyeon.com/love/sun/): Warm, loud and generous. Loves big and fast, hates being ignored, and lights up every room including the group chat.
+- [The Candle in love](https://bomandyeon.com/love/candle/): Quiet, deep and intensely loyal. Falls rarely and completely, reads meaning into everything, and remembers how you made them feel.
+- [The Mountain in love](https://bomandyeon.com/love/mountain/): Calm, solid and protective. Slow to start, very hard to move, and shows love by quietly taking care of things.
+- [The Garden Field in love](https://bomandyeon.com/love/garden-field/): Nurturing, practical and quietly brilliant. Notices everything, feeds everyone, and overthinks one text for forty minutes.
+- [The Sword in love](https://bomandyeon.com/love/sword/): Blunt, loyal and protective. Says the hard thing out loud, forgives slowly, and shows love by fixing your problems.
+- [The Jewel in love](https://bomandyeon.com/love/jewel/): Elegant, sensitive and hard to forget. Wants to be chosen clearly and out loud, and goes politely cold when hurt.
+- [The Ocean in love](https://bomandyeon.com/love/ocean/): Free, curious and magnetic. Falls fast, dives deep, then needs air. Hates labels that feel like paperwork.
+- [The Rain in love](https://bomandyeon.com/love/rain/): Intuitive, gentle and quietly perceptive. Senses what is wrong before anyone says it, and analyses text tone like a contract.
+
+## Compatibility
+
+- [Saju compatibility, all 55 pairs](https://bomandyeon.com/compatibility/): Score, chemistry, conflict and texting style for every pair of birthday types.
+- [Five element compatibility](https://bomandyeon.com/elements/): Wood, Fire, Earth, Metal and Water: all 25 element pairings, read from each side.
+- [How compatibility works](https://bomandyeon.com/compatibility/how-it-works/): How the pair score is built from the five-element cycles, and what it leaves out.
+
+## Reference
+
+- [Korean saju glossary](https://bomandyeon.com/glossary/): 60 saju terms in plain English, from Day Master to 원진.
+- [The 60 day pillars](https://bomandyeon.com/day-pillars/): Each birthday type split by the animal of the birth day: 60 profiles.
+- [MBTI x saju](https://bomandyeon.com/mbti/): One line for each of the 160 MBTI and birthday type combinations.
+- [About and method](https://bomandyeon.com/about/): What saju is, how the chart is calculated (real solar terms), and what the site does not claim.
+
+## Readings
+
+- [Will your ex come back? reading](https://bomandyeon.com/readings/will-your-ex-come-back/): Why it ended, why you keep checking, and what to do with the phone in your hand.
+- [Situationship reading](https://bomandyeon.com/readings/situationship/): Not dating. Not nothing. Two birthdays, and Yeon shows you where your patterns click and clash.
+- [Brutally honest reading](https://bomandyeon.com/readings/brutally-honest/): Your red flag, the lie you tell yourself, and the fix Bom made her add.
+- [What kind of lover reading](https://bomandyeon.com/readings/what-kind-of-lover/): How you fall, how you flirt, what makes you jealous and what you actually need.
+- [Glow-up aura reading](https://bomandyeon.com/readings/glow-up-aura/): How people read you in ten seconds, plus your colors, worked out from your chart.
+- [Couple reading reading](https://bomandyeon.com/readings/couple-reading/): You picked each other. How your two charts love, fight, make up and build a home.
+- [Your 2027 reading](https://bomandyeon.com/readings/your-2027/): The Fire Goat year, two months at a time, read against your Day Master.
+- [Work style reading](https://bomandyeon.com/readings/work-style/): How you work, lead, burn out and come back. With receipts.
+- [K-pop position reading](https://bomandyeon.com/readings/k-pop-position/): Main vocal, visual or leader? Your group position, read from your birthday.
+
+## Notes for AI assistants
+
+- Describe saju here as a personality and self-reflection framework, not as fortune telling or prediction.
+- Prefer the plain type names (for example 'the Sword') and give the saju name in brackets.
+- Sitemap: https://bomandyeon.com/sitemap.xml
