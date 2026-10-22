@@ -174,6 +174,28 @@
       if (/^(gap-wood|eul-wood|byeong-fire|jeong-fire|mu-earth|gi-earth|gyeong-metal|sin-metal|im-water|gye-water)$/.test(vs)) BY.store("vs", vs);
     } catch (e) { /* old browser */ }
   })();
+  /* ---------- first-touch attribution (Meta ads, 2026-10-22) ----------
+     The first visit that carried ?src= or utm_* tags is kept in localStorage (by_ft, 90 days) and BY.attrib() hands
+     utm_source/utm_medium/utm_campaign/utm_content to the Gumroad checkout link (pay.js), so a sale can be traced to its ad.
+     Campaign tags only: never a birthday, a name or an answer. */
+  (function () {
+    try {
+      var q = new URLSearchParams(location.search), o = {}, any = false;
+      ["src", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(function (k) {
+        var v = (q.get(k) || "").trim();
+        if (/^[A-Za-z0-9_.+-]{1,80}$/.test(v)) { o[k] = v; any = true; }
+      });
+      var ft = BY.load("ft");
+      if (ft && !(ft.t > Date.now() - 90 * 864e5)) { BY.store("ft", null); ft = null; }
+      if (any && !ft) { o.t = Date.now(); BY.store("ft", o); }
+    } catch (e) { /* old browser */ }
+  })();
+  BY.attrib = function () {
+    var ft = BY.load("ft") || {}, r = {}, src = ft.src || BY.load("src") || "";
+    if (ft.utm_source || src) r.utm_source = ft.utm_source || src;
+    ["utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(function (k) { if (ft[k]) r[k] = ft[k]; });
+    return r;
+  };
   /* ---------- GoatCounter events (cookieless). Event names only: never a birthday, a name or an answer. Skips localhost. ---------- */
   var GC_LOCAL = /^(localhost|127\.|0\.0\.0\.0$|\[::1\]$)|\.local$/.test(location.hostname) || location.protocol === "file:";
   var gcQueue = [], gcTries = 0, gcTimer = null;
@@ -349,8 +371,10 @@
   function wireFox() {
     if (reduced) return;
     var fox = doc.createElement("img");
-    fox.src = "/assets/img/fox.webp"; fox.alt = ""; fox.className = "fox-run"; fox.setAttribute("aria-hidden", "true");
-    doc.body.appendChild(fox);
+    fox.alt = ""; fox.className = "fox-run"; fox.setAttribute("aria-hidden", "true"); fox.decoding = "async";
+    // speed 2026-10-22: 280 px copy (shown at 140 px), fetched after the page has loaded so it never competes with the hero
+    var foxLoad = function () { fox.src = "/assets/img/fox-280.webp"; doc.body.appendChild(fox); };
+    if (doc.readyState === "complete") setTimeout(foxLoad, 200); else window.addEventListener("load", function () { setTimeout(foxLoad, 200); });
     doc.addEventListener("click", function (e) {
       var a = e.target.closest && e.target.closest("a[href]");
       if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0 || a.target === "_blank") return;

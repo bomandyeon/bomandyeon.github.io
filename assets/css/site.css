@@ -1021,3 +1021,36 @@ body:has(.paywall.is-pending) .sticky-buy { display: none !important; }
 .pp-text .tx-say b { color: var(--pp-gold); }
 .pp-text .tx-say--yeon b { color: #4F5E86; }
 .cliff__t b { font: 700 12px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: #E39A82; margin-right: 4px; }
+
+/* cookie consent (2026-10-22): small dark sheet, two equal buttons, no dark patterns */
+.cc { position: fixed; z-index: 70; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: #0E0F1A; color: #EDE6D6; border-top: 1px solid rgba(201, 164, 92, .55); border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, .45); font: 400 13px/1.45 Inter, system-ui, sans-serif; transform: translateY(110%); transition: transform .3s ease; }
+.cc.is-on { transform: none; }
+.cc__t { margin: 0 0 10px; color: rgba(237, 230, 214, .86); }
+.cc__t a { color: #E2C483; text-underline-offset: 2px; }
+.cc__now { margin: -4px 0 10px; color: rgba(237, 230, 214, .6); font-size: 12px; }
+.cc__b { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cc__btn { min-height: 42px; border-radius: 999px; border: 1px solid #C9A45C; background: transparent; color: #EDE6D6; font: 600 14px/1 Inter, system-ui, sans-serif; cursor: pointer; }
+.cc__btn:hover, .cc__btn:focus-visible { background: rgba(201, 164, 92, .16); outline: none; }
+@media (min-width: 700px) { .cc { left: auto; right: 20px; bottom: 20px; max-width: 380px; border: 1px solid rgba(201, 164, 92, .55); border-radius: 16px; } }
+@media (prefers-reduced-motion: reduce) { .cc { transition: none; } }
+.foot .linkbtn.foot-cc { padding: 0; color: var(--mute); font: 400 15px/1.4 var(--sans); text-decoration: none; }
+.foot .linkbtn.foot-cc:hover { color: var(--moon); }
+@media print { .cc { display: none !important; } }
+
+/* Meta ads conversion pass (2026-10-22): first screen at 390x844 = what it is, that the preview is free, the button */
+.h2-free { margin: 8px 0 10px; text-align: center; font-size: 13px; color: var(--mute); }
+.price-row .pr-note { font-size: 13px; line-height: 1.35; color: var(--mute); }
+@media (max-width: 699px) {
+  .phero .crumbs { display: none; }
+  .ahero.topic { padding-top: 16px; }
+  .topic__cover { width: 128px; margin-bottom: 10px; }
+  .ahero.topic .kicker { margin-bottom: 4px; }
+  .ahero.topic h1 { font-size: 29px; margin-bottom: 8px; text-wrap: balance; }
+  .ahero.topic .lede { font-size: 16px; line-height: 1.5; margin-bottom: 12px !important; }
+  .topic-form .field-label { margin-bottom: 4px; }
+}
+.pw-up { margin: 16px 0 0; padding: 14px 14px 12px; border: 1px solid var(--hair); border-radius: 12px; background: rgba(14, 15, 26, .45); }
+.pw-up-h { margin: 0 0 2px; font: 600 16px/1.35 var(--serif); color: var(--moon); }
+.pw-up-s { margin: 0 0 10px; font-size: 13px; line-height: 1.45; color: var(--mute); }
+.btn.pw-up-btn { min-height: 44px; font-size: 15px; }
+.paywall.is-pending .pw-up { display: none !important; }

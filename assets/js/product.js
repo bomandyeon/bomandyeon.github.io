@@ -485,7 +485,10 @@
         '<p class="pw-what">One-time <b>$' + P.price + '</b>. All ' + total + ' chapters, yours forever, PDF included.</p>' +
         '<p class="pw-per2">No subscription.' + (per ? " That\u2019s $" + per + " a chapter." : "") + "</p>" +
         '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest \u00B7 $" + P.price, "btn--block") + "</div>" +
-        (SHELF ? '<p class="pw-alt">or ' + PAY.buyLink("all-readings", "get all " + SHELF.count + " comics for $" + SHELF.price + ", one time", "pw-link") + "</p>" : "") +
+        // Meta ads pass 2026-10-22: the bundle as a clear second option (honest sum of the real prices, no strike-through, no timer)
+        (SHELF ? '<div class="pw-up"><p class="pw-up-h">Or all ' + SHELF.count + ' readings, $' + SHELF.price + ' one time</p>' +
+          '<p class="pw-up-s">This comic plus the other ' + (SHELF.count - 1) + ', each opens straight away. $' + SHELF.total + ' if bought one by one.</p>' +
+          PAY.buyLink("all-readings", "Get all " + SHELF.count + " \u00B7 $" + SHELF.price, "btn--ghost btn--block pw-up-btn") + "</div>" : "") +
         '<p class="pw-tiny">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
     }
     function wirePaywall() {}
@@ -541,6 +544,12 @@
         [].forEach.call(document.querySelectorAll(".pv-extra, .phero .outline, .phero .gift"), function (x) { x.hidden = true; });
         extras(true); document.body.classList.remove("is-wiz");
         BY.trackOnce("teaser-" + P.slug, "Teaser shown: " + P.slug);
+        // Meta ads 2026-10-22: chapter 2 of the free comic on screen (GoatCounter evt-teaser-ch2-*, Meta TeaserView via consent.js)
+        var ch2 = out.querySelectorAll(".comic--teaser")[1];
+        if (ch2 && "IntersectionObserver" in window) {
+          var io2 = new IntersectionObserver(function (ents) { ents.forEach(function (en) { if (en.isIntersecting) { io2.disconnect(); BY.trackOnce("teaser-ch2-" + P.slug, "Teaser chapter 2 reached: " + P.slug); } }); }, { rootMargin: "0px 0px -40% 0px" });
+          io2.observe(ch2);
+        }
         if (PAY) { stickyPaywall(); exitCapture(); }
         if (scroll) out.scrollIntoView({ behavior: smooth(), block: "start" });
       }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and tap the button again.</p>'; });
