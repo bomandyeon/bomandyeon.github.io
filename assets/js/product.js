@@ -283,7 +283,7 @@
         h = head() + '<h2 class="wiz__q">' + (req ? "And their birthday?" : "Know their birthday?") + "</h2>" +
           hint(req ? "So the comic is about the two of you. Just the date, they never find out." : "Optional. Adds a chapter about the two of you.") +
           '<form class="form-stack wiz__form" novalidate>' + dateRow("t", "Their birthday") + '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">Next</button></form>' +
-          nav(req ? "" : '<button type="button" class="linkbtn" data-w="nothem">Skip, I don\'t know it</button>');
+          nav(req ? '<button type="button" class="linkbtn" data-w="noidea">I don\'t know it</button>' : '<button type="button" class="linkbtn" data-w="nothem">Skip, I don\'t know it</button>');
       } else if (s.k === "time") {
         h = head() + '<h2 class="wiz__q">What time were you born?</h2>' + hint("Optional. Makes it more accurate. Skip if you don't know.") +
           '<button type="button" class="btn btn--block" data-w="notime">Skip, I don\'t know</button>' +
@@ -323,6 +323,17 @@
       var s = steps[at], w = b.getAttribute("data-w");
       if (w === "back") { at = Math.max(0, at - 1); step(); return; }
       if (w === "change") { s.change = true; step(); return; }
+      if (w === "noidea") {
+        wiz.innerHTML = head() + '<h2 class="wiz__q">No date, no match.</h2>' +
+          '<p class="wiz__hint">This comic compares your chart with theirs, so it really needs their birthday. We won\'t guess it. Ask them, or check their socials, then come back.</p>' +
+          '<p class="wiz__hint">Want something today? These two only need yours.</p>' +
+          '<div class="form-stack"><a class="btn btn--block" href="/readings/what-kind-of-lover/?src=nodate">What kind of lover am I?</a>' +
+          '<a class="btn btn--block" href="/readings/brutally-honest/?src=nodate">Yeon\'s honest take on you</a></div>' +
+          '<div class="wiz__nav"><button type="button" class="linkbtn" data-w="idkback">I found it, go back</button><span></span></div>';
+        BY.track("nodate-" + P.slug, "No partner birthday: " + P.slug);
+        return;
+      }
+      if (w === "idkback") { step(); return; }
       if (w === "nothem") { their = null; BY.store(THEIR_KEY, null); next(); return; }
       if (w === "notime") { var tf = wiz.querySelector("form"); tf.querySelector('[name="bh"]').value = ""; BY.readExtras(tf); next(); return; }
       if (w === "go") { next(); return; }
