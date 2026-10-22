@@ -22,7 +22,9 @@
   /* hero chooser + catalogue cards: which question people pick (event name only) */
   document.addEventListener("click", function (e) {
     var c = e.target.closest && e.target.closest("[data-choose],[data-card]"); if (!c) return;
-    var k = c.getAttribute("data-choose"); BY.track(k ? "choose-" + k : "card-" + c.getAttribute("data-card"), k ? "Home chooser: " + k : "Catalogue card: " + c.getAttribute("data-card"));
+    var k = c.getAttribute("data-choose"), to = /\/readings\/([a-z0-9-]+)\//.exec(c.getAttribute("href") || "");
+    if (k && to) BY.store("pick", { s: to[1], t: Date.now() });
+    BY.track(k ? "choose-" + k : "card-" + c.getAttribute("data-card"), k ? "Home chooser: " + k : "Catalogue card: " + c.getAttribute("data-card"));
   });
   BY.vsLink = function (idx, name) {
     var n = BY.cleanName(name);
@@ -145,28 +147,52 @@
       alt: "Share card: " + s.nick + " and " + o.nick + ", " + pd.s + "% match", text: s.nick + " + " + o.nick + ": " + pd.s + "%. #MyKoreanSoul bomandyeon.com" });
   });
 
-  /* ONE next step after the reveal: the reading that fits best, with the birthday carried over */
+  /* the next step after the reveal (2026-10-22): the reading this visitor already pointed at (home chooser tap, a reading or
+     topic page they visited, a topic landing's ?src), else three honest options. Birthday carried as ?s=<id>, never the date. */
   var NEXT = {
-    "will-your-ex-come-back": { title: "Will your ex come back?", cover: "ex", tab: 2 },
-    "situationship": { title: "What is this, actually?", cover: "situationship", tab: 1 },
-    "brutally-honest": { title: "Brutally honest, from Yeon", cover: "brutal", tab: 0 }
+    "will-your-ex-come-back": { title: "Why do you still check?", tab: 2 },
+    "situationship": { title: "Not dating. Not nothing.", tab: 1 },
+    "brutally-honest": { title: "Brutally honest, from Yeon", tab: 0 }
   };
+  var READS = window.BY_READS || {};
+  var TRIO = [["what-kind-of-lover", "Love pattern"], ["brutally-honest", "Brutally honest"], ["your-2027", "Your 2027"]];
   function nextSlug() {
+    var pk = BY.load("pick");
+    if (pk && READS[pk.s] && Date.now() - (pk.t || 0) < 30 * 864e5) return pk.s;
     var src = String(BY.load("src") || "");
     if (/brutal/.test(src)) return "brutally-honest";
-    if (/situation/.test(src) || state.crush || BY.load("their")) return "situationship";
-    return "will-your-ex-come-back";
+    if (/situation/.test(src)) return "situationship";
+    if (/(^|[^a-z])ex([^a-z]|$)|tiktok-ex/.test(src)) return "will-your-ex-come-back";
+    return "";
+  }
+  function stQuery(slug) {
+    var their = state.crush || BY.load("their");
+    return BY.urlState.query({ b: state.birth, t: (slug === "situationship" || slug === "couple-reading") && their ? their : null });
   }
   function paintNext(R, s) {
-    var slug = nextSlug(), n = NEXT[slug], their = state.crush || BY.load("their");
-    var q = "?b=" + BY.iso(state.birth) + (slug === "situationship" && their ? "&t=" + BY.iso(their) : "");
-    $("nextCard").href = "/readings/" + slug + "/" + q;
-    $("nextImg").src = "/assets/img/cover-" + n.cover + ".webp";
-    $("nextTitle").textContent = n.title;
-    $("nextLine").textContent = D.SPICY[R.dayMaster][n.tab];
-    $("nextNote").textContent = slug === "situationship" && !their ? "Written for " + s.name + ". Add their birthday on the next page." : "Written for " + s.name + ". Your birthday is already in.";
+    var slug = nextSlug(), card = $("nextCard"), trio = $("nextTrio");
+    if (!slug) {
+      card.hidden = true;
+      $("nextTrioList").innerHTML = TRIO.map(function (x) {
+        var r = READS[x[0]]; if (!r) return "";
+        return '<a class="next-mini" href="/readings/' + x[0] + "/" + stQuery(x[0]) + '#preview" data-next="' + x[0] + '">' +
+          '<img src="/assets/img/cover-' + r.c + '-360.webp" alt="" width="360" height="447" loading="lazy" decoding="async">' +
+          '<span class="next-mini__b"><b>' + esc(x[1]) + '</b><span class="small muted">' + esc(r.h) + '</span><span class="next-mini__p">$' + r.p + " · 2 chapters free</span></span></a>";
+      }).join("");
+      trio.hidden = false;
+      [].forEach.call(trio.querySelectorAll("[data-next]"), function (a) { a.onclick = function () { BY.track("next-" + a.getAttribute("data-next"), "Next step after reveal (trio): " + a.getAttribute("data-next")); }; });
+      $("next").hidden = false; return;
+    }
+    var n = NEXT[slug] || {}, r = READS[slug] || {}, their = state.crush || BY.load("their"), two = slug === "situationship" || slug === "couple-reading";
+    card.hidden = false; trio.hidden = true;
+    card.href = "/readings/" + slug + "/" + stQuery(slug) + "#preview";
+    $("nextImg").src = "/assets/img/cover-" + (r.c || "ex") + ".webp";
+    $("nextTitle").textContent = n.title || r.t || "";
+    $("nextWho").textContent = n.tab != null ? "Yeon" : (r.v === "yeon" ? "Yeon" : "Bom");
+    $("nextLine").textContent = n.tab != null ? D.SPICY[R.dayMaster][n.tab] : (r.h || "");
+    $("nextNote").textContent = two && !their ? "Written for " + s.name + ". Add their birthday on the next page." : "Written for " + s.name + ". Your birthday is already in.";
     $("next").hidden = false;
-    $("nextCard").onclick = function () { BY.track("next-" + slug, "Next step after reveal: " + slug); };
+    card.onclick = function () { BY.track("next-" + slug, "Next step after reveal: " + slug); };
   }
   function personaliseShelf(s) {
     [].forEach.call(document.querySelectorAll(".pcard"), function (a) {

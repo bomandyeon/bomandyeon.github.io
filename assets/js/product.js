@@ -3,13 +3,14 @@
  * Product page loads /readings/<slug>/preview.json only (the first two plan chapters per Day Master).
  * Reading page loads one file per Day Master (/readings/<slug>/read/d/<dm>.<hash>.json): the v4 layers for that reader
  * plus the 10 pair texts that involve them. Ex + situationship ask up to 3 optional questions first (step by step, skippable);
- * the answers go in the reading URL (&a=them.months.closure) so a shared link reproduces the same reading. */
+ * the answers are kept with the birthdays (BY.urlState, site.js): the address only shows ?s=<id>, never a date or an answer. */
 (function () {
   "use strict";
   /* Public site: every reading opens free. Paid flow (Gumroad overlay, pay.js) only in paytest mode (?paytest=1). */
   var BY = window.BY, D = window.BY_DATA, P = window.BY_PRODUCT, $ = BY.$, esc = BY.esc, PL = window.BYPlan, PAIRS = window.BY_PAIRS || {}, A4 = window.BYAssembleV4;
   if (!P) return;
   var PAY = BY.pay && BY.pay.on ? BY.pay : null; // null = free (public)
+  if (P.mode !== "read") BY.store("pick", { s: P.slug, t: Date.now() }); // home's next step after the free Soul Type points back here
   var THANKS = { bom: "Thank you. Bom is putting the kettle on. Your whole comic is below.", yeon: "Paid and opened. Yeon says thanks, then gets straight to the point." };
   var EL_LOWER = ["wood", "fire", "earth", "metal", "water"];
   var SEASON_HZ = { spring: "春", summer: "夏", autumn: "秋", winter: "冬" };
@@ -20,8 +21,9 @@
   var THEIR_KEY = PAIR === "optional" ? "their_" + P.slug : "their";
   BY.fillSelects();
 
-  function qsDate(k) { var m = new RegExp("[?&]" + k + "=([0-9-]{10})").exec(location.search); return m ? BY.fromIso(m[1]) : null; }
-  var birth = qsDate("b") || BY.load("birth"), their = PAIR ? (qsDate("t") || BY.load(THEIR_KEY)) : null, name = BY.load("name") || "";
+  /* inputs from the link: ?s=<id> (this browser), &x=<code> (emailed link), or an old ?b=&t=&a= link (rewritten below) */
+  var US = BY.urlState ? BY.urlState.read() : null;
+  var birth = (US && US.b) || BY.load("birth"), their = PAIR ? ((US && US.t) || BY.load(THEIR_KEY)) : null, name = BY.load("name") || "";
 
   /* optional intake answers (ex + situationship): {qid: value}; URL form a=v1.v2.v3 in intake order */
   var INTAKE = P.intake || [], ANS_KEY = "ans_" + P.slug;
@@ -32,8 +34,8 @@
     return n === INTAKE.length ? r : null;
   }
   function qsAns() {
-    var m = /[?&]a=([a-z.]+)/.exec(location.search); if (!m || !INTAKE.length) return null;
-    var v = m[1].split("."), o = {}; INTAKE.forEach(function (q, i) { o[q.id] = v[i]; }); return cleanAns(o);
+    if (!US || !US.a || !INTAKE.length) return null;
+    var v = US.a.split("."), o = {}; INTAKE.forEach(function (q, i) { o[q.id] = v[i]; }); return cleanAns(o);
   }
   var answers = INTAKE.length ? (qsAns() || cleanAns(BY.load(ANS_KEY))) : {};
   var QS = (function () { try { return new URLSearchParams(location.search); } catch (e) { return { get: function () { return null; } }; } })();
@@ -69,14 +71,17 @@
     pay.setState(stateObj);
     var r = QS.get("r"); if (!r) return;
     applyState(pay.decState(r));
-    if (P.mode === "read") try { var u = new URL(location.href); u.searchParams.delete("r"); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) { /* file:// */ }
   })();
+  /* the address never keeps a readable birthday: old ?b= links, emailed x= and r= become ?s=<id> right away */
+  if (BY.urlState && (QS.get("r") || (US && US.via !== "s") || QS.get("b") || QS.get("t") || QS.get("a"))) BY.urlState.clean(birth ? urlObj() : null);
   function ansFor() { var o = Object.assign({}, answers || {}); try { var m = BY.load("mood_" + P.slug); if (m) o.mood = m; } catch (e) {} return o; }
-  function ansParam() { return INTAKE.length && answers ? "&a=" + INTAKE.map(function (q) { return answers[q.id]; }).join(".") : ""; }
+  function ansStr() { return INTAKE.length && answers ? INTAKE.map(function (q) { return answers[q.id]; }).join(".") : ""; }
+  function urlObj() { return { b: birth, t: PAIR && their ? their : null, a: ansStr() }; }
   function ready() { return !!birth && (PAIR !== "required" || !!their); }
   /* owned reading: straight to the comic; the read page asks for birthdays itself when they are missing */
   function goRead(replace) { var u = ready() ? readUrl() : P.readUrl; if (replace) location.replace(u); else location.href = u; }
-  function readUrl() { return P.readUrl + "?b=" + BY.iso(birth) + (PAIR && their ? "&t=" + BY.iso(their) : "") + ansParam(); }
+  /* portable = the link leaves this browser (email): it carries the scrambled inputs too */
+  function readUrl(portable) { return P.readUrl + BY.urlState.query(urlObj(), portable); }
   function pairSlug(a, b) { var x = Math.min(a, b), y = Math.max(a, b); return D.SLUGS[x] + "-and-" + D.SLUGS[y]; }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function who(sp) { return sp === "yeon" ? "Yeon" : "Bom"; }
@@ -221,7 +226,7 @@
     var wiz = $("pvWizard"), out = $("pvOut"), dataP = null;
     var MOOD = P.mood || null, MOOD_KEY = "mood_" + P.slug, DONE_KEY = "wiz_" + P.slug;
     var CH = P.chapters || [], SHELF = P.shelf || null;
-    var fromLink = !!qsDate("b");
+    var fromLink = !!(US && US.b);
     function data() { if (!dataP) dataP = fetch(P.dataUrl).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }); return dataP; }
     function smooth() { return BY.reduced ? "auto" : "smooth"; }
 
@@ -484,12 +489,12 @@
         (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>' + (sample.who ? (sample.who === "bom" ? "Bom" : "Yeon") + ", in chapter " : "From chapter ") + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
         '<p class="pw-what">One-time <b>$' + P.price + '</b>. All ' + total + ' chapters, yours forever, PDF included.</p>' +
         '<p class="pw-per2">No subscription.' + (per ? " That\u2019s $" + per + " a chapter." : "") + "</p>" +
-        '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest \u00B7 $" + P.price, "btn--block") + "</div>" +
+        '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest \u00B7 $" + P.price, "btn--block") + PAY.trust + (SHELF ? "" : PAY.consent) + "</div>" +
         // Meta ads pass 2026-10-22: the bundle as a clear second option (honest sum of the real prices, no strike-through, no timer)
         (SHELF ? '<div class="pw-up"><p class="pw-up-h">Or all ' + SHELF.count + ' readings, $' + SHELF.price + ' one time</p>' +
           '<p class="pw-up-s">This comic plus the other ' + (SHELF.count - 1) + ', each opens straight away. $' + SHELF.total + ' if bought one by one.</p>' +
-          PAY.buyLink("all-readings", "Get all " + SHELF.count + " \u00B7 $" + SHELF.price, "btn--ghost btn--block pw-up-btn") + "</div>" : "") +
-        '<p class="pw-tiny">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
+          PAY.buyLink("all-readings", "Get all " + SHELF.count + " \u00B7 $" + SHELF.price, "btn--ghost btn--block pw-up-btn") + PAY.consent + "</div>" : "") +
+        PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
     }
     function wirePaywall() {}
     /* the free part ends mid-sentence: the first words of a locked chapter clear, the rest blurred */
@@ -656,7 +661,7 @@
         BY.store("email_given", 1);
         BY.track("email-exit-" + P.slug, "Leave sheet email given: " + P.slug + (ds ? " + Daily Soul" : ""));
         var btn = f.querySelector("button[type=submit]"); btn.disabled = true; btn.textContent = "Saving\u2026";
-        var rUrl = "https://bomandyeon.com" + readUrl();
+        var rUrl = "https://bomandyeon.com" + readUrl(true);
         BY.captureReading(v, P.slug, ds, rUrl, "exit").then(function (res) {
           // the sheet promises the first 2 chapters: the teaser mail goes out with or without the Daily Soul box (teaser UX 2026-10-21)
           if (res && res.ok && !res.check) BY.teaserMail(v, P.slug, rUrl);
@@ -693,7 +698,7 @@
        when the inputs are known (link r=, this browser), the key is checked in the background (worker KV, then Gumroad).
        ?from=gumroad (Gumroad's own button) or a checkout this browser started: render and confirm by polling.
        Only a definite "not paid" shows the key box; nothing known at all -> "paid, enter the birthdays once". */
-    var banner = null, paidKey = "";
+    var banner = null, paidKey = "", refundClosed = false;
     function need() { return !birth || (PAIR === "required" && !their); }
     function showBanner(msg) {
       if (!msg) { if (banner && banner.parentNode) banner.parentNode.removeChild(banner); banner = null; return; }
@@ -725,19 +730,22 @@
             var hadInputs = !need();
             if (res.state && !hadInputs) applyState(res.state);
             confirmed(res.slug, key);
+            PAY.purchased(res.slug, key, PAY.pendingAny(P.slug));
+            if (!need()) BY.urlState.clean(urlObj());
             if (!known) start();
             if (!res.r) { if (!need()) PAY.attach(key); else paidKey = key; }
             return;
           }
           if (res.definitive) {
             BY.track("key-fail-" + P.slug, "Key not accepted: " + P.slug);
-            failCard(res.refunded ? "This purchase was refunded" : "We couldn't match that key to this reading",
-              res.refunded ? "The key belongs to a refunded order, so it no longer opens the reading." : "Check the key on your Gumroad receipt (it looks like XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX). A key for another reading opens that reading.");
+            if (res.refunded) PAY.forget(key);
+            failCard(res.refunded ? PAY.refundedMsg : "We couldn't match that key to this reading",
+              res.refunded ? "Refunds and disputed payments close the reading. Questions? Email <a href=\"mailto:yeon@bomandyeon.com\">yeon@bomandyeon.com</a>." : "Check the key on your Gumroad receipt (it looks like XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX). A key for another reading opens that reading.");
             return;
           }
           // checker unreachable: keep what is open, try again on the next visit (key not stored)
-          if (known) showBanner("Couldn't reach the checkout right now. Your reading is open; it saves to this browser once we can confirm.");
-          else failCard("We couldn't reach the checkout", "Your connection or Gumroad didn't answer. Try the key again in a moment.");
+          if (known) showBanner(PAY.netMsg + " Your reading stays open; it saves to this browser once we can confirm.");
+          else failCard(PAY.netMsg, "Your connection or Gumroad didn't answer, so we couldn't confirm the key yet. Nothing is wrong with your purchase.");
         });
         return;
       }
@@ -760,6 +768,11 @@
       }
       location.replace(P.productUrl + location.search + "#preview"); return;
     }
+    /* owned on this browser: the stored licence is re-checked once a day; refunded, disputed or charged back closes it */
+    if (PAY && PAY.owns(P.slug)) PAY.recheck(P.slug).then(function (v) {
+      if (v === "refunded") refundClosed = true;
+      if (v === "refunded") failCard(PAY.refundedMsg, "Refunds and disputed payments close the reading. Questions? Email <a href=\"mailto:yeon@bomandyeon.com\">yeon@bomandyeon.com</a>.");
+    });
     start();
     function start() {
     if (need()) {
@@ -824,6 +837,7 @@
       var R = analyze(), s = D.SOULS[R.dayMaster], them = R.partner ? D.SOULS[R.partner.dayMaster] : null;
       out.innerHTML = '<p class="center muted">Opening your reading…</p>';
       fetch(P.files[s.slug]).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }).then(function (J) {
+        if (refundClosed) return;
         if (PRINT && (!PAY || PAY.owns(P.slug))) { renderPrint(R, s, them, J); return; }
         out.innerHTML = "";
         if (!opened) { opened = true; BY.track("read-" + P.slug, "Opened reading: " + P.slug); }
@@ -1063,7 +1077,7 @@
       c.innerHTML = '<p class="kicker">While your birthday is saved</p><h3>Add every other reading for $' + price.toFixed(2) + "</h3>" +
         '<p class="muted">The other ' + left.length + " readings cost $" + sum.toFixed(2) + " one by one. Together: $" + price.toFixed(2) + ", so you keep $" + save.toFixed(2) + ". Each one opens straight away, no forms.</p>" +
         PAY.buyLink("all-readings", "Add all " + left.length + " · $" + price.toFixed(2)) +
-        '<p class="small pw-promise">' + PAY.guarantee + " " + PAY.methods + "</p>" + PAY.statusEl("all-readings") + '<p class="small"><a href="/readings/all-readings/">See what\'s inside</a></p>';
+        PAY.trust + PAY.consent + PAY.statusEl("all-readings") + '<p class="small"><a href="/readings/all-readings/">See what\'s inside</a></p>';
       shelf.parentNode.insertBefore(c, shelf);
       BY.trackOnce("upsell-shown-" + P.slug, "Bundle card shown after purchase: " + P.slug);
       PAY.watch("all-readings", function () { c.innerHTML = '<p class="kicker">All Readings</p><h3>Done. Every reading is yours.</h3><p class="muted">Bom saved them all to this browser. Pick the next one.</p>'; shelf.hidden = false; });
