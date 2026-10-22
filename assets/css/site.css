@@ -521,6 +521,10 @@ a.gl:hover { color: var(--gold2); }
 .comic__tint::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14,15,26,.15) 0%, rgba(14,15,26,0) 35%, rgba(14,15,26,.55) 100%); mix-blend-mode: normal; }
 .comic__seal { position: absolute; top: 14px; right: 14px; width: 46px; height: 46px; display: grid; place-items: center; border: 2px solid #C8443C; color: #C8443C; background: rgba(237,230,214,.88); border-radius: 6px; font-size: 26px; transform: rotate(-6deg); box-shadow: 0 2px 10px rgba(0,0,0,.35); }
 .comic__beats { position: relative; z-index: 2; display: grid; gap: 26vh; padding: 44vh 14px 50vh; }
+/* 2026-10-22 (Rok): one layout everywhere. The scene is a clean panel at the top of the chapter, the dialogue follows below it. No text over the art. */
+.comic__stage { position: relative; top: 0; height: auto; aspect-ratio: 16 / 11; max-height: 340px; margin: 0 0 14px; }
+.comic__img { inset: 0; transform: none !important; background-position: 50% 30% !important; transition: none; }
+.comic__beats { gap: 12px; padding: 0 14px 16px; }
 .comic--plain .comic__beats { gap: 14px; padding: 0 14px 20px; }
 .beat { max-width: 440px; }
 .beat--cap { justify-self: center; width: 100%; background: #EDE6D6; color: #1B1A22; border-radius: 4px; padding: 16px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 0 0 1px rgba(201,164,92,.5); font: 400 17px/1.6 var(--serif); position: relative; }
@@ -747,111 +751,140 @@ form .err:empty { min-height: 0; margin: 0; }
 .pay-fail .pay-key-line { margin-top: 18px; }
 .pw-owned { color: var(--gold2); font-weight: 600; }
 
-/* ---------- PDF print view (?print=1) ---------- */
-body.print-view { background: #e9e5dc; color: #23211c; }
-body.print-view #sky, body.print-view .top, body.print-view .foot, body.print-view .crumbs, body.print-view #rdCross, body.print-view .sticky-buy, body.print-view .fox-run, body.print-view .exit-sheet, body.print-view .rd-confirm { display: none !important; }
+/* ---------- PDF book (?print=1 view + hidden copy on the owned read page), redesigned 2026-10-22: dark comic book ---------- */
+body.print-view #sky, body.print-view .top, body.print-view .foot, body.print-view .crumbs, body.print-view #rdCross, body.print-view .sticky-buy, body.print-view .fox-run, body.print-view .exit-sheet, body.print-view .rd-confirm, body.print-view .skip { display: none !important; }
 body.print-view main > section { padding: 0; }
 body.print-view .wrap.read { max-width: none; padding: 0; }
 body.print-view #rdOut { min-height: 0; }
-.pp { --pp-ink: #23211c; --pp-mute: #6d675c; --pp-gold: #9C7A36; --pp-gold2: #C9A45C; font: 400 15px/1.65 var(--sans); color: var(--pp-ink); }
-.pp-bar { position: sticky; top: 0; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 14px; padding: 10px 16px; background: #0E0F1A; color: #EDE6D6; }
+html.pp-on, html.pp-on body { background: #07080F; }
+.pp--shadow { display: none; }
+.pp { --ink: #EDE6D6; --mute: rgba(237,230,214,.66); --gold: #C9A45C; --gold2: #E2C483; --night: #0E0F1A; color: var(--ink); font: 400 16px/1.6 var(--sans); }
+.pp, .pp * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+.pp-bar { position: sticky; top: 0; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 14px; padding: 10px 16px; background: #0E0F1A; color: #EDE6D6; border-bottom: 1px solid rgba(201,164,92,.35); }
 .pp-bar a { color: #E2C483; font-weight: 600; text-decoration: none; }
 .pp-bar p { flex-basis: 100%; margin: 0; color: rgba(237,230,214,.7); }
-.pp-page, .pp-ch, .pp-end { background: #fffdf8; max-width: 210mm; margin: 18px auto; padding: 16mm 16mm 18mm; box-shadow: 0 2px 18px rgba(0,0,0,.12); }
-.pp .hz { font-family: var(--hanja); font-weight: 700; }
-.pp-kicker { font: 600 11px/1.3 var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--pp-gold); margin: 0 0 6px; }
-.pp h2 { font: 700 30px/1.15 var(--serif); color: var(--pp-ink); margin: 0 0 10px; letter-spacing: -.01em; }
-.pp h4 { font: 700 18px/1.3 var(--serif); color: var(--pp-ink); margin: 1.2em 0 .4em; }
+/* a sheet = one page of the book on screen; in print it flows onto A4 pages */
+.pp .pp-sheet { position: relative; background: var(--night); max-width: 210mm; margin: 18px auto; padding: 14mm 18mm 12mm; box-shadow: 0 6px 30px rgba(0,0,0,.5); border: 1px solid rgba(201,164,92,.18); }
+.pp-kicker { font: 600 11px/1.35 var(--sans); letter-spacing: .2em; text-transform: uppercase; color: var(--gold); margin: 0 0 6px; }
+.pp-mini { font: 600 10px/1.3 var(--sans); letter-spacing: .2em; text-transform: uppercase; color: var(--gold); margin: 0 0 3mm; }
+.pp .pp-h2 { font: 700 30px/1.18 var(--serif); color: var(--ink); margin: 0; letter-spacing: -.01em; }
+.pp .pp-h2 .hz { font-size: .9em; }
+.pp-seal { display: inline-grid; place-items: center; width: 11mm; height: 11mm; background: #A8322A; color: #FFF1E2; border-radius: 1.6mm; font: 700 12px/1 var(--hanja); letter-spacing: -.06em; transform: rotate(-5deg); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.22); }
 /* cover */
-.pp-cover { background: #0E0F1A url(/assets/img/hanji.webp); background-size: 420px; color: #EDE6D6; text-align: center; padding: 14mm 16mm; display: flex; flex-direction: column; align-items: center; }
-.pp-brand { font: 400 13px/1 var(--serif); letter-spacing: .32em; color: #C9A45C; margin: 0 0 8mm; }
+.pp .pp-cover { text-align: center; display: flex; flex-direction: column; align-items: center; padding: 14mm 16mm 12mm; background: #0E0F1A url(/assets/img/hanji.webp); background-size: 420px; }
+.pp-brand { font: 400 13px/1 var(--serif); letter-spacing: .34em; color: var(--gold); margin: 0 0 8mm; }
 .pp-brand span { letter-spacing: .05em; margin-left: .4em; font-family: var(--hanja); }
-.pp-cover-img { width: 112mm; max-width: 100%; height: auto; border-radius: 6mm; border: 1px solid rgba(201,164,92,.55); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
-.pp-title { font: 600 12px/1.3 var(--sans); letter-spacing: .2em; text-transform: uppercase; color: #C9A45C; margin: 9mm 0 2mm; }
-.pp-name { font: 700 44px/1.1 var(--serif); color: #EDE6D6; margin: 0 0 3mm; }
-.pp-dm { font: 400 17px/1.4 var(--serif); color: rgba(237,230,214,.82); margin: 0 0 6mm; }
-.pp-dm .hz { font-size: 1.5em; vertical-align: -.12em; margin-right: .15em; }
-.pp-with { display: block; margin-top: 2mm; font-size: 15px; }
-.pp-pillars { display: flex; justify-content: center; gap: 5mm; margin: 4mm 0; }
-.pp-pillar { display: flex; flex-direction: column; align-items: center; min-width: 22mm; padding: 3mm 2mm; border: 1px solid rgba(156,122,54,.45); border-radius: 3mm; }
-.pp-pillar .hz { font-size: 26px; line-height: 1.15; }
-.pp-pl { font: 600 9.5px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--pp-gold); margin-bottom: 2mm; }
-.pp-pe { font-size: 9.5px; line-height: 1.35; color: var(--pp-mute); margin-top: 2mm; text-align: center; }
-.pp-pillars--dark .pp-pillar { border-color: rgba(201,164,92,.5); background: rgba(255,255,255,.03); }
-.pp-pillars--dark .pp-pl { color: #C9A45C; }
-.pp-pillars--dark .pp-pe { color: rgba(237,230,214,.6); }
-.pp-cover-foot { margin: auto 0 0; padding-top: 6mm; font-size: 11px; color: rgba(237,230,214,.55); letter-spacing: .04em; }
+.pp-cover-art { width: 128mm; max-width: 82%; padding: 2.2mm; border: 1px solid rgba(201,164,92,.7); border-radius: 5mm; box-shadow: 0 0 0 1.2mm rgba(14,15,26,1), 0 0 0 1.5mm rgba(201,164,92,.35), 0 14px 44px rgba(0,0,0,.55); }
+.pp-cover-art img { display: block; width: 100%; height: auto; border-radius: 3.6mm; }
+.pp-title { font: 600 12px/1.3 var(--sans); letter-spacing: .24em; text-transform: uppercase; color: var(--gold); margin: 9mm 0 2.5mm; }
+.pp .pp-name { font: 700 46px/1.08 var(--serif); color: var(--ink); margin: 0 0 3mm; }
+.pp-dm { font: 400 17px/1.45 var(--serif); color: rgba(237,230,214,.84); margin: 0; }
+.pp-dm .hz { font-size: 1.45em; vertical-align: -.12em; margin-right: .15em; }
+.pp-with { display: block; margin-top: 1.5mm; font-size: 15px; }
+.pp-cover-foot { margin-top: auto; padding-top: 7mm; display: flex; flex-direction: column; align-items: center; gap: 3mm; }
+.pp-cover-foot p { margin: 0; font-size: 11px; line-height: 1.6; color: rgba(237,230,214,.56); letter-spacing: .05em; }
 /* chart page */
-.pp-lead { font: 400 16px/1.55 var(--serif); color: var(--pp-mute); margin: 0 0 6mm; }
-.pp-chart .pp-pillars { justify-content: flex-start; }
-.pp-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 6mm 0; }
-.pp-facts p { margin: 0; font-size: 13px; line-height: 1.45; border-top: 2px solid var(--pp-gold2); padding-top: 2.5mm; }
-.pp-facts b { display: block; font: 600 9.5px/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--pp-gold); margin-bottom: 1.5mm; }
-.pp-bars { display: grid; gap: 2mm; margin: 2mm 0 6mm; max-width: 120mm; }
-.pp-bar-row { display: grid; grid-template-columns: 16mm 1fr 10mm; align-items: center; gap: 3mm; font-size: 12px; color: var(--pp-mute); }
-.pp-tr { height: 2.6mm; background: #efe9dc; border-radius: 2mm; overflow: hidden; }
+.pp-lead { font: 400 17px/1.55 var(--serif); color: var(--mute); margin: 3mm 0 7mm; }
+.pp-pillars { display: flex; gap: 4mm; margin: 0 0 7mm; }
+.pp-pillar { flex: 1; max-width: 34mm; display: flex; flex-direction: column; align-items: center; padding: 3.5mm 2mm; border: 1px solid rgba(201,164,92,.5); border-radius: 3mm; background: rgba(255,255,255,.035); }
+.pp-pillar .hz { font-size: 28px; line-height: 1.18; }
+.pp-pl { font: 600 9.5px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); margin-bottom: 2mm; }
+.pp-pe { font-size: 10px; line-height: 1.35; color: var(--mute); margin-top: 2mm; text-align: center; }
+.pp-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; margin: 0 0 7mm; }
+.pp-facts p { margin: 0; font-size: 13.5px; line-height: 1.45; border-top: 1.5px solid var(--gold); padding-top: 2.5mm; color: var(--ink); }
+.pp-facts b { display: block; font: 600 9.5px/1.2 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); margin-bottom: 1.5mm; }
+.pp-bars { display: grid; gap: 2.2mm; margin: 0 0 7mm; max-width: 130mm; }
+.pp-bar-row { display: grid; grid-template-columns: 17mm 1fr 10mm; align-items: center; gap: 3mm; font-size: 12.5px; color: var(--mute); }
+.pp-tr { height: 2.8mm; background: rgba(255,255,255,.08); border-radius: 2mm; overflow: hidden; }
 .pp-tr i { display: block; height: 100%; border-radius: 2mm; }
-.pp-bond { border: 1px solid rgba(156,122,54,.45); border-radius: 3mm; padding: 4mm 5mm; margin: 0 0 6mm; }
-.pp-bond p { margin: 0 0 1.5mm; font-size: 14px; }
-.pp-score { font: 700 22px/1.2 var(--serif) !important; }
-.pp-toc ol { margin: 0; padding-left: 6mm; columns: 2; column-gap: 10mm; font: 400 14px/1.7 var(--serif); }
-.pp-toc li::marker { color: var(--pp-gold); font-family: var(--sans); font-size: 12px; }
-.pp-note { font-size: 11.5px; line-height: 1.5; color: var(--pp-mute); margin: 6mm 0 0; }
+.pp-bond { border: 1px solid rgba(201,164,92,.5); border-radius: 3mm; padding: 4mm 5mm; margin: 0 0 7mm; background: rgba(255,255,255,.03); }
+.pp-bond p { margin: 0 0 1.5mm; font-size: 14px; color: var(--ink); }
+.pp .pp-score { font: 700 22px/1.2 var(--serif); }
+.pp-toc ol { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 10mm; }
+.pp-toc li { break-inside: avoid; display: grid; grid-template-columns: 9mm 1fr; font: 400 14px/1.45 var(--serif); color: var(--ink); padding: 1.6mm 0; border-bottom: 1px solid rgba(201,164,92,.16); }
+.pp-toc li span { font: 600 11px/1.9 var(--sans); color: var(--gold); letter-spacing: .06em; }
+.pp-note { font-size: 11.5px; line-height: 1.55; color: var(--mute); margin: 6mm 0 0; }
 /* chapters */
-.pp-ch-h { border-bottom: 1px solid rgba(156,122,54,.4); padding-bottom: 3mm; margin-bottom: 5mm; }
-.pp-open { display: grid; grid-template-columns: 62mm 1fr; gap: 7mm; align-items: start; margin-bottom: 6mm; }
-.pp-open--plain { grid-template-columns: 1fr; }
-.pp-scene { margin: 0; }
-.pp-scene img { width: 100%; height: auto; border-radius: 3mm; border: 1px solid rgba(156,122,54,.35); }
-.pp-lines { display: grid; gap: 3.5mm; align-content: start; }
-.pp-nar { margin: 0; font: italic 400 14px/1.55 var(--serif); color: var(--pp-mute); }
-.pp-say { display: grid; grid-template-columns: 10mm 1fr; gap: 3mm; align-items: start; }
-.pp-say img { width: 10mm; height: 10mm; border-radius: 50%; border: 1px solid var(--pp-gold2); object-fit: cover; }
-.pp-say p { margin: 0; background: #f6f0e3; border: 1px solid #e8dcc2; border-radius: 3mm; padding: 2.5mm 3.5mm; font-size: 13.5px; line-height: 1.5; }
-.pp-say--yeon p { background: #eef0f5; border-color: #d9dde8; }
-.pp-say b { display: block; font: 700 11px/1.2 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--pp-gold); margin-bottom: 1mm; }
-.pp-say--yeon b { color: #4F5E86; }
-.pp-text { max-width: 150mm; }
-.pp-text > p:first-child { font: 400 17px/1.65 var(--serif); color: #2c2921; }
-.pp-cover .pp-cover-img { margin-top: 2mm; }
-.pp-cover .pp-pillars { margin-top: 6mm; }
-.pp-cover-rule { width: 22mm; height: 1px; background: #C9A45C; margin: 7mm auto 0; opacity: .7; }
-.pp-text p { margin: 0 0 .9em; font-size: 15px; line-height: 1.7; }
-.pp-aside { font-size: 13px !important; color: var(--pp-mute); border-left: 2px solid var(--pp-gold2); padding-left: 4mm; }
-.pp-end .pp-say { max-width: 140mm; }
-.pp-sign { margin: 12mm 0 0; font: 400 15px/1.5 var(--serif); letter-spacing: .2em; color: var(--pp-gold); text-transform: uppercase; }
-.pp-sign span { font-family: var(--hanja); letter-spacing: .05em; margin-left: .3em; }
-.pp-sign small { font: 400 11px/1.4 var(--sans); letter-spacing: .05em; color: var(--pp-mute); text-transform: none; }
+.pp-ch-h { display: grid; grid-template-columns: auto 1fr; gap: 5mm; align-items: end; padding-bottom: 4mm; margin-bottom: 5mm; border-bottom: 1px solid rgba(201,164,92,.45); }
+.pp-chno { margin: 0; display: flex; flex-direction: column; align-items: center; line-height: 1; padding-right: 5mm; border-right: 1px solid rgba(201,164,92,.35); }
+.pp-chno b { font: 700 40px/1 var(--serif); color: var(--gold); }
+.pp-chno span { font-size: 12px; color: rgba(201,164,92,.75); margin-top: 1.5mm; }
+.pp-scene { margin: 0 0 6mm; border-radius: 3.5mm; overflow: hidden; border: 1px solid rgba(201,164,92,.55); aspect-ratio: 16 / 10; max-height: 108mm; background: #0E0F1A; }
+.pp-scene img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; }
+.pp-lines, .pp-text { display: grid; gap: 4mm; }
+.pp-text { margin-top: 5mm; }
+.pp-nar { margin: 0; justify-self: center; max-width: 88%; text-align: center; padding: 2mm 5mm; border: 1px solid rgba(201,164,92,.5); border-radius: 2mm; background: rgba(201,164,92,.06); font: italic 400 14px/1.5 var(--serif); color: var(--gold2); }
+.pp-say { display: flex; gap: 3mm; align-items: flex-start; max-width: 88%; justify-self: start; }
+.pp-say--yeon { flex-direction: row-reverse; justify-self: end; }
+.pp-say img { flex: none; width: 11mm; height: 11mm; border-radius: 50%; border: 1.5px solid var(--gold); object-fit: cover; background: #1a1b2a; }
+.pp-say--yeon img { border-color: #E9B7A0; }
+.pp-say p { position: relative; margin: 0; background: #EDE6D6; color: #16161F; border-radius: 4mm; padding: 2.4mm 4mm 2.8mm; font-size: 14.5px; line-height: 1.5; }
+.pp-say--yeon p { background: #F6DCCF; }
+.pp-say p::before { content: ""; position: absolute; top: 3.6mm; left: -1.8mm; border: 2mm solid transparent; border-left: 0; border-right-color: #EDE6D6; }
+.pp-say--yeon p::before { left: auto; right: -1.8mm; border: 2mm solid transparent; border-right: 0; border-left-color: #F6DCCF; }
+.pp-say b { display: block; font: 700 10.5px/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: #8A6A2E; margin-bottom: .6mm; }
+.pp-say--yeon b { color: #9C4A36; }
+.pp-p { margin: 0; font: 400 16.5px/1.65 var(--serif); color: var(--ink); }
+.pp .pp-h4 { font: 700 18px/1.3 var(--serif); color: var(--gold2); margin: 3mm 0 -1mm; }
+.pp .pp-h4::before { content: "◆"; font-size: .55em; vertical-align: .25em; margin-right: 2.5mm; color: var(--gold); }
+.pp-aside { margin: 0; font-size: 13px; line-height: 1.55; color: var(--mute); border-left: 2px solid var(--gold); padding-left: 4mm; }
+.pp-ch-end { margin: 8mm 0 0; text-align: center; }
+.pp-ch-end .pp-seal { width: 8mm; height: 8mm; font-size: 9px; opacity: .9; }
+/* closing page */
+.pp .pp-end { text-align: center; padding-top: 30mm; padding-bottom: 20mm; }
+.pp-end .pp-h2 { margin-bottom: 8mm; }
+.pp-duo { display: flex; justify-content: center; gap: 5mm; margin: 0 0 8mm; }
+.pp-duo img { width: 24mm; height: 24mm; border-radius: 50%; border: 2px solid var(--gold); object-fit: cover; }
+.pp-duo img + img { border-color: #E9B7A0; }
+.pp-end .pp-lines { max-width: 150mm; margin: 0 auto; text-align: left; }
+.pp-end .pp-note { max-width: 140mm; margin: 10mm auto 0; }
+.pp-sign { margin: 12mm 0 0; display: flex; flex-direction: column; align-items: center; gap: 3mm; }
+.pp-sign .pp-seal { width: 16mm; height: 16mm; font-size: 17px; border-radius: 2.4mm; }
+.pp-sign p { margin: 0; font: 400 15px/1.5 var(--serif); letter-spacing: .24em; color: var(--gold); text-transform: uppercase; }
+.pp-sign small { font: 400 11px/1.4 var(--sans); letter-spacing: .06em; color: var(--mute); text-transform: none; }
 @media (max-width: 640px) {
-  .pp-page, .pp-ch, .pp-end { margin: 10px 8px; padding: 22px 18px; }
-  .pp-open { grid-template-columns: 1fr; }
-  .pp-scene img { max-width: 260px; margin: 0 auto; }
-  .pp-facts { grid-template-columns: 1fr; }
-  .pp-pillars { gap: 8px; } .pp-pillar { min-width: 0; flex: 1; }
-  .pp-toc ol { columns: 1; }
-  .pp-name { font-size: 36px; }
+  .pp .pp-sheet { margin: 10px 8px; padding: 22px 16px; }
+  .pp .pp-h2 { font-size: 25px; } .pp .pp-name { font-size: 36px; }
+  .pp-facts { grid-template-columns: 1fr; gap: 3mm; } .pp-toc ol { columns: 1; }
+  .pp-chno b { font-size: 30px; } .pp-say, .pp-nar { max-width: 96%; }
+  .pp-p { font-size: 16px; }
 }
 @media print {
-  @page { size: A4; margin: 16mm 17mm 18mm;
-    @bottom-left { content: "BOM & YEON  ·  bomandyeon.com"; font: 500 7.5pt Inter, sans-serif; color: #9C7A36; letter-spacing: .1em; }
-    @bottom-right { content: counter(page); font: 400 8pt Inter, sans-serif; color: #9C7A36; } }
-  @page ppcover { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
-  body.print-view { background: #fff !important; color: #23211c !important; font-size: 11pt; }
+  /* Chrome / Edge / Android: named pages, dark page background incl. margins, page number footer.
+     Safari / iOS WebKit ignores @page margins and names: it gets its own white margin, the dark sheets fill the rest. */
+  @page book { size: A4; margin: 15mm 0 17mm; background: #0E0F1A;
+    @bottom-center { content: "봄연  ·  " counter(page); font: 400 8.5pt "Gowun Batang", "Noto Serif KR", serif; color: #C9A45C; letter-spacing: .14em; } }
+  @page cover { size: A4; margin: 0; background: #0E0F1A; }
+  html.pp-on, html.pp-on body, html.pp-has, html.pp-has body { background: #0E0F1A !important; color: #EDE6D6 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  html.pp-on body { font-size: 11pt; }
   body.print-view .pp-bar { display: none !important; }
-  .pp, .pp * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .pp-page, .pp-ch, .pp-end { max-width: none; margin: 0; padding: 0; box-shadow: none; background: transparent; }
-  .pp .pp-cover { page: ppcover; width: 210mm; height: 297mm; padding: 20mm 20mm 14mm !important; break-after: page; justify-content: flex-start; background: #0E0F1A url(/assets/img/hanji.webp) !important; background-size: 420px !important; }
-  .pp-chart { break-after: page; }
-  .pp-ch { break-before: page; }
-  .pp-ch-h, .pp-open, .pp-say, .pp-facts, .pp-bond, .pp-pillars { break-inside: avoid; }
-  .pp h2, .pp h4, .pp-ch-h { break-after: avoid; }
-  .pp-text p { font-size: 10.5pt; line-height: 1.62; orphans: 3; widows: 3; }
-  .pp-text > p:first-child { font-size: 12pt; line-height: 1.6; }
-  .pp-say p { font-size: 9.6pt; }
-  .pp-nar { font-size: 10pt; }
-  .pp .pp-end { break-before: auto; break-inside: avoid; margin-top: 12mm !important; padding-top: 8mm !important; border-top: 1px solid rgba(156,122,54,.45); }
-  .pp .hz { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html.pp-has body > *:not(.pp--shadow) { display: none !important; }
+  html.pp-has .pp--shadow { display: block !important; }
+  .pp { font-size: 11pt; }
+  .pp .pp-sheet { page: book; max-width: none; margin: 0 !important; padding: 0 17mm !important; box-shadow: none; border: 0; background: transparent; }
+  .pp .pp-cover { page: cover; height: 296mm; padding: 16mm 18mm 14mm !important; background: #0E0F1A url(/assets/img/hanji.webp) !important; background-size: 420px !important; break-after: page; overflow: hidden; }
+  .pp .pp-chart { break-before: page; break-after: page; padding-top: 4mm !important; }
+  .pp-chart .pp-lead { margin: 2mm 0 5mm; } .pp-chart .pp-pillars, .pp-chart .pp-facts, .pp-chart .pp-bars, .pp-chart .pp-bond { margin-bottom: 5mm; }
+  .pp-chart .pp-toc li { padding: 1.1mm 0; } .pp-chart .pp-note { margin-top: 4mm; }
+  .pp .pp-ch { break-before: page; }
+  .pp .pp-end { break-before: page; break-inside: avoid; padding-top: 34mm !important; }
+  .pp-open { break-inside: avoid; }
+  .pp-ch-h, .pp-scene { break-inside: avoid; break-after: avoid; }
+  .pp-say, .pp-nar, .pp-facts, .pp-bond, .pp-pillars, .pp-bars, .pp-toc li, .pp-aside { break-inside: avoid; }
+  .pp .pp-h4 { break-after: avoid; }
+  .pp-p { font-size: 12pt; line-height: 1.6; orphans: 3; widows: 3; }
+  .pp-say p { font-size: 11pt; }
+  .pp-nar { font-size: 11pt; }
+  .pp .pp-h2 { font-size: 23pt; }
+  .pp-ch-end { break-before: avoid; }
 }
+/* WebKit (iOS Safari/Brave) has no named pages: size the cover by the printable height it reports */
+@media print { @supports not (page: cover) {
+  .pp .pp-cover { height: 244mm; padding: 10mm 10mm 8mm !important; }
+  .pp-cover-art { width: 110mm; }
+  .pp .pp-sheet { padding-left: 6mm !important; padding-right: 6mm !important; }
+} }
+@media print and (min-height: 262mm) { @supports not (page: cover) { .pp .pp-cover { height: 262mm; } .pp-cover-art { width: 118mm; } } }
 body:has(.paywall.is-pending) .sticky-buy { display: none !important; }
 
 /* ---------- teaser UX 2026-10-21: comic-first result, premium locked section ---------- */

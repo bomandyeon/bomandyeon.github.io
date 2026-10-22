@@ -177,7 +177,7 @@
     html2 += "</div>" + (opts.tail || "");
     sec.innerHTML = html2;
     [].forEach.call(sec.querySelectorAll(".beat, .comic__title"), function (b) { b.classList.add("rise"); });
-    if (sc) panBeats(sec);
+    /* panBeats off since 2026-10-22: scene is a static panel */
     return sec;
   }
   /* slow camera move: each caption that reaches the middle of the screen moves the pinned scene a step */
@@ -837,8 +837,9 @@
         out.appendChild(html('<div class="say say--yeon rise"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b>' + esc(D.YEON_MSG[R.dayMasterEl]) + "</p></div>"));
         LEN = { words: asm.words, chapters: asm.chapters.length, panels: asm.panels };
         out.appendChild(html(aboutThis(R, LEN)));
-        var lenTag = $("rdLen"); if (lenTag) lenTag.textContent = LEN.chapters + " chapters · " + LEN.words.toLocaleString("en-US") + " words";
+        var lenTag = $("rdLen"); if (lenTag) lenTag.textContent = LEN.chapters + " illustrated chapters";
         out.appendChild(actions(true));
+        if (!PAY || PAY.owns(P.slug)) attachPrint(R, s, them, J);
 
         requestAnimationFrame(function () { setTimeout(function () { [].forEach.call(out.querySelectorAll("[data-w]"), function (i) { i.style.width = i.getAttribute("data-w") + "%"; }); }, 200); });
         wireActions(info, J.title);
@@ -858,77 +859,106 @@
       }).catch(function () { out.innerHTML = '<p class="err center">The reading didn\'t load. Check your connection and refresh the page.</p>'; });
     }
 
-    /* ---------- PDF: a dedicated print view (?print=1, owners only). Dark cover page with the reading's cover art, a chart
-       page, then one chapter per page run: scene image + Bom/Yeon lines beside it, the chapter text below. Light paper,
-       Gowun Batang headings, Inter body, gold accents. Opens the print dialog once the images are in. ---------- */
-    var INK = { Wood: "#3E7B4A", Fire: "#B8473C", Earth: "#97753A", Metal: "#6B717D", Water: "#3B6AA6" };
-    function renderPrint(R, s, them, J) {
-      var I = coverInfo(R, s, them, J.title), asm = A4.assemble(R, J, { answers: ansFor(), pairs: J.pairs || null });
-      document.body.classList.add("print-view");
-      document.title = J.title + (I.name ? " · " + I.name : "") + " · Bom & Yeon";
-      $("rdAsk").hidden = true; $("rdIntake").hidden = true; $("rdCross").hidden = true;
-      var back = ready() ? readUrl() : P.readUrl;
-      var pill = function (p, dark) {
-        var c1 = dark ? D.EL_COLOR[p.stemEl] : INK[p.stemEl], c2 = dark ? D.EL_COLOR[p.branchEl] : INK[p.branchEl];
-        return '<div class="pp-pillar"><span class="pp-pl">' + p.label + '</span><span class="hz" style="color:' + c1 + '">' + p.stem + '</span><span class="hz" style="color:' + c2 + '">' + p.branch + '</span><span class="pp-pe">' + p.stemEl + " · " + p.branchEl + "<br>" + p.animal + "</span></div>";
+    /* ---------- PDF: a dedicated print view (?print=1, owners only), redesigned 2026-10-22 as a dark premium comic book.
+       Night pages (#0E0F1A), cream text, gold accents, Gowun Batang + Inter. Cover page, one "your chart" page, then every
+       chapter on a fresh page: number + title + scene panel (capped height) + Bom/Yeon bubbles kept together, then the rest of
+       the chapter as narration and bubbles, a seal at the end; a closing page. The same book is attached (hidden on screen)
+       to the owned read page, so printing the read page from any browser menu gives the book too. ---------- */
+    var HZN = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二", "十三", "十四"];
+    function ppSay(sp, text) {
+      var lo = sp.toLowerCase();
+      return '<div class="pp-say pp-say--' + lo + '"><img src="/assets/img/av-' + lo + '.webp" alt="" width="44" height="44"><p><b>' + sp + "</b>" + esc(text) + "</p></div>";
+    }
+    function ppText(t) {
+      return String(t || "").split(/\n\s*\n/).map(function (b) {
+        b = b.trim(); if (!b) return "";
+        var m = /^### (.+?)(?:\n([\s\S]*))?$/.exec(b);
+        if (m) return '<h4 class="pp-h4">' + esc(m[1].trim()) + "</h4>" + (m[2] && m[2].trim() ? '<p class="pp-p">' + esc(m[2].trim()) + "</p>" : "");
+        var sy = SAY_RE.exec(b); if (sy) return ppSay(sy[1], sy[2]);
+        return '<p class="pp-p">' + esc(b) + "</p>";
+      }).join("");
+    }
+    function buildPrint(R, s, them, J) {
+      var I = coverInfo(R, s, them, J.title), asm = A4.assemble(R, J, { answers: ansFor(), pairs: J.pairs || null }), EC = D.EL_COLOR;
+      var n = asm.chapters.length, two = function (i) { return (i < 9 ? "0" : "") + (i + 1); };
+      var pill = function (p) {
+        return '<div class="pp-pillar"><span class="pp-pl">' + p.label + '</span><span class="hz" style="color:' + EC[p.stemEl] + '">' + p.stem + '</span><span class="hz" style="color:' + EC[p.branchEl] + '">' + p.branch + '</span><span class="pp-pe">' + p.stemEl + " · " + p.branchEl + "<br>" + p.animal + "</span></div>";
       };
-      var h = '<div class="pp-bar no-print"><a href="' + esc(back) + '">← Back to my reading</a><button type="button" class="btn btn--sm" data-pp-print>Save as PDF</button>' +
-        '<p class="small">In the print window, pick <b>Save as PDF</b> as the printer.</p></div>';
+      var seal = '<span class="pp-seal" aria-hidden="true">봄연</span>';
       // cover
-      h += '<section class="pp-page pp-cover"><p class="pp-brand">BOM &amp; YEON <span>봄연</span></p>' +
-        (P.cover ? '<img class="pp-cover-img" src="/assets/img/cover-' + P.cover + '.webp" alt="" width="720" height="894">' : "") +
+      var h = '<section class="pp-sheet pp-cover"><p class="pp-brand">BOM &amp; YEON <span>봄연</span></p>' +
+        (P.cover ? '<div class="pp-cover-art"><img src="/assets/img/cover-' + P.cover + '.webp" alt="" width="720" height="894"></div>' : "") +
         '<p class="pp-title">' + esc(J.title) + '</p><h1 class="pp-name">' + (I.name ? esc(I.name) : "Your reading") + "</h1>" +
         '<p class="pp-dm"><span class="hz" style="color:' + I.color + '">' + I.hanja + "</span> " + esc(I.dmName) + " · " + esc(I.nick) +
-        (I.them ? ' <span class="pp-with">with <span class="hz" style="color:' + I.them.color + '">' + I.them.hanja + "</span> " + esc(I.them.name) + "</span>" : "") + "</p>" +
-        '<div class="pp-pillars pp-pillars--dark">' + I.pillars.map(function (p) { return pill(p, true); }).join("") + "</div>" +
-        '<span class="pp-cover-rule"></span><p class="pp-cover-foot">A Korean saju reading, told as a webtoon by Bom and Yeon · bomandyeon.com</p></section>';
+        (I.them ? '<span class="pp-with">with <span class="hz" style="color:' + I.them.color + '">' + I.them.hanja + "</span> " + esc(I.them.name) + "</span>" : "") + "</p>" +
+        '<div class="pp-cover-foot">' + seal + "<p>A personal saju comic, told by Bom and Yeon<br>" + n + " illustrated chapters · bomandyeon.com</p></div></section>";
       // chart page
       var max = Math.max.apply(null, I.counts.concat([1]));
       var bars = I.counts.map(function (c, i) {
-        var el = D.EL_NAMES[i]; return '<div class="pp-bar-row"><span>' + el + '</span><span class="pp-tr"><i style="width:' + Math.round(c / max * 100) + "%;background:" + INK[el] + '"></i></span><span>' + c.toFixed(1) + "</span></div>";
+        var el = D.EL_NAMES[i]; return '<div class="pp-bar-row"><span>' + el + '</span><span class="pp-tr"><i style="width:' + Math.max(2, Math.round(c / max * 100)) + "%;background:" + EC[el] + '"></i></span><span>' + c.toFixed(1) + "</span></div>";
       }).join("");
-      var words = asm.words, min = mins(words);
-      h += '<section class="pp-page pp-chart"><p class="pp-kicker">Your chart</p><h2>' + esc(I.dmName) + ' <span class="hz" style="color:' + INK[I.el] + '">' + I.hanja + "</span></h2>" +
+      h += '<section class="pp-sheet pp-chart"><p class="pp-kicker">Your chart</p><h2 class="pp-h2">' + esc(I.dmName) + ' <span class="hz" style="color:' + EC[I.el] + '">' + I.hanja + "</span></h2>" +
         '<p class="pp-lead">' + esc(I.nick) + ". " + esc(s.tag || "") + "</p>" +
-        '<div class="pp-pillars">' + I.pillars.map(function (p) { return pill(p, false); }).join("") + "</div>" +
-        '<div class="pp-facts"><p><b>Season</b>' + I.seasonHz + " " + esc(seasonLine(R)) + "</p><p><b>Strength</b>" + esc(strengthWord(R)) + " · " + I.score + " of " + I.max + "</p><p><b>Length</b>" + asm.chapters.length + " chapters · " + words.toLocaleString("en-US") + " words</p></div>" +
-        '<div class="pp-bars">' + bars + "</div>";
+        '<div class="pp-pillars">' + I.pillars.map(pill).join("") + "</div>" +
+        '<div class="pp-facts"><p><b>Season</b>' + I.seasonHz + " " + esc(seasonLine(R)) + "</p><p><b>Strength</b>" + esc(strengthWord(R)) + " · " + I.score + " of " + I.max + "</p><p><b>Your book</b>" + n + " illustrated chapters</p></div>" +
+        '<div class="pp-bars"><p class="pp-mini">Your five elements</p>' + bars + "</div>";
       if (PAIR === "required" && them && R.compat) {
         var pd = PAIRS[pairSlug(R.dayMaster, R.partner.dayMaster)] || {};
-        h += '<div class="pp-bond"><p class="pp-kicker">You and them</p><p class="pp-score"><span class="hz" style="color:' + INK[s.el] + '">' + s.hanja + '</span> + <span class="hz" style="color:' + INK[them.el] + '">' + them.hanja + "</span> · " + R.compat.score + "%</p>" + (pd.v ? "<p>" + esc(pd.v) + "</p>" : "") + "</div>";
+        h += '<div class="pp-bond"><p class="pp-mini">You and them</p><p class="pp-score"><span class="hz" style="color:' + EC[s.el] + '">' + s.hanja + '</span> + <span class="hz" style="color:' + EC[them.el] + '">' + them.hanja + "</span> · " + R.compat.score + "%</p>" + (pd.v ? "<p>" + esc(pd.v) + "</p>" : "") + "</div>";
       }
-      h += '<div class="pp-toc"><p class="pp-kicker">In this reading</p><ol>' + asm.chapters.map(function (ch) { return "<li>" + esc(ch.title || "") + "</li>"; }).join("") + "</ol></div>" +
+      h += '<div class="pp-toc"><p class="pp-mini">In this book</p><ol>' + asm.chapters.map(function (ch, i) { return "<li><span>" + two(i) + "</span>" + esc(ch.title || "") + "</li>"; }).join("") + "</ol></div>" +
         '<p class="pp-note">' + (R.hasHour ? "Four pillars from your birth date and time." : "Three pillars from your birth date (year, month, day).") + " Solar terms converted to " + esc(BY.zoneLabel(R.zone)) + " time.</p></section>";
       // chapters
       asm.chapters.forEach(function (ch, i) {
         var sc = sceneFor(ch.id, R), lines = "";
         (ch.panels || []).forEach(function (p) {
           if (p.nar) lines += '<p class="pp-nar">' + esc(p.nar) + "</p>";
-          var sp = who(p.speaker), lo = sp.toLowerCase();
-          lines += '<div class="pp-say pp-say--' + lo + '"><img src="/assets/img/av-' + lo + '.webp" alt="" width="40" height="40"><p><b>' + sp + "</b>" + esc(p.text) + "</p></div>";
+          lines += ppSay(who(p.speaker), p.text);
         });
         var body = "";
         if (ch.id === "strength") body += '<p class="pp-aside">' + esc(strengthHow(R)) + "</p>";
-        if (ch.id === "balance" && ch.blocks) ch.blocks.forEach(function (b) { body += "<h4>" + esc(b.h || "") + "</h4>" + textHTML(b.t) + (b.note ? '<p class="pp-aside">' + esc(b.note) + "</p>" : ""); });
-        else body += textHTML(ch.text);
-        h += '<section class="pp-ch"><header class="pp-ch-h"><p class="pp-kicker">Chapter ' + (i + 1) + (ch.kicker ? " · " + esc(ch.kicker) : "") + "</p><h2>" + esc(ch.title || "") + "</h2></header>" +
-          '<div class="pp-open' + (sc ? "" : " pp-open--plain") + '">' + (sc ? '<figure class="pp-scene"><img src="' + sc.src + '" alt="" width="' + sc.w + '" height="' + sc.h + '"></figure>' : "") +
-          '<div class="pp-lines">' + lines + "</div></div>" + '<div class="pp-text">' + body + "</div></section>";
+        if (ch.id === "balance" && ch.blocks) ch.blocks.forEach(function (b) { body += '<h4 class="pp-h4">' + esc(b.h || "") + "</h4>" + ppText(b.t) + (b.note ? '<p class="pp-aside">' + esc(b.note) + "</p>" : ""); });
+        else body += ppText(ch.text);
+        h += '<section class="pp-sheet pp-ch"><div class="pp-open"><header class="pp-ch-h"><p class="pp-chno"><b>' + two(i) + '</b><span class="hz">' + (HZN[i] || "") + "</span></p>" +
+          '<div><p class="pp-kicker">Chapter ' + (i + 1) + (ch.kicker ? " · " + esc(ch.kicker) : "") + '</p><h2 class="pp-h2">' + esc(ch.title || "") + "</h2></div></header>" +
+          (sc ? '<figure class="pp-scene"><img src="' + sc.src + '" alt="" width="' + sc.w + '" height="' + sc.h + '"></figure>' : "") +
+          '<div class="pp-lines">' + lines + "</div></div>" + '<div class="pp-text">' + body + '</div><p class="pp-ch-end">' + seal + "</p></section>";
       });
-      // close
-      h += '<section class="pp-end"><div class="pp-say pp-say--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="40" height="40"><p><b>Yeon</b>' + esc(D.YEON_MSG[R.dayMasterEl]) + "</p></div>" +
+      // closing page
+      h += '<section class="pp-sheet pp-end"><p class="pp-kicker">The end of your book</p><h2 class="pp-h2">Until the next chapter</h2>' +
+        '<div class="pp-duo"><img src="/assets/img/av-bom.webp" alt="" width="88" height="88"><img src="/assets/img/av-yeon.webp" alt="" width="88" height="88"></div>' +
+        '<div class="pp-lines">' + ppSay("Yeon", D.YEON_MSG[R.dayMasterEl]) + "</div>" +
         '<p class="pp-note">This reading uses ' + (R.hasHour ? "four pillars (birth year, month, day and hour)" : "three pillars (birth year, month and day)") + ". It doesn't include the 10-year luck cycles (대운). For entertainment and self-reflection.</p>" +
-        '<p class="pp-sign">Bom &amp; Yeon <span>봄연</span><br><small>bomandyeon.com</small></p></section>';
-      out.innerHTML = '<div class="pp">' + h + "</div>";
+        '<div class="pp-sign">' + seal + "<p>Bom &amp; Yeon<br><small>bomandyeon.com</small></p></div></section>";
+      return h;
+    }
+    function ppWhenReady(root, cb) {
+      var imgs = [].slice.call(root.querySelectorAll("img"));
+      var fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+      var all = Promise.all(imgs.map(function (im) { return im.decode ? im.decode().catch(function () {}) : Promise.resolve(); }).concat([fontsReady]));
+      Promise.race([all, new Promise(function (r) { setTimeout(r, 8000); })]).then(cb);
+    }
+    function renderPrint(R, s, them, J) {
+      document.body.classList.add("print-view"); document.documentElement.classList.add("pp-on");
+      document.title = J.title + (name ? " · " + name : "") + " · Bom & Yeon";
+      $("rdAsk").hidden = true; $("rdIntake").hidden = true; $("rdCross").hidden = true;
+      var back = ready() ? readUrl() : P.readUrl;
+      var bar = '<div class="pp-bar no-print"><a href="' + esc(back) + '">← Back to my reading</a><button type="button" class="btn btn--sm" data-pp-print>Save as PDF</button>' +
+        '<p class="small">In the print window, pick <b>Save as PDF</b> (on iPhone: in the print preview tap the share icon, then Save to Files).</p></div>';
+      out.innerHTML = bar + '<div class="pp">' + buildPrint(R, s, them, J) + "</div>";
       BY.track("pdf-view-" + P.slug, "PDF view: " + P.slug);
       var go = function () { if (QS.get("noauto") !== "1") window.print(); };
       out.querySelector("[data-pp-print]").addEventListener("click", function () { window.print(); });
-      var imgs = [].slice.call(out.querySelectorAll("img"));
-      var fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-      var all = Promise.all(imgs.map(function (im) { return im.decode ? im.decode().catch(function () {}) : Promise.resolve(); }).concat([fontsReady]));
-      Promise.race([all, new Promise(function (r) { setTimeout(r, 8000); })]).then(function () {
-        document.body.setAttribute("data-pp-ready", "1"); setTimeout(go, 300);
-      });
+      ppWhenReady(out, function () { document.body.setAttribute("data-pp-ready", "1"); setTimeout(go, 300); });
+    }
+    /* owned read page: the same book, hidden on screen, is what any browser "Print" prints */
+    function attachPrint(R, s, them, J) {
+      try {
+        var old = document.getElementById("ppShadow"); if (old) old.parentNode.removeChild(old);
+        var d = document.createElement("div"); d.id = "ppShadow"; d.className = "pp pp--shadow"; d.setAttribute("aria-hidden", "true");
+        d.innerHTML = buildPrint(R, s, them, J); document.body.appendChild(d);
+        document.documentElement.classList.add("pp-has");
+      } catch (e) { /* printing falls back to the plain print styles */ }
     }
     function coverInfo(R, s, them, title) {
       var pl = R.pillars;
@@ -1021,7 +1051,7 @@
     function mins(w) { return Math.max(1, Math.round(w / 238)); }
     function aboutThis(R, L) {
       var words = L.words, min = mins(words);
-      return '<section class="rise chap about-reading"><p class="kicker">About this reading</p><p class="muted small">This reading is ' + words.toLocaleString("en-US") + " words in " + L.chapters + " chapters and " + L.panels + " panels. " +
+      return '<section class="rise chap about-reading"><p class="kicker">About this reading</p><p class="muted small">This reading is ' + L.chapters + " illustrated chapters and " + L.panels + " panels. " +
         (R.hasHour ? "It uses four pillars: your birth year, month, day and hour. " : "It uses three pillars: your birth year, month and day. A birth hour would add a fourth. ") +
         "It doesn't include your 10-year luck cycles (대운), which traditional readers use for timing. If you were born between 11 pm and midnight, some saju schools count you as the next day's Day Master" +
         (PAIR ? ". The chapter on the two of you compares your Day Masters (and notes your day branches); a full Korean compatibility reading (궁합) compares both whole charts" : "") +
