@@ -45,7 +45,13 @@
   function anchor(price) { return (Math.round(price * 1.54) - 0.01).toFixed(2); }
   // ?code=XYZ on any page carries a Gumroad discount code into checkout (Gumroad's checkout has no code field)
   var OFFER = (function () { try { var c = new URLSearchParams(location.search).get("code"); if (c && /^[A-Za-z0-9_-]{2,40}$/.test(c)) sessionStorage.setItem("by_offer", c); return sessionStorage.getItem("by_offer") || ""; } catch (e) { return ""; } })();
-  function checkoutUrl(slug) { var r = stateParam(); return SHOP + slug + "?wanted=true&token=" + token(slug) + (r ? "&r=" + r : "") + (OFFER ? "&offer_code=" + encodeURIComponent(OFFER) : ""); }
+  /* first-touch ad tags ride along at the END of the checkout link (Gumroad keeps extra url params; ?wanted, token, r, offer_code untouched) */
+  function utmParams() {
+    var a = BY.attrib ? BY.attrib() : {}, s = "";
+    Object.keys(a).forEach(function (k) { s += "&" + k + "=" + encodeURIComponent(a[k]); });
+    return s;
+  }
+  function checkoutUrl(slug) { var r = stateParam(); return SHOP + slug + "?wanted=true&token=" + token(slug) + (r ? "&r=" + r : "") + (OFFER ? "&offer_code=" + encodeURIComponent(OFFER) : "") + utmParams(); }
   function loadGumroad() { /* kept as a no-op for callers; see header */ }
   /* our own gold button, no Gumroad styling: checkout opens in a new tab, this tab keeps polling */
   function buyLink(slug, label, cls) {
