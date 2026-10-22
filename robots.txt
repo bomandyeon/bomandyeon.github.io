@@ -2,4 +2,48 @@ User-agent: *
 Allow: /
 Disallow: /readings/*/read/
 
+User-agent: GPTBot
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: Claude-User
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: Perplexity-User
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /readings/*/read/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /readings/*/read/
+
 Sitemap: https://bomandyeon.com/sitemap.xml
