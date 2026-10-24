@@ -443,6 +443,7 @@ details.extras summary small { color: var(--faint); font-weight: 400; }
 .bio-line { margin: 0; font-size: 14px; color: var(--mute); border: 1px dashed var(--hair); border-radius: 999px; padding: 6px 12px; }
 .btn--sm { min-height: 40px; padding: 8px 16px; font-size: 14px; }
 .about-reading { border-top: 1px solid var(--hair); padding-top: 14px; }
+.chapter-text .about-reading .kicker, .about-reading .kicker { margin-top: 0; margin-bottom: 8px; }
 
 /* mobile first screen: birthday form and button visible without scrolling at 375px */
 @media (max-width: 699px) {
