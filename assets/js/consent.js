@@ -16,13 +16,25 @@
   "use strict";
   var BY = window.BY; if (!BY) return;
   var CFG = window.BY_CFG || {}, ID = /^\d{6,20}$/.test(String(CFG.pixel || "")) ? String(CFG.pixel) : "", PRICES = CFG.prices || {};
+  var GA = /^G-[A-Z0-9]{4,16}$/.test(String(CFG.ga4 || "")) ? String(CFG.ga4) : "", gaLoaded = false;
+  if (!ID && GA) ID = "ga-only"; /* banner still shows when only GA4 is set */
   var KEY = "consent", doc = document, loaded = false;
   var preview = false; try { preview = new URLSearchParams(location.search).get("cookiebanner") === "1"; } catch (e) { /* old browser */ }
 
   function choice() { var c = BY.load(KEY); return c && (c.ads === "yes" || c.ads === "no") ? c.ads : ""; }
   function granted() { return !!ID && choice() === "yes"; }
 
+  function loadGA() {
+    if (!GA || gaLoaded || choice() !== "yes") return;
+    gaLoaded = true;
+    window.dataLayer = window.dataLayer || []; window.gtag = function () { window.dataLayer.push(arguments); };
+    var t = doc.createElement("script"); t.async = true; t.src = "https://www.googletagmanager.com/gtag/js?id=" + GA; doc.head.appendChild(t);
+    window.gtag("consent", "default", { ad_storage: "granted", analytics_storage: "granted", ad_user_data: "granted", ad_personalization: "granted" });
+    window.gtag("js", new Date()); window.gtag("config", GA);
+  }
   function loadPixel() {
+    loadGA();
+    if (ID === "ga-only") return;
     if (loaded || !granted()) return;
     loaded = true;
     /* Meta's standard base code */
@@ -38,7 +50,8 @@
   function killCookies() {
     var host = location.hostname, parts = host.split("."), doms = ["", host];
     for (var i = 1; i < parts.length - 1; i++) doms.push("." + parts.slice(i).join("."));
-    ["_fbp", "_fbc"].forEach(function (n) {
+    var names = ["_fbp", "_fbc", "_ga"]; doc.cookie.split(";").forEach(function (c) { var n = c.split("=")[0].trim(); if (/^_ga_/.test(n)) names.push(n); });
+    names.forEach(function (n) {
       doms.forEach(function (d) { doc.cookie = n + "=; Max-Age=0; path=/" + (d ? "; domain=" + d : ""); });
     });
   }
@@ -49,6 +62,7 @@
     if (v === "yes") loadPixel();
     else if (was === "yes") {
       try { if (window.fbq) window.fbq("consent", "revoke"); } catch (e) { /* ignore */ }
+      try { if (window.gtag) window.gtag("consent", "update", { ad_storage: "denied", analytics_storage: "denied", ad_user_data: "denied", ad_personalization: "denied" }); } catch (e) { /* ignore */ }
       killCookies(); loaded = false;
     }
   }
@@ -61,13 +75,13 @@
     box = doc.createElement("div");
     box.className = "cc"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Cookie choice"); box.setAttribute("aria-live", "polite");
     var now = choice();
-    box.innerHTML = '<p class="cc__t">Can we use a Meta cookie to see which of our ads brought you here? It doesn\u2019t change the site, and saying no is fine. <a href="/privacy/#cookies">Privacy</a></p>' +
+    box.innerHTML = '<p class="cc__t">We use cookies for analytics and ads, to see what people like and which ads work. The site works the same either way. <a href="/privacy/#cookies">Privacy</a></p>' +
       (fromSettings && now ? '<p class="cc__now">Right now: ' + (now === "yes" ? "accepted" : "declined") + ".</p>" : "") +
-      '<div class="cc__b"><button type="button" class="cc__btn" data-cc="no">Decline</button><button type="button" class="cc__btn" data-cc="yes">Accept</button></div>';
+      '<div class="cc__b"><button type="button" class="cc__btn" data-cc="no">Reject all</button><button type="button" class="cc__btn" data-cc="yes">Accept all</button></div>';
     box.addEventListener("click", function (e) {
       var b = e.target.closest("[data-cc]"); if (!b) return;
       setChoice(b.getAttribute("data-cc")); hide();
-      if (fromSettings) BY.toast && BY.toast(b.getAttribute("data-cc") === "yes" ? "Saved. Meta cookie on." : "Saved. No Meta cookie.");
+      if (fromSettings) BY.toast && BY.toast(b.getAttribute("data-cc") === "yes" ? "Saved. Cookies on." : "Saved. No cookies.");
     });
     doc.body.appendChild(box); doc.body.classList.add("has-cc");
     requestAnimationFrame(function () { requestAnimationFrame(function () { if (box) box.classList.add("is-on"); }); });
@@ -79,7 +93,7 @@
 
   /* ---------- Meta events from the existing GoatCounter event names ---------- */
   function meta(name, params, custom) {
-    if (!granted() || !window.fbq) return;
+    if (!granted() || !window.fbq || ID === "ga-only") return;
     try { window.fbq(custom ? "trackCustom" : "track", name, params || {}); } catch (e) { /* ignore */ }
   }
   function prod(slug) {
