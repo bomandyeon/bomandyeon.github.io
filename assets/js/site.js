@@ -123,6 +123,23 @@
       if (kind === "y" && sel.name === "by" && !sel.value) sel.value = "2000"; // most visitors are born around 2000: the wheel opens there
     });
   };
+  /* day list follows the chosen month and year, so 30 February can't be picked (Rok 2026-10-24) */
+  BY.syncDays = function (sel) {
+    var name = sel.name || "", prefix = name.slice(0, -1), root = sel.form || doc;
+    var g = function (k) { return root.querySelector('select[name="' + prefix + k + '"]'); };
+    var ms = g("m"), ds = g("d"), ys = g("y");
+    if (!ms || !ds) return;
+    var m = +ms.value, y = ys ? +ys.value : 0;
+    var max = !m ? 31 : new Date(y || 2000, m, 0).getDate();
+    var cur = +ds.value, have = 0;
+    [].slice.call(ds.options).forEach(function (o) { var v = +o.value; if (v > max) ds.removeChild(o); else if (v) have = Math.max(have, v); });
+    for (var i = have + 1; i <= max; i++) ds.insertAdjacentHTML("beforeend", '<option value="' + i + '">' + i + "</option>");
+    if (cur > max) ds.value = String(max);
+  };
+  doc.addEventListener("change", function (e) {
+    var t = e.target, k = t && t.getAttribute && t.getAttribute("data-kind");
+    if (k === "m" || k === "y") BY.syncDays(t);
+  });
   BY.readDate = function (form, prefix) {
     var g = function (k) { var el = form.querySelector('[name="' + prefix + k + '"]'); return el ? +el.value : 0; };
     var m = g("m"), d = g("d"), y = g("y");
