@@ -21,7 +21,16 @@
   var KEY = "consent", doc = document, loaded = false;
   var preview = false; try { preview = new URLSearchParams(location.search).get("cookiebanner") === "1"; } catch (e) { /* old browser */ }
 
-  function choice() { var c = BY.load(KEY); return c && (c.ads === "yes" || c.ads === "no") ? c.ads : ""; }
+  /* Banner only where prior consent is the law (EU/EEA, UK, CH and the rest of Europe; Rok 2026-10-24). Detected from the
+   * browser time zone; unknown zone = show the banner. Elsewhere tracking runs by default and "Cookie settings" opts out. */
+  function consentRegion() {
+    var tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { /* old browser */ }
+    if (!tz) return true;
+    return /^(Europe\/|Atlantic\/(Canary|Madeira|Azores|Reykjavik|Faroe)|Africa\/Ceuta|Asia\/(Nicosia|Famagusta)|Arctic\/)/.test(tz) || tz === "UTC" || tz === "Etc/UTC";
+  }
+  var EU = consentRegion();
+  function stored() { var c = BY.load(KEY); return c && (c.ads === "yes" || c.ads === "no") ? c.ads : ""; }
+  function choice() { return stored() || (EU ? "" : "yes"); }
   function granted() { return !!ID && choice() === "yes"; }
 
   function loadGA() {
@@ -115,7 +124,7 @@
   BY.consent = { choice: choice, show: show, granted: granted, pixel: !!ID };
 
   if (granted()) loadPixel();
-  else if ((ID || preview) && (!choice() || preview)) {
+  else if ((ID || preview) && ((EU && !stored()) || preview)) {
     var go = function () { show(false); };
     if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", go); else setTimeout(go, 0);
   }
