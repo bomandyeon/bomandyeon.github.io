@@ -111,11 +111,14 @@ function connected(){
  call("GET","/api/user").then(function(u){$("uname").textContent="@"+u.username}).catch(function(e){if(e&&e.error=="not_connected"){localStorage.removeItem("by_pin_session");location.reload()}});
  loadBoards();
 }
+function localBoards(){try{return JSON.parse(localStorage.getItem("by_pin_boards")||"[]")}catch(e){return[]}}
 function loadBoards(keep){st("st2","Loading your boards…");
  call("GET","/api/boards").then(function(j){var s=$("board");s.innerHTML="";
-  (j.items||[]).forEach(function(b){var o=document.createElement("option");o.value=b.id;o.textContent=b.name;s.appendChild(o)});
+  var items=(j.items||[]).slice(),seen={};items.forEach(function(b){seen[b.id]=1});
+  localBoards().forEach(function(b){if(!seen[b.id])items.push(b)});
+  items.forEach(function(b){var o=document.createElement("option");o.value=b.id;o.textContent=b.name;s.appendChild(o)});
   if(keep)s.value=keep;
-  st("st2",(j.items||[]).length?(j.items.length+" board(s) found."):"No boards yet. Create one below.",(j.items||[]).length?"ok":"")})
+  st("st2",items.length?(items.length+" board(s) available."):"No boards yet. Create one below.",items.length?"ok":"")})
  .catch(function(e){st("st2","Could not load boards: "+(e.message||e.error||"error"),"err")})}
 
 fetch(API+"/oauth/config").then(function(r){return r.json()}).then(function(c){cfg=c;
@@ -135,10 +138,10 @@ fetch(API+"/oauth/config").then(function(r){return r.json()}).then(function(c){c
 
 $("connectBtn").onclick=function(){if(!cfg)return;var s=Math.random().toString(36).slice(2)+Date.now().toString(36);sessionStorage.setItem("by_pin_state",s);
  location.href="https://www.pinterest.com/oauth/?"+new URLSearchParams({client_id:cfg.client_id,redirect_uri:cfg.redirect_uri,response_type:"code",scope:cfg.scope,state:s}).toString()};
-$("discBtn").onclick=function(){call("POST","/api/disconnect").finally(function(){localStorage.removeItem("by_pin_session");location.reload()})};
+$("discBtn").onclick=function(){call("POST","/api/disconnect").finally(function(){localStorage.removeItem("by_pin_session");localStorage.removeItem("by_pin_boards");location.reload()})};
 $("reloadBoards").onclick=function(){loadBoards()};
 $("mkBoard").onclick=function(){var n=$("newBoard").value.trim();if(!n)return;st("st2","Creating board…");
- call("POST","/api/boards",{name:n,description:"Korean birthday types, saju comics and love readings by Bom & Yeon."}).then(function(b){st("st2","Board created: "+b.name,"ok");loadBoards(b.id)})
+ call("POST","/api/boards",{name:n,description:"Korean birthday types, saju comics and love readings by Bom & Yeon."}).then(function(b){var l=localBoards();l.push({id:b.id,name:b.name});localStorage.setItem("by_pin_boards",JSON.stringify(l));loadBoards(b.id);setTimeout(function(){st("st2","Board created: "+b.name+" (id "+b.id+")","ok")},600)})
  .catch(function(e){st("st2","Could not create board: "+(e.message||e.error),"err")})};
 $("pinBtn").onclick=function(){var b=$("board").value;if(!b){st("st3","Choose a board first.","err");return}
  $("pinBtn").disabled=true;st("st3","Publishing to Pinterest…");
