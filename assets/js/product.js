@@ -471,6 +471,7 @@
         '<p class="tz-why">Your birthday type (' + esc(s.name) + ' in Korean saju). It shapes ' + esc(how) + ".</p>" +
         (them ? '<p class="tz-them">They\u2019re <b>' + esc(them.nick) + "</b> (" + esc(them.name) + ")" + (PAIR === "required" ? ". This comic is about the two of you." : ". They\u2019re in your comic too.") + "</p>" : "") +
         '<ul class="tz-traits" aria-label="Your traits">' + (s.traits || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
+        '<p class="tz-card"><button type="button" class="btn btn--ghost btn--sm" data-typecard="' + esc(s.slug) + '" data-nick="' + esc(s.nick) + '">Share my type card</button></p>' +
         '<p class="tz-next">Your first 2 chapters are right below. Scroll to read.</p>' +
         chartHTML(R, s, them, cols) +
         '<p class="small muted center"><button type="button" class="linkbtn small" data-redo>Change my answers</button></p></div></header>';
@@ -488,6 +489,7 @@
         '<p class="small"><a href="#" data-pay-cancel="' + P.slug + (SHELF ? " all-readings" : "") + '">Not paid yet? Show the price again</a></p></div>' +
         (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>' + (sample.who ? (sample.who === "bom" ? "Bom" : "Yeon") + ", in chapter " : "From chapter ") + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
         '<p class="pw-what">One-time <b>$' + P.price + '</b>. All ' + total + ' chapters, yours forever, PDF included.</p>' +
+        '<p class="pw-bonus small">+ Bonus: your type as a phone and desktop wallpaper, and your compatibility chart.</p>' +
         '<p class="pw-per2">No subscription.' + (per ? " That\u2019s $" + per + " a chapter." : "") + "</p>" +
         '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest \u00B7 $" + P.price, "btn--block") + PAY.trust + (SHELF ? "" : PAY.consent) + "</div>" +
         // Meta ads pass 2026-10-22: the bundle as a clear second option (honest sum of the real prices, no strike-through, no timer)
@@ -563,6 +565,13 @@
       if (e.target.closest("[data-redo]")) { e.preventDefault(); startWizard(false); wiz.scrollIntoView({ behavior: smooth(), block: "start" }); }
     });
 
+    /* bonus 2026-10-25: free type card (story image) after the free check */
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-typecard]"); if (!b || !BY.imageShare) return;
+      e.preventDefault(); var g = b.getAttribute("data-typecard");
+      BY.imageShare({ src: "/assets/bonus/card/" + g + ".jpg", file: "my-korean-birthday-type-" + g, alt: "My Korean birthday type: " + b.getAttribute("data-nick"),
+        text: "I'm " + b.getAttribute("data-nick") + ". What's your Korean birthday type? bomandyeon.com", track: "typecard-" + g });
+    });
     /* hero, sticky bar and any [data-buy] button: start (or jump to) the free preview, or the paywall once it is on the page */
     document.addEventListener("click", function (e) {
       if (!e.target.closest("[data-buy]")) return;
@@ -872,6 +881,7 @@
         LEN = { words: asm.words, chapters: asm.chapters.length, panels: asm.panels };
         out.appendChild(html(aboutThis(R, LEN)));
         var lenTag = $("rdLen"); if (lenTag) lenTag.textContent = LEN.chapters + " illustrated chapters";
+        if (PAY && PAY.owns(P.slug)) out.appendChild(bonusBox(s));
         out.appendChild(actions(true));
         if (!PAY || PAY.owns(P.slug)) attachPrint(R, s, them, J);
 
@@ -958,6 +968,10 @@
           (sc ? '<figure class="pp-scene"><img src="' + sc.src + '" alt="" width="' + sc.w + '" height="' + sc.h + '"></figure>' : "") +
           '<div class="pp-lines">' + lines + "</div></div>" + '<div class="pp-text">' + body + '</div><p class="pp-ch-end">' + seal + "</p></section>";
       });
+      // bonus page 2026-10-25: compatibility chart
+      h += '<section class="pp-sheet pp-bonus"><p class="pp-kicker">Bonus</p><h2 class="pp-h2">You and every birthday type</h2>' +
+        '<figure style="margin:6mm 0 0;text-align:center"><img src="/assets/bonus/k9/' + s.slug + '-chart.jpg" alt="" width="1080" height="1920" style="width:50%;height:auto;margin:0 auto;display:block;border-radius:10px;border:1px solid rgba(201,164,92,.4)"></figure>' +
+        '<p class="pp-note">Your phone and desktop wallpapers are on your reading page, under the last chapter.</p></section>';
       // closing page
       h += '<section class="pp-sheet pp-end"><p class="pp-kicker">The end of your book</p><h2 class="pp-h2">Until the next chapter</h2>' +
         '<div class="pp-duo"><img src="/assets/img/av-bom.webp" alt="" width="88" height="88"><img src="/assets/img/av-yeon.webp" alt="" width="88" height="88"></div>' +
@@ -1026,6 +1040,16 @@
         '<p class="muted small">' + (R.hasHour ? "Four pillars from your birth date and time." : "Three pillars from your birth date (year, month, day). Your birth hour would add a fourth.") +
         " Solar terms converted to " + esc(BY.zoneLabel(R.zone)) + " time.</p>";
       return el;
+    }
+    /* bonus 2026-10-25: owners get their type's wallpapers + compatibility chart (one card, after the last chapter) */
+    function bonusBox(s) {
+      var b = "/assets/bonus/k9/" + s.slug, d = document.createElement("section"); d.className = "card bonus-box no-print rise";
+      d.innerHTML = '<p class="kicker">Your bonus</p><h2 class="h3">' + esc(s.nick) + ', for your phone and your wall</h2>' +
+        '<div class="bonus-grid"><a href="' + b + '-phone.jpg" download="' + s.slug + '-phone-wallpaper.jpg"><img src="' + b + '-phone.jpg" alt="Phone wallpaper: ' + esc(s.nick) + '" loading="lazy" width="1179" height="2556"><span>Phone wallpaper</span></a>' +
+        '<a href="' + b + '-chart.jpg" download="' + s.slug + '-compatibility-chart.jpg"><img src="' + b + '-chart.jpg" alt="Compatibility chart: ' + esc(s.nick) + '" loading="lazy" width="1080" height="1920"><span>Compatibility chart</span></a></div>' +
+        '<p class="small"><a class="link-arrow" href="' + b + '-desktop.jpg" download="' + s.slug + '-desktop-wallpaper.jpg">Desktop wallpaper</a> · On a phone, press and hold an image to save it.</p>';
+      d.addEventListener("click", function (e) { var a = e.target.closest("a[download]"); if (a && BY.track) BY.track("bonus-dl-" + P.slug, "Bonus download"); });
+      return d;
     }
     function actions(end) {
       var d = document.createElement("div"); d.className = "actions rd-actions no-print rise";

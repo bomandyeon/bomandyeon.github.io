@@ -1089,3 +1089,12 @@ body:has(.paywall.is-pending) .sticky-buy { display: none !important; }
 .lines li, blockquote.send { padding: 12px 16px; border-radius: 14px 14px 14px 4px; background: rgba(237, 230, 214, .07); border: 1px solid var(--hair); font-style: italic; }
 blockquote.send { margin: 10px 0 14px; }
 .prose h3 { font-size: 21px; margin-top: 26px; }
+
+/* bonus 2026-10-25: type card button, paywall bonus line, owner bonus box */
+.tz-card { margin: 14px 0 0; text-align: center; }
+.pw-bonus { margin: -4px 0 8px; text-align: center; color: var(--gold2); font-size: 13px; }
+.bonus-box { margin: 28px auto; max-width: 560px; text-align: center; }
+.bonus-box .h3 { margin: 4px 0 14px; }
+.bonus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 12px; }
+.bonus-grid a { display: block; text-decoration: none; color: var(--moon); font-size: 14px; }
+.bonus-grid img { width: 100%; height: auto; aspect-ratio: 9 / 18; object-fit: cover; border-radius: 12px; border: 1px solid rgba(201, 164, 92, .4); display: block; margin-bottom: 6px; }

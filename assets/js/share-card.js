@@ -227,3 +227,42 @@
     paint();
   };
 })();
+
+/* Bonus 2026-10-25: pre-rendered image share (type card 1080x1920). BY.imageShare({src, file, alt, text, track}) fetches the
+ * image first, so the Share tap is a direct user gesture (iOS Safari needs that for navigator.share with files).
+ * Share sheet with the image file where supported (Instagram story, WhatsApp, Messages), download + long-press fallback. */
+(function () {
+  "use strict";
+  var BY = window.BY = window.BY || {};
+  BY.imageShare = function (o) {
+    var sheet = document.createElement("div"), objUrl = "";
+    sheet.className = "story-sheet"; sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true"); sheet.setAttribute("aria-label", o.alt || "Your card");
+    sheet.innerHTML = '<div class="story-box"><div class="sc-out"><p class="center muted">Getting your card…</p></div></div>';
+    document.body.appendChild(sheet);
+    function close() { if (objUrl) URL.revokeObjectURL(objUrl); sheet.remove(); document.removeEventListener("keydown", onKey); }
+    function onKey(e) { if (e.key === "Escape") close(); }
+    document.addEventListener("keydown", onKey);
+    sheet.addEventListener("click", function (e) { if (e.target === sheet || e.target.closest("[data-close]")) close(); });
+    var out = sheet.querySelector(".sc-out"), fname = (o.file || "my-korean-birthday-type") + ".jpg";
+    function render(blob) {
+      var file = null; if (blob) { try { file = new File([blob], fname, { type: "image/jpeg" }); } catch (x) { file = null; } }
+      var canShare = !!(file && navigator.canShare && navigator.canShare({ files: [file] }));
+      var href = blob ? (objUrl = URL.createObjectURL(blob)) : o.src;
+      out.innerHTML = '<img src="' + href + '" alt="' + BY.esc(o.alt || "Your card") + '" width="1080" height="1920">' +
+        '<p class="muted small center">' + (canShare ? "Tap Share and pick Instagram, WhatsApp or anywhere else." : "Sized for stories. On a phone you can also press and hold the image to save it.") + "</p>" +
+        '<div class="actions">' + (canShare ? '<button class="btn" type="button" data-sh>Share</button>' : "") +
+        '<a class="btn' + (canShare ? " btn--ghost" : "") + '" href="' + href + '" download="' + fname + '">Save image</a><button class="btn btn--ghost" type="button" data-close>Close</button></div>';
+      var dl = out.querySelector("a[download]");
+      if (dl && BY.track) dl.addEventListener("click", function () { BY.track((o.track || "typecard") + "-save", "Type card saved"); });
+      var sh = out.querySelector("[data-sh]");
+      if (sh) sh.addEventListener("click", function () {
+        if (BY.track) BY.track((o.track || "typecard") + "-share", "Type card shared");
+        navigator.share({ files: [file], text: o.text || "" }).catch(function (err) {
+          // some targets reject files + text together; retry with the image alone
+          if (err && err.name !== "AbortError") navigator.share({ files: [file] }).catch(function () {});
+        });
+      });
+    }
+    fetch(o.src, { cache: "force-cache" }).then(function (r) { if (!r.ok) throw 0; return r.blob(); }).then(render).catch(function () { render(null); });
+  };
+})();
