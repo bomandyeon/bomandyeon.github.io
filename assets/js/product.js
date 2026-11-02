@@ -26,7 +26,7 @@
   var birth = (US && US.b) || BY.load("birth"), their = PAIR ? ((US && US.t) || BY.load(THEIR_KEY)) : null, name = BY.load("name") || "";
 
   /* optional intake answers (ex + situationship): {qid: value}; URL form a=v1.v2.v3 in intake order */
-  var INTAKE = P.intake || [], ANS_KEY = "ans_" + P.slug;
+  var INTAKE = P.intake || [], ANS_KEY = "ans_" + P.slug, NO_WIZ_Q = { situationship: 1 };
   function cleanAns(o) {
     if (!o || typeof o !== "object") return null;
     var r = {}, n = 0;
@@ -232,10 +232,14 @@
 
     /* ---------- wizard ---------- */
     var steps = [], at = 0, cur = {};
+    /* short funnel 2026-11-03: situationship goes straight to the two birthdays (4 screens before the preview, was 7). Its
+       intake questions stay optional and move after the paywall: the read page asks them before the full comic (intake()),
+       and the free chapters are written with the skip defaults until then. */
+    var WIZ_Q = INTAKE.length && !NO_WIZ_Q[P.slug];
     function buildSteps(skipDates) {
       steps = [];
-      if (INTAKE.length) INTAKE.slice(0, 3).forEach(function (q) { steps.push({ k: "q", q: q }); });
-      else if (MOOD) steps.push({ k: "mood" });
+      if (WIZ_Q) INTAKE.slice(0, 3).forEach(function (q) { steps.push({ k: "q", q: q }); });
+      else if (!INTAKE.length && MOOD) steps.push({ k: "mood" });
       if (!skipDates) { steps.push({ k: "you" }); if (PAIR) steps.push({ k: "them" }); }
       steps.push({ k: "time" }); steps.push({ k: "pillars" });
     }
@@ -435,7 +439,7 @@
       return t;
     }
     function lockKicker(c, s, them) {
-      if (c.type === "situation") { var a = ansLabels(); return a.length ? "Because you said: " + a.join(" · ") : "Written for not knowing"; }
+      if (c.type === "situation") { var a = ansLabels(); return a.length ? "Because you said: " + a.join(" · ") : !answers && NO_WIZ_Q[P.slug] ? "Shaped by 3 optional taps after you unlock" : "Written for not knowing"; }
       return "Written for " + s.nick + (them && c.type !== "pair" && PAIR ? " + " + them.nick : "");
     }
     /* teaser UX 2026-10-21: the result opens with the COMIC. The reading's cover art as a webtoon panel with Bom + Yeon speech
@@ -689,8 +693,8 @@
       setTimeout(function () { var i = sh.querySelector("input[type=email]"); if (i && window.matchMedia && matchMedia("(pointer: fine)").matches) i.focus({ preventScroll: true }); }, 350);
     }
     if (PAY && PAY.owns(P.slug)) { goRead(true); return; }
-    var complete = !!birth && (PAIR !== "required" || !!their) && (!INTAKE.length || !!answers);
-    if (complete && (BY.load(DONE_KEY) || (fromLink && !INTAKE.length))) { wiz.hidden = true; renderPreview(fromLink); }
+    var complete = !!birth && (PAIR !== "required" || !!their) && (!WIZ_Q || !!answers);
+    if (complete && (BY.load(DONE_KEY) || (fromLink && !WIZ_Q))) { wiz.hidden = true; renderPreview(fromLink); }
     else startWizard(fromLink && !!birth && (PAIR !== "required" || !!their));
     var sb = $("stickyBuy");
     if (sb && "IntersectionObserver" in window) {
