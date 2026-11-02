@@ -1,4 +1,4 @@
-/* Bom & Yeon shared behavior: nav, ambient sky, scroll reveals, buttons, birthday storage, Kit signup, webtoon panels. */
+/* Bom & Yeon shared behavior: nav, ambient sky, scroll reveals, buttons, birthday storage, Daily Soul + Kit signup, webtoon panels. */
 (function () {
   "use strict";
   var doc = document, root = doc.documentElement;
@@ -316,14 +316,14 @@
     return (base || "daily_soul") + (src ? ";src=" + src : "") + (vs ? ";vs=" + vs : "");
   };
 
-  /* ---------- Kit: Daily Soul (form 10071361) + "send my reading" (form 10077528) ----------
-     Two forms on purpose: Daily Soul subscribers confirm by email (double opt-in) and get the daily broadcast; the reading-copy
-     form has no confirmation email and its subscribers never get the Daily Soul (the daily broadcasts only go to the Kit tag
-     "daily-soul", which the Daily Soul worker gives to confirmed Daily Soul form subscribers). */
-  var KIT_FORMS = { daily: 10071361, reading: 10077528 };
+  /* ---------- Daily Soul (own list, worker bom-yeon-daily-soul, since 2026-11-02) + "send my reading" (Kit form 10077528) ----------
+     Daily Soul signups go to our own worker: double opt-in confirm mail, then one email every morning (sent via Resend).
+     The reading-copy form stays on Kit: no confirmation email, and its subscribers never get the Daily Soul. */
+  var KIT_FORMS = { reading: 10077528 };
+  var DAILY_URL = "https://bom-yeon-daily-soul.bomandyeon.workers.dev/subscribe";
   BY.EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   // resolves {ok:true} | {ok:true, check:url} (Kit's bot guard wants one click) | {ok:false}. Never opens a popup.
-  BY.kitPost = function (formId, email, fields) {
+  function formParams(email, fields) {
     var b = BY.load("birth"), dm = "";
     try { if (b && window.SajuEngine) dm = window.BY_DATA.SOULS[BY.analyze(b).dayMaster].name; } catch (e) { dm = ""; }
     var params = new URLSearchParams();
@@ -331,7 +331,11 @@
     params.append("fields[day_master]", dm);
     params.append("fields[birth_date]", BY.iso(b));
     Object.keys(fields || {}).forEach(function (k) { if (fields[k] != null) params.append("fields[" + k + "]", String(fields[k]).slice(0, 500)); });
-    return fetch("https://app.kit.com/forms/" + formId + "/subscriptions", { method: "POST", headers: { Accept: "application/json" }, body: params })
+    return params;
+  }
+  // Kit (reading copy only). resolves {ok:true} | {ok:true, check:url} (Kit's bot guard wants one click) | {ok:false}. Never opens a popup.
+  BY.kitPost = function (formId, email, fields) {
+    return fetch("https://app.kit.com/forms/" + formId + "/subscriptions", { method: "POST", headers: { Accept: "application/json" }, body: formParams(email, fields) })
       .then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }); })
       .then(function (x) {
         var j = x.j || {};
@@ -340,12 +344,20 @@
         return { ok: false };
       }).catch(function () { return { ok: false }; });
   };
-  BY.subscribe = function (email, source) { return BY.kitPost(KIT_FORMS.daily, email, { source: BY.sourceTag(source) }); };
+  // Daily Soul (own worker): resolves {ok:true} (confirm mail sent, or already subscribed) | {ok:false}
+  BY.dailyPost = function (email, fields) {
+    return fetch(DAILY_URL, { method: "POST", headers: { Accept: "application/json" }, body: formParams(email, fields) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { return { ok: !!(j && j.ok), already: !!(j && j.status === "already") }; })
+      .catch(function () { return { ok: false }; });
+  };
+  BY.subscribe = function (email, source) { return BY.dailyPost(email, { source: BY.sourceTag(source) }); };
   /* teaser email step: source "teaser-<slug>;product=<slug>;daily=yes|no" (+ ;src= ;vs=), plus product and the reading link.
-     Daily Soul box ticked -> the Daily Soul form (its own confirm email); not ticked -> the reading-copy form only. */
+     Daily Soul box ticked -> the Daily Soul worker (its own confirm email); not ticked -> the Kit reading-copy form only. */
   BY.captureReading = function (email, slug, daily, url, via) {
     var src = BY.sourceTag("teaser-" + slug) + ";product=" + slug + ";daily=" + (daily ? "yes" : "no") + (via ? ";via=" + via : "");
-    return BY.kitPost(daily ? KIT_FORMS.daily : KIT_FORMS.reading, email, { source: src, product: slug, reading_url: url || "" });
+    var f = { source: src, product: slug, reading_url: url || "" };
+    return daily ? BY.dailyPost(email, f) : BY.kitPost(KIT_FORMS.reading, email, f);
   };
   /* "You left mid-sentence" (2026-10-21): after a successful reading-copy signup WITHOUT Daily Soul, ask the unlock Worker to
      send ONE email with the reading link (Kit free has no automations). Fire and forget: never blocks, failures stay silent. */
@@ -383,8 +395,9 @@
         err.textContent = "";
         var btn = f.querySelector("button"); btn.disabled = true; btn.textContent = "Sending…";
         BY.subscribe(v, f.getAttribute("data-daily") || "daily_soul").then(function (res) {
-          if (res.ok) BY.track(res.check ? "kit-signup-check" : "kit-signup", res.check ? "Daily Soul signup (Kit check step)" : "Daily Soul signup");
-          if (res.ok && !res.check) { f.innerHTML = '<p class="ok" role="status">Almost done. Check your inbox and tap the confirm link from Kit. No confirm, no Daily Soul.</p>'; return; }
+          if (res.ok) BY.track("kit-signup", "Daily Soul signup");
+          if (res.ok && res.already) { f.innerHTML = '<p class="ok" role="status">You\'re already in. Your Daily Soul arrives every morning.</p>'; return; }
+          if (res.ok && !res.check) { f.innerHTML = '<p class="ok" role="status">Almost done. Check your inbox and tap the confirm link from Yeon. No confirm, no Daily Soul.</p>'; return; }
           if (res.ok && res.check) {
             // Kit's bot guard: a normal link the reader taps (a user gesture), never window.open after the fetch
             f.innerHTML = '<p class="ok" role="status">Almost there. Our email provider wants one quick check that you\'re a person.</p><p><a class="btn btn--ghost" href="' + BY.esc(res.check) + '" target="_blank" rel="noopener">Do the quick check</a></p>';
