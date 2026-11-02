@@ -627,7 +627,8 @@
         if (dy > 0) { if (t - upT > 400) upPx = 0; upPx += dy; upT = t; } else upPx = 0;
         lastY = y; lastT = t;
         // fast flick back up from inside the teaser: at least 500 px up within 400 ms, while still below the reading's start
-        if (armed && upPx > 500 && dy / dt > 1.2 && y > out.offsetTop - window.innerHeight) showExit("scroll");
+        // audit 2026-11-03: no scroll trigger any more. Flicking back up is usually re-reading before buying, and the
+        // sheet covered the buy button. Leave capture now only on Back after the paywall and (desktop) mouse leaving the top.
       }, { passive: true });
       if (window.matchMedia && matchMedia("(pointer: fine)").matches) {
         document.addEventListener("mouseout", function (e) { if (armed && !e.relatedTarget && e.clientY <= 0) showExit("mouse"); });
