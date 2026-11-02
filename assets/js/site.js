@@ -283,6 +283,7 @@
     var ft = BY.load("ft") || {}, r = {}, src = ft.src || BY.load("src") || "";
     if (ft.utm_source || src) r.utm_source = ft.utm_source || src;
     ["utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(function (k) { if (ft[k]) r[k] = ft[k]; });
+    var last = BY.load("src"); if (last && last !== r.utm_source && !r.utm_content) r.utm_content = last; /* last ?src (e.g. soul-sin-metal) when first touch was something else */
     return r;
   };
   /* ---------- GoatCounter events (cookieless). Event names only: never a birthday, a name or an answer. Skips localhost. ---------- */
@@ -311,6 +312,18 @@
      ?src survives as one event per session instead. */
   (function () { var src = ""; try { src = (new URLSearchParams(location.search).get("src") || "").toLowerCase(); } catch (e) { return; }
     if (/^[a-z0-9_-]{1,40}$/.test(src)) BY.trackOnce("src-" + src, "Arrived with ?src=" + src); })();
+  /* Daily Soul readers (?src=daily from the mail, kept per session) already have the mail: hide the signup box, the paid block stays */
+  (function () {
+    try {
+      var src = (new URLSearchParams(location.search).get("src") || "").toLowerCase();
+      if (/^daily/.test(src)) sessionStorage.setItem("by_from_daily", "1");
+      if (sessionStorage.getItem("by_from_daily")) doc.documentElement.classList.add("from-daily");
+    } catch (e) { /* private mode */ }
+  })();
+  /* paid block on SEO pages: one GoatCounter event per click (Meta InitiateCheckout fires at the real checkout on the reading page) */
+  doc.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[data-sell]"); if (a) BY.track("sell-" + a.getAttribute("data-sell"), "Paid block click: " + a.getAttribute("data-sell"));
+  });
   BY.sourceTag = function (base) {
     var src = BY.load("src"), vs = BY.load("vs");
     return (base || "daily_soul") + (src ? ";src=" + src : "") + (vs ? ";vs=" + vs : "");

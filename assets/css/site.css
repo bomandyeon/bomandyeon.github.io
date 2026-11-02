@@ -1098,3 +1098,24 @@ blockquote.send { margin: 10px 0 14px; }
 .bonus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 12px; }
 .bonus-grid a { display: block; text-decoration: none; color: var(--moon); font-size: 14px; }
 .bonus-grid img { width: 100%; height: auto; aspect-ratio: 9 / 18; object-fit: cover; border-radius: 12px; border: 1px solid rgba(201, 164, 92, .4); display: block; margin-bottom: 6px; }
+
+/* paid reading block on SEO pages (2026-11-02) */
+.sell { background: linear-gradient(180deg, rgba(201, 164, 92, .10), rgba(26, 28, 46, .92)); border: 1px solid var(--gold); border-radius: var(--r); }
+.sell--mini { display: grid; gap: 8px; padding: 16px 18px; margin: 22px 0; text-align: left; }
+.sell--mini .kicker { margin: 0; }
+.sell--mini .sell__t { margin: 0; font-size: 15px; line-height: 1.45; color: var(--moon); }
+.sell--mini .btn { justify-self: start; }
+.sell--full { display: grid; grid-template-columns: 112px 1fr; gap: 16px 18px; padding: 20px 18px; text-align: left; }
+.sell--full .sell__img img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--hair); display: block; }
+.sell--full h2 { font-size: 22px; margin: 0 0 6px; }
+.sell--full .kicker { margin: 0 0 6px; }
+.sell--full .muted { margin: 0; font-size: 15px; }
+.sell--full .say, .sell--full .actions, .sell--full > .small { grid-column: 1 / -1; margin: 0; }
+.sell--full .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.sell--full .actions .btn { flex: 1 1 220px; }
+.sell__list { grid-column: 1 / -1; margin: 12px 0 0; padding: 0; list-style: none; font-size: 15px; }
+.sell__list li { position: relative; padding-left: 22px; margin: 6px 0; color: var(--moon); }
+.sell__list li::before { content: "✦"; position: absolute; left: 0; color: var(--gold); }
+.sell__b { display: grid; align-content: start; }
+@media (min-width: 640px) { .sell--full { grid-template-columns: 180px 1fr; padding: 26px; } .sell__list { grid-column: 2 / -1; margin-top: 0; } .sell__img { grid-row: span 2; } }
+.from-daily .daily-box { display: none; }
