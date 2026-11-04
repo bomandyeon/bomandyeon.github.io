@@ -42,7 +42,7 @@
       return '<div class="pillar' + (on ? " is-peach" : "") + '"><span class="pl-l">' + x[0] + '</span><span class="hz" style="color:' + D.EL_COLOR[p.stemEl] + '">' + p.stemHanja +
         '</span><span class="hz" style="color:' + (on ? "#F4B7C4" : D.EL_COLOR[p.branchEl]) + '">' + p.branchHanja + '</span><span class="pl-e">' + p.animal + "</span></div>";
     }).join("");
-    var lp = CH.products["what-kind-of-lover"] || { title: "What Kind of Lover Are You?", price: 9.99 };
+    var lp = CH.products["what-kind-of-lover"] || { title: "What Kind of Lover Are You?", price: 12.99 };
     var res = $("charmRes");
     res.innerHTML = '<div class="card center charm-res rise">' +
       '<p class="kicker">Peach blossom check</p><p class="hz charm-res__hz" style="color:' + (pk.yes ? "#F4B7C4" : "var(--mute)") + '">桃花</p>' +
