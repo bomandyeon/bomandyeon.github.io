@@ -74,7 +74,7 @@
   })();
   /* the address never keeps a readable birthday: old ?b= links, emailed x= and r= become ?s=<id> right away */
   if (BY.urlState && (QS.get("r") || (US && US.via !== "s") || QS.get("b") || QS.get("t") || QS.get("a"))) BY.urlState.clean(birth ? urlObj() : null);
-  function ansFor() { var o = Object.assign({}, answers || {}); try { var m = BY.load("mood_" + P.slug); if (m) o.mood = m; } catch (e) {} return o; }
+  function ansFor() { var o = Object.assign({}, answers || (function () { var z = {}; INTAKE.forEach(function (q) { z[q.id] = q.skip_value; }); return z; })()); try { var m = BY.load("mood_" + P.slug); if (m) o.mood = m; } catch (e) {} return o; }
   function ansStr() { return INTAKE.length && answers ? INTAKE.map(function (q) { return answers[q.id]; }).join(".") : ""; }
   function urlObj() { return { b: birth, t: PAIR && their ? their : null, a: ansStr() }; }
   function ready() { return !!birth && (PAIR !== "required" || !!their); }
@@ -89,8 +89,8 @@
 
   /* read the optional "their birthday" selects: all empty -> null, partly filled -> error */
   function readTheir(form) {
-    var sels = form.querySelectorAll('select[name^="t"]'), any = false;
-    [].forEach.call(sels, function (s) { if (s.value) any = true; });
+    var any = false;
+    ["tm", "td", "ty"].forEach(function (k) { var el = form.querySelector('[name="' + k + '"]'); if (el && String(el.value || "").trim()) any = true; });
     if (!any) return PAIR === "required" ? { error: "Pick the month, day and year." } : null;
     return BY.readDate(form, "t");
   }
@@ -223,190 +223,67 @@
   function productPage() {
     // a key (email button, pasted key, old receipt links) or Gumroad's "Open my comic" button: the read page opens the reading
     if (PAY && (PAY.hasKey() || FROM_GR)) { location.replace(P.readUrl + location.search); return; }
-    var wiz = $("pvWizard"), out = $("pvOut"), dataP = null;
+    var wiz = $("pvWizard"), out = $("pvOut"), form = $("pvForm"), dataP = null;
     var MOOD = P.mood || null, MOOD_KEY = "mood_" + P.slug, DONE_KEY = "wiz_" + P.slug;
     var CH = P.chapters || [], SHELF = P.shelf || null;
     var fromLink = !!(US && US.b);
+    var solo = false; // situationship "Start with yours": their birthday comes before the paywall
+    document.body.classList.add("is-flow");
     function data() { if (!dataP) dataP = fetch(P.dataUrl).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }); return dataP; }
     function smooth() { return BY.reduced ? "auto" : "smooth"; }
+    function extras(show) { [].forEach.call(document.querySelectorAll(".pv-faq, .pv-more, .pv-article"), function (x) { x.hidden = !show; }); }
 
-    /* ---------- wizard ---------- */
-    var steps = [], at = 0, cur = {};
-    /* short funnel 2026-11-03: situationship goes straight to the two birthdays (4 screens before the preview, was 7). Its
-       intake questions stay optional and move after the paywall: the read page asks them before the full comic (intake()),
-       and the free chapters are written with the skip defaults until then. */
-    var WIZ_Q = INTAKE.length && !NO_WIZ_Q[P.slug];
-    function buildSteps(skipDates) {
-      steps = [];
-      if (WIZ_Q) INTAKE.slice(0, 3).forEach(function (q) { steps.push({ k: "q", q: q }); });
-      else if (!INTAKE.length && MOOD) steps.push({ k: "mood" });
-      if (!skipDates) { steps.push({ k: "you" }); if (PAIR) steps.push({ k: "them" }); }
-      steps.push({ k: "time" }); steps.push({ k: "pillars" });
+    /* ---------- one-page flow (2026-11-05): the hero form is the only step before the comic ----------
+       birthday (their birthday too where the reading compares two charts) -> "Show my comic" -> type reveal, chapter 1,
+       optional chips, chapter 2, paywall on this same page. No wizard, no reload. */
+    function wireForm() {
+      if (!form) return;
+      BY.fillSelects(form);
+      if (birth) BY.setDate(form, "b", birth);
+      BY.knownBirth(form);
+      if (PAIR === "required" && their) BY.setDate(form, "t", their);
+      var err = form.querySelector(".err");
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var known = form.querySelector(".bknown"), usingKnown = known && !known.hidden && birth;
+        var b = usingKnown ? birth : BY.readDate(form, "b");
+        if (b.error) { err.textContent = "Your birthday: " + b.error; return; }
+        var t = null;
+        if (PAIR === "required" && !solo) {
+          t = BY.readDate(form, "t");
+          if (t.error) { err.textContent = (/^Pick the month, then/.test(t.error) ? "Their birthday: add it, or tap \u201CDon't know theirs? Start with yours\u201D." : "Their birthday: " + t.error); return; }
+        }
+        err.textContent = "";
+        go(b, t);
+      });
+      var sb = form.querySelector("[data-solo]");
+      if (sb) sb.addEventListener("click", function () {
+        var known = form.querySelector(".bknown"), usingKnown = known && !known.hidden && birth;
+        var b = usingKnown ? birth : BY.readDate(form, "b");
+        if (b.error) { err.textContent = "Your birthday: " + b.error; return; }
+        err.textContent = ""; solo = true; BY.track("solo-start-" + P.slug, "Started with own birthday only: " + P.slug);
+        go(b, null);
+      });
     }
-    function extras(show) { [].forEach.call(document.querySelectorAll(".pv-faq, .pv-more"), function (x) { x.hidden = !show; }); var px = document.querySelector(".pv-extra"); if (px && !show) px.hidden = true; }
-    function startWizard(skipDates) {
-      extras(false); document.body.classList.add("is-wiz");
-      cur = Object.assign({}, answers || {}); buildSteps(skipDates); at = 0;
-      out.innerHTML = ""; wiz.hidden = false; step();
-      BY.trackOnce("wizard-start-" + P.slug, "Wizard started: " + P.slug);
-    }
-    function head(label) {
-      var n = steps.length, pct = Math.round((at + 1) / n * 100);
-      return (at === 0 && /preview/.test(location.hash) ? '<p class="wiz__ctx">' + esc(document.querySelector(".phero h1").textContent) + "</p>" : "") + '<div class="wiz__top"><p class="kicker">' + (steps[at] && steps[at].k === "pillars" ? "Your birthday type" : "Question " + (at + 1) + " of " + (n - 1)) + (label ? " · " + esc(label) : "") + "</p>" +
-        '<div class="wiz__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div></div>';
-    }
-    function hint(t) { return '<p class="wiz__hint">' + esc(t) + "</p>"; }
-    function nav(extra) {
-      return '<div class="wiz__nav">' + (at > 0 ? '<button type="button" class="linkbtn" data-w="back">Back</button>' : "<span></span>") + (extra || "<span></span>") + "</div>";
-    }
-    function opts(list, sel) {
-      return '<div class="wiz__opts">' + list.map(function (o) {
-        return '<button type="button" class="btn btn--ghost btn--block wiz__opt" data-v="' + esc(o.value) + '"' + (sel === o.value ? ' aria-pressed="true"' : "") + ">" + esc(o.label) + "</button>";
-      }).join("") + "</div>";
-    }
-    function dateRow(prefix, label) {
-      return '<div class="selects" role="group" aria-label="' + esc(label) + '">' + ["m", "d", "y"].map(function (k) {
-        var ph = { m: "Month", d: "Day", y: "Year" }[k];
-        return '<label><span class="sr">' + esc(label) + " " + ph.toLowerCase() + '</span><select name="' + prefix + k + '" data-kind="' + k + '"><option value="">' + ph + "</option></select></label>";
-      }).join("") + "</div>";
-    }
-    function step() {
-      var s = steps[at], h = "";
-      if (s.k === "q") {
-        var q = s.q;
-        h = head() + '<h2 class="wiz__q">' + esc(q.question) + "</h2>" + hint(at === 0 ? "Tap the closest one. Your chapters are written around it." : "Tap one. Skip if none fits.") + opts(q.options.filter(function (o) { return o.value !== q.skip_value; }), cur[q.id]) +
-          nav('<button type="button" class="linkbtn" data-v="' + esc(q.skip_value) + '">Skip</button>');
-      } else if (s.k === "mood") {
-        var m = BY.load(MOOD_KEY);
-        h = head() + '<h2 class="wiz__q">' + esc(MOOD.question) + "</h2>" + hint("Just for fun. It picks the first thing Bom or Yeon says to you.") +
-          opts(MOOD.options, m) + nav('<button type="button" class="linkbtn" data-v="">Skip</button>');
-      } else if (s.k === "you") {
-        var known = !!birth && !s.change;
-        h = head() + '<h2 class="wiz__q">' + (known ? "Is this your birthday?" : "When's your birthday?") + "</h2>" + hint("Your comic is written from it. Saju reads your exact birth date.") +
-          '<form class="form-stack wiz__form" novalidate>' +
-          (known ? '<p class="wiz__known"><b>' + esc(BY.prettyDate(birth)) + '</b> <button type="button" class="linkbtn" data-w="change">change</button></p>'
-                 : dateRow("b", "Your birthday")) +
-          '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">' + (known ? "Yes, that's me" : "Next") + "</button></form>" + nav();
-      } else if (s.k === "them") {
-        var req = PAIR === "required";
-        h = head() + '<h2 class="wiz__q">' + (req ? "And their birthday?" : "Know their birthday?") + "</h2>" +
-          hint(req ? "So the comic is about the two of you. Just the date, they never find out." : "Optional. Adds a chapter about the two of you.") +
-          '<form class="form-stack wiz__form" novalidate>' + dateRow("t", "Their birthday") + '<p class="err" role="alert"></p><button class="btn btn--block" type="submit">Next</button></form>' +
-          nav(req ? '<button type="button" class="linkbtn" data-w="noidea">I don\'t know it</button>' : '<button type="button" class="linkbtn" data-w="nothem">Skip, I don\'t know it</button>');
-      } else if (s.k === "time") {
-        h = head() + '<h2 class="wiz__q">What time were you born?</h2>' + hint("Optional. Makes it more accurate. Skip if you don't know.") +
-          '<button type="button" class="btn btn--block" data-w="notime">Skip, I don\'t know</button>' +
-          '<form class="form-stack wiz__form wiz__time" novalidate><p class="wiz__or"><span>or pick it</span></p>' +
-          '<div class="selects selects--2" role="group" aria-label="Birth time"><label><span class="field-label">Birth time</span><select name="bh"><option value="">Hour</option></select></label>' +
-          '<label><span class="field-label">Minute</span><select name="bmi"><option value="">:00</option></select></label></div>' +
-          '<details class="extras"><summary>Born in another country? <small>(optional)</small></summary><div class="extras__b">' +
-          '<label><span class="field-label">Country where you were born</span><input class="input" type="text" name="bzq" list="bzList-wz" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Where I am now"></label>' +
-          '<input type="hidden" name="bz" value=""><datalist id="bzList-wz"></datalist><p class="note" data-bzhint aria-live="polite"></p></div></details>' +
-          '<p class="err" role="alert"></p><button class="btn btn--ghost btn--block" type="submit">Use this time</button></form>' + nav();
-      } else if (s.k === "pillars") {
-        h = head() + pillarsHTML() + '<button type="button" class="btn btn--block" data-w="go">Show my comic</button>' + nav();
-      }
-      wiz.innerHTML = h;
-      BY.fillSelects(wiz);
-      var f = wiz.querySelector("form");
-      if (s.k === "you" && f) BY.setDate(f, "b", birth);
-      if (s.k === "them" && f) BY.setDate(f, "t", their);
-      if (s.k === "time" && f) BY.fillExtras(f);
-      // the type reveal comes next: fetch its picture now so it is there when the screen opens
-      if (s.k === "time" && birth) { try { var pre = new Image(); pre.src = "/assets/img/scenes/soul/" + D.SOULS[analyze().dayMaster].slug + ".webp"; } catch (x) { /* no chart yet */ } }
-      if (s.k === "q" || s.k === "mood") { var b0 = wiz.querySelector('[aria-pressed="true"]') || wiz.querySelector(".wiz__opt"); if (b0 && at > 0) b0.focus({ preventScroll: true }); }
-      if (at > 0) { var r = wiz.getBoundingClientRect(); if (r.top < 0 || r.top > window.innerHeight * 0.4) wiz.scrollIntoView({ behavior: smooth(), block: "start" }); }
-    }
-    function next() { at++; if (at < steps.length) step(); else finish(); }
-    function finish() {
+    function go(b, t) {
+      if (!birth || BY.iso(birth) !== BY.iso(b)) BY.store("btime", null); // a different birthday: the old birth time doesn't belong to it
+      birth = b; BY.store("birth", b);
+      if (PAIR) { their = t || (PAIR === "optional" ? their : null); BY.store(THEIR_KEY, their); }
       BY.store(DONE_KEY, 1);
+      BY.track("birthday-submit-" + P.slug, "Birthday submitted: " + P.slug);
+      try { if (BY.urlState) BY.urlState.clean(urlObj()); } catch (x) { /* ignore */ }
+      wiz.hidden = false;
+      wiz.scrollIntoView({ behavior: smooth(), block: "start" });
       loading(function () { wiz.hidden = true; wiz.innerHTML = ""; renderPreview(true); });
     }
-    function saveAnswers() {
-      if (!INTAKE.length) return;
-      INTAKE.forEach(function (q) { if (!cur[q.id]) cur[q.id] = q.skip_value; });
-      answers = cleanAns(cur); BY.store(ANS_KEY, answers);
-    }
-    wiz.addEventListener("click", function (e) {
-      var b = e.target.closest("button"); if (!b || b.type === "submit") return;
-      var s = steps[at], w = b.getAttribute("data-w");
-      if (w === "back") { at = Math.max(0, at - 1); step(); return; }
-      if (w === "change") { s.change = true; step(); return; }
-      if (w === "noidea") {
-        wiz.innerHTML = head() + '<h2 class="wiz__q">No date, no match.</h2>' +
-          '<p class="wiz__hint">This comic compares your chart with theirs, so it really needs their birthday. We won\'t guess it. Ask them, or check their socials, then come back.</p>' +
-          '<p class="wiz__hint">Want something today? These two only need yours.</p>' +
-          '<div class="form-stack"><a class="btn btn--block" href="/readings/what-kind-of-lover/?src=nodate">What kind of lover am I?</a>' +
-          '<a class="btn btn--block" href="/readings/brutally-honest/?src=nodate">Yeon\'s honest take on you</a></div>' +
-          '<div class="wiz__nav"><button type="button" class="linkbtn" data-w="idkback">I found it, go back</button><span></span></div>';
-        BY.track("nodate-" + P.slug, "No partner birthday: " + P.slug);
-        return;
-      }
-      if (w === "idkback") { step(); return; }
-      if (w === "nothem") { their = null; BY.store(THEIR_KEY, null); next(); return; }
-      if (w === "notime") { var tf = wiz.querySelector("form"); tf.querySelector('[name="bh"]').value = ""; BY.readExtras(tf); next(); return; }
-      if (w === "go") { next(); return; }
-      if (b.hasAttribute("data-v")) {
-        var v = b.getAttribute("data-v");
-        if (s.k === "q") {
-          cur[s.q.id] = v;
-          var isLast = !steps[at + 1] || steps[at + 1].k !== "q";
-          if (isLast) { saveAnswers(); var nA = INTAKE.filter(function (q) { return answers && answers[q.id] !== q.skip_value; }).length;
-            BY.track((nA ? "intake-answered-" : "intake-skipped-") + P.slug, "Intake in the wizard (" + nA + " of " + INTAKE.length + "): " + P.slug); }
-        }
-        if (s.k === "mood") BY.store(MOOD_KEY, v || null);
-        next();
-      }
-    });
-    wiz.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var f = e.target, s = steps[at], err = f.querySelector(".err");
-      if (s.k === "you") {
-        var b = s.change || !birth ? BY.readDate(f, "b") : birth;
-        if (b.error) { err.textContent = b.error; return; }
-        if (!birth || BY.iso(birth) !== BY.iso(b)) BY.store("btime", null); // a different birthday: the old birth time doesn't belong to it
-        birth = b; BY.store("birth", b); s.change = false;
-        next(); return;
-      }
-      if (s.k === "them") {
-        var t = BY.readDate(f, "t");
-        if (t.error) { err.textContent = t.error; return; }
-        their = t; BY.store(THEIR_KEY, t); next(); return;
-      }
-      if (s.k === "time") {
-        if (f.querySelector('[name="bh"]').value === "") { err.textContent = "Pick the hour, or tap \u201CSkip, I don't know\u201D above."; return; }
-        BY.readExtras(f); next(); return;
-      }
-    });
 
-    /* clarity pass 2026-10-21: the old "Your four pillars" hanja screen is now a plain type reveal. Your type in English,
-       the soul's own picture, one line on what it means, 3 traits; the hanja chart only inside a folded "See the chart". */
-    function pillarsHTML() {
-      var R = analyze(), s = D.SOULS[R.dayMaster], pl = R.pillars, them = PAIR && R.partner ? D.SOULS[R.partner.dayMaster] : null;
-      var cols = [["Year", pl.year], ["Month", pl.month], ["Day", pl.day], ["Hour", pl.hour]];
-      var grid = cols.map(function (c) {
-        var p = c[1];
-        if (!p) return '<div class="pillar pillar--empty"><span class="pl-l">' + c[0] + '</span><span class="hz">?</span><span class="hz">?</span><span class="pl-e">No birth time</span></div>';
-        return '<div class="pillar' + (c[0] === "Day" ? " is-dm" : "") + '"><span class="pl-l">' + c[0] + '</span><span class="hz" style="color:' + D.EL_COLOR[p.stemEl] + '">' + p.stemHanja + "</span>" +
-          '<span class="hz" style="color:' + D.EL_COLOR[p.branchEl] + '">' + p.branchHanja + '</span><span class="pl-e">' + p.stemEl + "<br>" + p.branchEl + " · " + p.animal + "</span></div>";
-      }).join("");
-      var how = HOW[P.slug] || "who you are";
-      return '<figure class="tr-pic"><img src="/assets/img/scenes/soul/' + s.slug + '.webp" alt="Bom and Yeon in a scene for ' + esc(s.nick) + '" width="720" height="1290" decoding="async"></figure>' +
-        '<h2 class="wiz__q tr-h">You\u2019re <em>' + esc(s.nick) + ".</em></h2>" +
-        '<p class="tr-what">That\u2019s your birthday type. Korean saju calls it <b>' + esc(s.name) + "</b>. Think zodiac sign, but from the exact day you were born. It shapes " + esc(how) + ".</p>" +
-        '<p class="tr-tag">' + esc(s.tag) + "</p>" +
-        '<ul class="tz-traits tr-traits" aria-label="Your traits">' + (s.traits || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
-        (them ? '<p class="tr-them">Them: <b>' + esc(them.nick) + "</b> (" + esc(them.name) + "). " + (PAIR === "required" ? "Your comic is about how you two fit." : "They\u2019re in your comic too.") + "</p>" : "") +
-        '<details class="tz-chart tr-chart"><summary>See the chart</summary><div class="tz-chart__b">' +
-        '<div class="pillars pillars--4 wiz-pillars" aria-label="Your saju chart">' + grid + "</div>" +
-        '<p class="small muted">Saju turns your birth year, month, day and hour into these four columns. The top of the Day column (<span class="hz" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</span>) is your birthday type, " + esc(s.name) + ". Your comic is written from it.</p></div></details>";
-    }
-    /* a few honest seconds: the chart is already worked out, Bom and Yeon just pick your chapters */
-    var LINES = [["bom", "Drawing your comic…"], ["yeon", "Writing the parts you won\u2019t like."], ["bom", "Done. Scroll down and read."]];
+    /* a short honest beat: the chart is already worked out, Bom and Yeon just pick your chapters */
+    var LINES = [["bom", "Drawing your comic\u2026"], ["yeon", "Writing the parts you won\u2019t like."]];
     function loading(done) {
       var i = 0, R = analyze(), s = D.SOULS[R.dayMaster];
+      try { var pre = new Image(); pre.src = (document.querySelector(".phero__cover img") || {}).currentSrc || ""; } catch (x) { /* ignore */ }
       wiz.innerHTML = '<div class="wiz-load" role="status" aria-live="polite"><p class="wiz-load__k">Making your comic</p><p class="wiz-load__dm2">' + esc(s.nick) + '</p><div class="wiz-load__say"></div></div>';
-      var box = wiz.querySelector(".wiz-load__say"), ms = BY.reduced ? 300 : 650;
+      var box = wiz.querySelector(".wiz-load__say"), ms = BY.reduced ? 200 : 450;
       (function tick() {
         if (i >= LINES.length) { done(); return; }
         var l = LINES[i++], w = who(l[0]);
@@ -414,7 +291,6 @@
         setTimeout(tick, ms);
       })();
     }
-
     /* ---------- teaser ---------- */
     function moodLine(R, s) {
       var m = MOOD && BY.load(MOOD_KEY), o = m && MOOD.options.filter(function (x) { return x.value === m; })[0];
@@ -439,7 +315,7 @@
       return t;
     }
     function lockKicker(c, s, them) {
-      if (c.type === "situation") { var a = ansLabels(); return a.length ? "Because you said: " + a.join(" · ") : !answers && NO_WIZ_Q[P.slug] ? "Shaped by 3 optional taps after you unlock" : "Written for not knowing"; }
+      if (c.type === "situation") { var a = ansLabels(); return a.length ? "Because you said: " + a.join(" · ") : !answers ? "Answer the optional taps above to shape it" : "Written for not knowing"; }
       return "Written for " + s.nick + (them && c.type !== "pair" && PAIR ? " + " + them.nick : "");
     }
     /* teaser UX 2026-10-21: the result opens with the COMIC. The reading's cover art as a webtoon panel with Bom + Yeon speech
@@ -485,38 +361,96 @@
     function paywallHTML(restCount, sample) {
       if (!PAY) return "";
       if (PAY.owns(P.slug)) return '<div class="chapter-lock rise"><a class="btn" href="' + esc(readUrl()) + '">Open my full reading</a></div>';
-      var total = restCount + 2, per = perChapter(total);
+      // one chapter count everywhere: the reading's own number, +1 where their birthday adds a chapter
+      var total = P.chaptersMin || (restCount + 2), plus = PAIR === "optional" ? " (+1 with their birthday)" : "";
       var pend = PAY.pending(P.slug) || (SHELF && PAY.pending("all-readings"));
+      var diff = SHELF ? Math.round((SHELF.price - P.price) * 100) / 100 : 0;
       return '<div class="chapter-lock paywall rise' + (pend ? " is-pending" : "") + '" id="paywall" data-pw="' + P.slug + (SHELF ? " all-readings" : "") + '">' +
-        '<div class="pw-pending" role="status"><p class="pw-pend-h"><span class="pw-dot" aria-hidden="true"></span>Opening your comic…</p>' +
+        '<div class="pw-pending" role="status"><p class="pw-pend-h"><span class="pw-dot" aria-hidden="true"></span>Opening your comic\u2026</p>' +
         '<p class="small">Finish paying in the Gumroad tab. Your full comic opens right here the moment it goes through, usually within a minute.</p>' +
         '<p class="small"><a href="#" data-pay-cancel="' + P.slug + (SHELF ? " all-readings" : "") + '">Not paid yet? Show the price again</a></p></div>' +
         (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>' + (sample.who ? (sample.who === "bom" ? "Bom" : "Yeon") + ", in chapter " : "From chapter ") + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
-        '<p class="pw-what">One-time <b>$' + P.price + '</b>. All ' + total + ' chapters, yours forever, PDF included.</p>' +
-        '<p class="pw-bonus small">+ Bonus: your type as a phone and desktop wallpaper, and your compatibility chart.</p>' +
-        '<p class="pw-per2">No subscription.' + (per ? " That\u2019s $" + per + " a chapter." : "") + "</p>" +
-        '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest \u00B7 $" + P.price, "btn--block") + PAY.trust + (SHELF ? "" : PAY.consent) + "</div>" +
-        // Meta ads pass 2026-10-22: the bundle as a clear second option (honest sum of the real prices, no strike-through, no timer)
-        (SHELF ? '<div class="pw-up"><p class="pw-up-h">Or all ' + SHELF.count + ' readings, $' + SHELF.price + ' one time</p>' +
-          '<p class="pw-up-s">This comic plus the other ' + (SHELF.count - 1) + ', each opens straight away. $' + SHELF.total + ' if bought one by one.</p>' +
-          PAY.buyLink("all-readings", "Get all " + SHELF.count + " \u00B7 $" + SHELF.price, "btn--ghost btn--block pw-up-btn") + PAY.consent + "</div>" : "") +
-        PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
+        '<p class="pw-what">One time, <b>' + BY.moneyHTML(P.price) + '</b>. All ' + total + ' chapters' + plus + ', yours forever, PDF included.</p>' +
+        '<p class="pw-bonus small">+ Bonus: your type as a phone and desktop wallpaper, and your compatibility chart. No subscription.</p>' +
+        '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest \u00B7 " + BY.moneyHTML(P.price), "btn--block") + PAY.trust + "</div>" +
+        // bundle as a second, quieter option: the real extra cost and the honest one-by-one sum (no strike-through, no timer)
+        (SHELF && diff > 0 ? '<div class="pw-up"><p class="pw-up-h"><b>+' + BY.moneyHTML(diff) + '</b> for all ' + SHELF.count + ' readings</p>' +
+          '<p class="pw-up-s">This comic plus the other ' + (SHELF.count - 1) + ', ' + BY.moneyHTML(SHELF.price) + ' one time. ' + BY.moneyHTML(SHELF.total) + ' if bought one by one.</p>' +
+          PAY.buyLink("all-readings", "Get all " + SHELF.count + " \u00B7 " + BY.moneyHTML(SHELF.price), "btn--ghost btn--block btn--sm pw-up-btn") + "</div>" : "") +
+        PAY.consent + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
     }
     function wirePaywall() {}
     /* the free part ends mid-sentence: the first words of a locked chapter clear, the rest blurred */
     function cliffHTML(text, at) {
-      // teaser UX: clear words, then three words that fade out word by word, mid-sentence. Nothing after them is on the page.
-      // copy rewrite 2026-10-21: a written cliff may start "Yeon: " / "Bom: " (shown as the speaker) and mark the cut with " | "
+      // 2026-11-05: the chapter 3 teaser ends on a complete sentence (it used to fade out mid-sentence). A written cliff may start
+      // "Yeon: " / "Bom: " (shown as the speaker) and mark its cut with " | ": we show up to the end of the sentence holding that cut.
       var sp = "", sy = SAY_RE.exec(String(text)); if (sy) { sp = sy[1]; text = sy[2]; }
-      var cut = String(text).indexOf(" | "), w = String(text).replace(" | ", " ").split(/\s+/);
-      var keep = cut > 0 ? String(text).slice(0, cut).split(/\s+/).length : Math.max(4, Math.min(9, Math.round(w.length * 0.4))), fade = w.slice(keep, keep + 3), op = [0.55, 0.3, 0.12];
-      return '<div class="cliff"><p class="kicker">Chapter ' + at.n + " \u00B7 " + esc(at.title) + '</p><p class="cliff__t">' + (sp ? "<b>" + sp + "</b> " : "") + esc(w.slice(0, keep).join(" ")) +
-        fade.map(function (x, i) { return ' <span class="cliff__f" aria-hidden="true" style="opacity:' + op[i] + '">' + esc(x) + "</span>"; }).join("") + "</p></div>";
+      text = String(text); var cut = text.indexOf(" | "); var plain = text.replace(" | ", " ");
+      var sents = plain.match(/[^.!?]+[.!?]+["'\u2019\u201D)\]]*/g) || [plain], outT = "", need = cut > 0 ? cut : Math.min(plain.length, 60);
+      for (var k = 0; k < sents.length; k++) { outT += sents[k]; if (outT.length >= need) break; }
+      outT = outT.trim(); if (!/[.!?]["'\u2019\u201D)\]]*$/.test(outT)) outT = outT.replace(/[,;:\s]+$/, "") + ".";
+      return '<div class="cliff"><p class="kicker">Chapter ' + at.n + " \u00B7 " + esc(at.title) + '</p><p class="cliff__t">' + (sp ? "<b>" + sp + "</b> " : "") + esc(outT) + "</p></div>";
+    }
+    function skipAll() { var o = {}; INTAKE.forEach(function (q) { o[q.id] = q.skip_value; }); return o; }
+    /* optional chips after chapter 1 (2026-11-05): the reading's own questions (or its one mood question). Never blocking:
+       a tap stores the answer and redraws the free chapters with it; skipping changes nothing. */
+    function chipsCard() {
+      var qs = INTAKE.length ? INTAKE.slice(0, 3) : (MOOD ? [{ id: "__mood", question: MOOD.question, options: MOOD.options }] : []);
+      if (!qs.length) return null;
+      var cur = INTAKE.length ? Object.assign({}, answers || {}) : { __mood: BY.load(MOOD_KEY) };
+      var box = document.createElement("section"); box.className = "pv-chips rise"; box.id = "pvChips";
+      box.innerHTML = '<p class="kicker">Optional \u00B7 makes the next chapters sharper</p>' + qs.map(function (q) {
+        return '<div class="pv-q" data-q="' + esc(q.id) + '"><p class="pv-q__t">' + esc(q.question) + '</p><div class="pv-q__o" role="group" aria-label="' + esc(q.question) + '">' +
+          q.options.filter(function (o) { return o.value !== q.skip_value; }).map(function (o) {
+            return '<button type="button" class="chipbtn" data-v="' + esc(o.value) + '" aria-pressed="' + (cur[q.id] === o.value ? "true" : "false") + '">' + esc(o.label) + "</button>";
+          }).join("") + "</div></div>";
+      }).join("") + '<p class="small muted">Skip it if you like. Your chapters are already written for you.</p>';
+      box.addEventListener("click", function (e) {
+        var b = e.target.closest(".chipbtn"); if (!b) return;
+        var qid = b.closest(".pv-q").getAttribute("data-q"), v = b.getAttribute("data-v");
+        if (qid === "__mood") { BY.store(MOOD_KEY, v); BY.track("mood-chip-" + P.slug, "Mood chip: " + P.slug); }
+        else {
+          var c = Object.assign(skipAll(), answers || {}); c[qid] = v; answers = cleanAns(c); BY.store(ANS_KEY, answers);
+          BY.track("intake-chip-" + P.slug, "Optional question answered after chapter 1: " + P.slug);
+        }
+        rerender("#pvChips");
+      });
+      return box;
+    }
+    function addTheirCard() {
+      var c = document.createElement("section"); c.className = "card pv-their rise"; c.id = "pvTheir";
+      c.innerHTML = '<p class="kicker">One more date</p><h3>The rest of this comic compares your two charts</h3>' +
+        '<p class="muted small">Add their birthday so the full comic is about the two of you. Just the date, they never find out. You can also add it right after paying.</p>' +
+        '<form class="form-stack" novalidate>' + BY.dateHTML("t", "Their birthday") + '<p class="err" role="alert"></p><button class="btn btn--ghost btn--block" type="submit">Add their birthday</button></form>';
+      BY.fillSelects(c);
+      c.querySelector("form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var f = e.target, t = BY.readDate(f, "t"); if (t.error) { f.querySelector(".err").textContent = t.error; return; }
+        their = t; BY.store(THEIR_KEY, t); solo = false;
+        if (form) BY.setDate(form, "t", t);
+        BY.track("their-added-" + P.slug, "Their birthday added before the paywall: " + P.slug);
+        try { if (BY.urlState) BY.urlState.clean(urlObj()); } catch (x) { /* ignore */ }
+        rerender(".lock-list");
+      });
+      return c;
+    }
+    /* redraw the free part with new answers/birthdays, keeping the element the reader was looking at where it was */
+    function rerender(sel) {
+      var a = out.querySelector(sel), top = a ? a.getBoundingClientRect().top : null;
+      renderPreview(false).then(function () {
+        var b = out.querySelector(sel); if (b && top != null) window.scrollBy(0, b.getBoundingClientRect().top - top);
+      });
+    }
+    function seenOnce(el, name, title) {
+      if (!el) return;
+      if (!("IntersectionObserver" in window)) { BY.trackOnce(name, title); return; }
+      var io = new IntersectionObserver(function (ents) { ents.forEach(function (en) { if (en.isIntersecting) { io.disconnect(); BY.trackOnce(name, title); } }); }, { rootMargin: "0px 0px -35% 0px" });
+      io.observe(el);
     }
     function renderPreview(scroll) {
       var R = analyze(), s = D.SOULS[R.dayMaster], them = PAIR && R.partner ? D.SOULS[R.partner.dayMaster] : null;
-      out.innerHTML = '<p class="center muted">Bom and Yeon are pulling your chapters…</p>';
-      data().then(function (J) {
+      if (!out.firstChild) out.innerHTML = '<p class="center muted">Bom and Yeon are pulling your chapters\u2026</p>';
+      return data().then(function (J) {
         var d = J.by_day_master[s.slug];
         if (!d || !A4) { out.innerHTML = '<p class="err">This reading isn\'t ready for ' + esc(s.name) + " yet. Try another one for now.</p>"; return; }
         out.innerHTML = coverHTML(R, s, them, J.title) + termBanner(R);
@@ -527,21 +461,19 @@
         if (d.open) { V.open = {}; V.open[s.slug] = d.open; } V.echo = J.echo || {};
         if (d.terms) { V.terms = {}; V.terms[s.slug] = d.terms; }
         var asm = A4.assemble(R, V, { answers: ansFor() }), art = counter();
-        // trimmed so the paywall comes fast: up to 3 panels and the first 2 paragraphs of each free chapter
         asm.chapters.forEach(function (ch, ci) {
-          // copy rewrite 2026-10-21: chapters are comic beats now (short bubbles), so keep beats up to ~110 words instead of 2 paragraphs
+          // trimmed so the paywall comes fast: comic beats up to ~110 words per free chapter
           var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim(); }), keep = [], wc = 0;
           for (var pi = 0; pi < paras.length && keep.length < 8 && wc < 110; pi++) { if (/^###/.test(paras[pi]) && keep.length) break; keep.push(paras[pi]); if (!/^###/.test(paras[pi])) wc += paras[pi].split(/\s+/).length; }
           var t = Object.assign({}, ch, { panels: (ch.panels || []).slice(0, ci === 0 ? 4 : 3), text: keep.join("\n\n") });
           var sec = comicChapter(t, R, art); sec.classList.add("comic--teaser"); out.appendChild(sec);
+          if (ci === 0) { var cc = chipsCard(); if (cc) out.appendChild(cc); }
         });
+        if (PAIR === "required" && !R.partner) out.appendChild(addTheirCard());
         var rest = J.plan.slice(2).filter(function (c) { return !(c.type === "pair" && c.optional && !R.partner && PAIR !== "optional"); });
-        var tz = {}; CH.forEach(function (x, i) { tz[i] = x[1]; });
-        // two real lines from the locked chapters (built per Day Master, preview.json "hook"): a cliffhanger cut mid-sentence, and one clear sample
         var hook = d.hook || {}, numOf = function (id) { for (var i = 0; i < rest.length; i++) if (rest[i].id === id) return { n: i + 3, title: lockTitle(rest[i], R, s, them) }; return null; };
         var cl = hook.cliff && numOf(hook.cliff.id), sm = hook.sample && numOf(hook.sample.id);
         var lock = document.createElement("section"); lock.className = "lock-list rise";
-        // teaser UX 2026-10-21: full chapter titles (they tease), each with its own blurred scene thumbnail and a lock; no half-word blur
         lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") +
           '<div class="lock-head"><p class="kicker">Locked \u00B7 ' + rest.length + ' more chapters about you</p><h3 class="lock-h">The rest of your comic, ' + esc(name || s.nick) + '</h3></div><ol class="lock-ol lock-ol--v2">' + rest.map(function (c, i) {
           var sc = sceneFor(c.id, R), th = sc ? sc.src.replace("/img/scenes/", "/img/scenes-t/") : "";
@@ -549,24 +481,24 @@
             '</b><small>' + esc(lockKicker(c, s, them)) + '</small></span><svg class="lk-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></li>';
         }).join("") + "</ol>" + paywallHTML(rest.length, sm ? { text: hook.sample.text, who: hook.sample.who, n: sm.n, title: sm.title } : null);
         out.appendChild(lock);
-        wirePaywall();
         BY.watch(out);
-        // teaser is on screen: the long chapter list and the intro boxes only distract from the paywall
-        [].forEach.call(document.querySelectorAll(".pv-extra, .phero .outline, .phero .gift"), function (x) { x.hidden = true; });
-        extras(true); document.body.classList.remove("is-wiz");
+        extras(true);
         BY.trackOnce("teaser-" + P.slug, "Teaser shown: " + P.slug);
-        // Meta ads 2026-10-22: chapter 2 of the free comic on screen (GoatCounter evt-teaser-ch2-*, Meta TeaserView via consent.js)
-        var ch2 = out.querySelectorAll(".comic--teaser")[1];
-        if (ch2 && "IntersectionObserver" in window) {
-          var io2 = new IntersectionObserver(function (ents) { ents.forEach(function (en) { if (en.isIntersecting) { io2.disconnect(); BY.trackOnce("teaser-ch2-" + P.slug, "Teaser chapter 2 reached: " + P.slug); } }); }, { rootMargin: "0px 0px -40% 0px" });
-          io2.observe(ch2);
-        }
+        var chs = out.querySelectorAll(".comic--teaser");
+        // measurement 2026-11-05: chapter 1 read (end of it on screen) and the paywall seen; Meta ReadChapter1 / PaywallView via consent.js
+        seenOnce(chs[0] && (chs[0].querySelector(".comic__beats > :last-child") || chs[0]), "ch1-view-" + P.slug, "Chapter 1 read: " + P.slug);
+        seenOnce(chs[1], "teaser-ch2-" + P.slug, "Teaser chapter 2 reached: " + P.slug);
+        seenOnce(out.querySelector(".paywall"), "paywall-view-" + P.slug, "Paywall seen: " + P.slug);
         if (PAY) { stickyPaywall(); exitCapture(); }
         if (scroll) out.scrollIntoView({ behavior: smooth(), block: "start" });
       }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and tap the button again.</p>'; });
     }
     out.addEventListener("click", function (e) {
-      if (e.target.closest("[data-redo]")) { e.preventDefault(); startWizard(false); wiz.scrollIntoView({ behavior: smooth(), block: "start" }); }
+      if (e.target.closest("[data-redo]")) {
+        e.preventDefault();
+        var k = form && form.querySelector(".bknown [data-bchange]"); if (k && !k.closest(".bknown").hidden) k.click();
+        $("preview").scrollIntoView({ behavior: smooth(), block: "start" });
+      }
     });
 
     /* bonus 2026-10-25: free type card (story image) after the free check */
@@ -576,31 +508,27 @@
       BY.imageShare({ src: "/assets/bonus/card/" + g + ".jpg", file: "my-korean-birthday-type-" + g, alt: "My Korean birthday type: " + b.getAttribute("data-nick"),
         text: "I'm " + b.getAttribute("data-nick") + ". What's your Korean birthday type? bomandyeon.com", track: "typecard-" + g });
     });
-    /* hero, sticky bar and any [data-buy] button: start (or jump to) the free preview, or the paywall once it is on the page */
+    /* any [data-buy] button: jump to the paywall once it is on the page, else to the birthday form */
     document.addEventListener("click", function (e) {
       if (!e.target.closest("[data-buy]")) return;
       e.preventDefault();
       if (PAY && PAY.owns(P.slug)) { goRead(); return; }
-      var pw = out.querySelector(".paywall"), pb = pw && pw.querySelector("[data-pay]");
-      if (pb && e.target.closest("#stickyBuy") && pw.getBoundingClientRect().top < window.innerHeight) { pb.click(); return; }
+      var pw = out.querySelector(".paywall");
       if (pw) { pw.scrollIntoView({ behavior: smooth(), block: "center" }); return; }
-      if (wiz.hidden) startWizard(false);
       $("preview").scrollIntoView({ behavior: smooth(), block: "start" });
     });
     if (PAY) {
-      var pr = document.querySelector(".phero .price-row strong"); if (pr) pr.innerHTML = "$" + P.price;
-      [].forEach.call(document.querySelectorAll("[data-buy]"), function (b) { if (PAY.owns(P.slug)) b.textContent = "Open my full reading"; });
       PAY.watch(P.slug, function () { BY.store("thanks_" + P.slug, 1); goRead(); });
       if (SHELF) PAY.watch("all-readings", function () { BY.store("thanks_" + P.slug, 1); goRead(); });
     }
-    /* once the paywall card is on the page, the sticky bar sells instead of offering the free preview again */
+    /* sticky price bar (2026-11-05): on from the type reveal, its button goes straight to checkout (one tap); hidden while the
+       paywall's own button is on screen, so there are never two buy buttons at once */
     var stickyIO = null;
     function stickyPaywall() {
       var pw = out.querySelector(".paywall"), sb = $("stickyBuy"); if (!sb || !pw) return;
-      var btn = sb.querySelector("[data-buy]"), sp = sb.querySelector("p");
-      if (btn) btn.textContent = "Read the rest · $" + P.price;
-      if (sp) sp.innerHTML = "<strong>" + esc(document.querySelector(".phero h1").textContent) + "</strong><span class=\"sb-n\">" + (out.querySelectorAll(".lock-ol li").length + 2) + " chapters, one time</span>";
-      // hide the bar while the paywall's own button is on screen, so there are never two buy buttons at once
+      var act = sb.querySelector(".sb-act");
+      if (act) act.innerHTML = PAY.owns(P.slug) ? '<a class="btn btn--sm" href="' + esc(readUrl()) + '">Open my reading</a>' : PAY.buyLink(P.slug, "Read the rest", "btn--sm");
+      sb.classList.add("is-on"); document.body.classList.add("has-sb");
       var area = pw.querySelector(".pw-btn") || pw;
       if ("IntersectionObserver" in window) {
         if (stickyIO) stickyIO.disconnect();
@@ -693,13 +621,10 @@
       setTimeout(function () { var i = sh.querySelector("input[type=email]"); if (i && window.matchMedia && matchMedia("(pointer: fine)").matches) i.focus({ preventScroll: true }); }, 350);
     }
     if (PAY && PAY.owns(P.slug)) { goRead(true); return; }
-    var complete = !!birth && (PAIR !== "required" || !!their) && (!WIZ_Q || !!answers);
-    if (complete && (BY.load(DONE_KEY) || (fromLink && !WIZ_Q))) { wiz.hidden = true; renderPreview(fromLink); }
-    else startWizard(fromLink && !!birth && (PAIR !== "required" || !!their));
-    var sb = $("stickyBuy");
-    if (sb && "IntersectionObserver" in window) {
-      new IntersectionObserver(function (ents) { ents.forEach(function (en) { sb.classList.toggle("is-on", !en.isIntersecting && window.scrollY > 300); }); }).observe($("buyTop"));
-    }
+    wireForm();
+    // birthday known (return visit, another reading, emailed link): the comic is drawn under the hero right away
+    if (ready() && (BY.load(DONE_KEY) || fromLink || BY.load("birth"))) renderPreview(fromLink);
+    else extras(true);
   }
   /* ======================= READING PAGE ======================= */
   function readPage() {
@@ -894,7 +819,7 @@
         wireActions(info, J.title);
         var at = $("addTheir");
         if (at) {
-          [].forEach.call(at.querySelectorAll("select"), function (x) { x.value = ""; });
+          BY.clearDate(at, "t");
           at.addEventListener("submit", function (e) {
             e.preventDefault();
             var t = BY.readDate(at, "t"); if (t.error) { $("atErr").textContent = t.error; return; }
@@ -1103,9 +1028,9 @@
       if (left.length < 2 || save <= 0) return; // nothing honest to offer
       shelf.hidden = true;
       var c = document.createElement("div"); c.className = "card upsell center";
-      c.innerHTML = '<p class="kicker">While your birthday is saved</p><h3>Add every other reading for $' + price.toFixed(2) + "</h3>" +
-        '<p class="muted">The other ' + left.length + " readings cost $" + sum.toFixed(2) + " one by one. Together: $" + price.toFixed(2) + ", so you keep $" + save.toFixed(2) + ". Each one opens straight away, no forms.</p>" +
-        PAY.buyLink("all-readings", "Add all " + left.length + " · $" + price.toFixed(2)) +
+      c.innerHTML = '<p class="kicker">While your birthday is saved</p><h3>Add every other reading for ' + BY.moneyHTML(price) + "</h3>" +
+        '<p class="muted">The other ' + left.length + " readings cost " + BY.moneyHTML(Math.round(sum * 100) / 100) + " one by one. All Readings is " + BY.moneyHTML(price) + ". Each one opens straight away, no forms.</p>" +
+        PAY.buyLink("all-readings", "Add all " + left.length + " · " + BY.moneyHTML(price)) +
         PAY.trust + PAY.consent + PAY.statusEl("all-readings") + '<p class="small"><a href="/readings/all-readings/">See what\'s inside</a></p>';
       shelf.parentNode.insertBefore(c, shelf);
       BY.trackOnce("upsell-shown-" + P.slug, "Bundle card shown after purchase: " + P.slug);

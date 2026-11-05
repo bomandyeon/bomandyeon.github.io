@@ -7,6 +7,8 @@
  *   every page            -> PageView
  *   teaser-<slug>         -> ViewContent {content_name: slug, content_ids, content_type, value, currency}
  *   teaser-ch2-<slug>     -> TeaserView (custom) when chapter 2 of the free comic is on screen
+ *   ch1-view-<slug>       -> ReadChapter1 (custom) when the end of free chapter 1 is on screen (2026-11-05)
+ *   paywall-view-<slug>   -> PaywallView (custom) when the paywall card is on screen (2026-11-05)
  *   checkout-<slug>       -> InitiateCheckout {value, currency: USD, ...} + CheckoutClick (custom, same data)
  *   kit-reading-copy / kit-signup-teaser (leave sheet email saved) -> Lead {content_name: slug}
  *   purchase-<slug>       -> custom SiteUnlock {value: real price (bundle 29.99), currency: USD, content_name: slug}; pay.js fires it once
@@ -78,21 +80,23 @@
 
   /* ---------- the banner ---------- */
   var box = null;
-  function hide() { if (box) { box.classList.remove("is-on"); var b = box; setTimeout(function () { if (b.parentNode && !b.classList.contains("is-on")) b.parentNode.removeChild(b); }, 300); box = null; } doc.body.classList.remove("has-cc"); }
+  function hide() { if (box) { box.classList.remove("is-on"); var b = box; setTimeout(function () { if (b.parentNode && !b.classList.contains("is-on")) b.parentNode.removeChild(b); }, 300); box = null; } doc.body.classList.remove("has-cc"); try { doc.documentElement.style.removeProperty("--cc-h"); } catch (e) { /* old browser */ } }
   function show(fromSettings) {
     if (box) return;
     box = doc.createElement("div");
     box.className = "cc"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Cookie choice"); box.setAttribute("aria-live", "polite");
     var now = choice();
-    box.innerHTML = '<p class="cc__t">We use cookies for analytics and ads, to see what people like and which ads work. The site works the same either way. <a href="/privacy/#cookies">Privacy</a></p>' +
+    // 2026-11-05: one slim line at the bottom that never covers the page (body gets padding while it is open), equal buttons
+    box.innerHTML = '<p class="cc__t">We use cookies for analytics and ads. <a href="/privacy/#cookies">Privacy</a></p>' +
       (fromSettings && now ? '<p class="cc__now">Right now: ' + (now === "yes" ? "accepted" : "declined") + ".</p>" : "") +
-      '<div class="cc__b"><button type="button" class="cc__btn" data-cc="no">Reject all</button><button type="button" class="cc__btn" data-cc="yes">Accept all</button></div>';
+      '<div class="cc__b"><button type="button" class="cc__btn" data-cc="no">Decline</button><button type="button" class="cc__btn" data-cc="yes">Accept</button></div>';
     box.addEventListener("click", function (e) {
       var b = e.target.closest("[data-cc]"); if (!b) return;
       setChoice(b.getAttribute("data-cc")); hide();
       if (fromSettings) BY.toast && BY.toast(b.getAttribute("data-cc") === "yes" ? "Saved. Cookies on." : "Saved. No cookies.");
     });
     doc.body.appendChild(box); doc.body.classList.add("has-cc");
+    try { doc.documentElement.style.setProperty("--cc-h", box.offsetHeight + "px"); } catch (e) { /* old browser */ }
     requestAnimationFrame(function () { requestAnimationFrame(function () { if (box) box.classList.add("is-on"); }); });
   }
   doc.addEventListener("click", function (e) {
@@ -115,7 +119,10 @@
     track.apply(this, arguments);
     if (!granted()) return;
     var n = String(name || ""), m;
-    if ((m = /^teaser-ch2-([a-z0-9-]+)$/.exec(n))) meta("TeaserView", prod(m[1]), true);
+    if (/^checkout-click-/.test(n) || /^birthday-submit-/.test(n)) return; /* GoatCounter-only funnel steps (2026-11-05) */
+    if ((m = /^ch1-view-([a-z0-9-]+)$/.exec(n))) meta("ReadChapter1", prod(m[1]), true);
+    else if ((m = /^paywall-view-([a-z0-9-]+)$/.exec(n))) meta("PaywallView", prod(m[1]), true);
+    else if ((m = /^teaser-ch2-([a-z0-9-]+)$/.exec(n))) meta("TeaserView", prod(m[1]), true);
     else if ((m = /^teaser-([a-z0-9-]+)$/.exec(n))) meta("ViewContent", prod(m[1]));
     else if ((m = /^checkout-([a-z0-9-]+)$/.exec(n))) { var p = prod(m[1]); p.num_items = 1; meta("InitiateCheckout", p); meta("CheckoutClick", p, true); }
     else if ((m = /^purchase-([a-z0-9-]+)$/.exec(n))) { var v = { content_name: m[1], currency: "USD" }; if (PRICES[m[1]] != null) v.value = +PRICES[m[1]]; meta("SiteUnlock", v, true); /* Purchase counted by Gumroad pixel (Rok 2026-10-24), avoid double count */ }

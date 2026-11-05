@@ -71,7 +71,8 @@
   }
   var kfN = 0;
   function fallback() {
-    return keyForm() + '<details class="pay-more"' + (OFFER ? " open" : "") + '><summary>Have a discount code?</summary>' + codeBox() + "</details>" +
+    // 2026-11-05: the code box only shows when a code came with the link (?code=); no code hunting on the paywall
+    return keyForm() + (OFFER ? '<details class="pay-more" open><summary>Discount code</summary>' + codeBox() + "</details>" : "") +
       '<p class="pay-help muted small">Paid and nothing opened after a minute? Email <a href="mailto:yeon@bomandyeon.com">yeon@bomandyeon.com</a>.</p>';
   }
   document.addEventListener("submit", function (e) {
@@ -153,7 +154,7 @@
 
   document.addEventListener("click", function (e) {
     var a = e.target.closest && e.target.closest("[data-pay]");
-    if (a) { var s = a.getAttribute("data-pay"); a.href = checkoutUrl(s); setPending(s); BY.track("checkout-" + s, "Checkout opened: " + s); setTimeout(function () { poll(s); }, 800); return; }
+    if (a) { var s = a.getAttribute("data-pay"); a.href = checkoutUrl(s); setPending(s); BY.track("checkout-" + s, "Checkout opened: " + s); BY.track("checkout-click-" + s, "Checkout click: " + s + (a.closest && a.closest("#stickyBuy") ? " (sticky bar)" : "")); setTimeout(function () { poll(s); }, 800); return; }
     var c = e.target.closest && e.target.closest("[data-pay-cancel]");
     if (c) { e.preventDefault(); c.getAttribute("data-pay-cancel").split(" ").forEach(function (cs) { BY.store("pend_" + cs, null); if (polls[cs]) { clearInterval(polls[cs]); polls[cs] = null; } status(cs, ""); paintPending(cs, false); }); }
   }, true);
@@ -254,21 +255,21 @@
     watch: function (slug, onPaid, onGiveUp) { handlers[slug] = onPaid; if (onGiveUp) giveUp[slug] = onGiveUp; poll(slug); lateCheck(slug); },
     statusEl: function (slug) { return '<p class="muted small pay-status" data-paystatus="' + slug + '" role="status" aria-live="polite" hidden></p>'; },
     /* trust line + express-consent notice (2026-10-22): a notice, never a blocking checkbox. Every claim matches /refunds/,
-       /terms/ and the checkout itself (Gumroad takes card, Apple Pay, PayPal; the reading opens when the sale goes through). */
-    trust: '<p class="pw-trust">Secure checkout by Gumroad · card, Apple Pay or PayPal · opens right after payment · 30-day refund</p>',
+       /terms/ and the checkout itself (2026-11-05: card, plus Apple Pay / Google Pay where the browser offers it; no PayPal). */
+    trust: '<p class="pw-trust">Secure checkout by Gumroad · card, or Apple Pay / Google Pay where your browser supports it · opens right after payment · 30-day refund</p>',
     consent: '<p class="pw-consent">By buying you ask for the reading right away. Your 30-day refund still applies. <a href="/terms/#checkout">Terms</a> · <a href="/refunds/">Refunds</a></p>',
     guarantee: "Free redo or refund within 30 days.",
-    methods: "Card, Apple Pay or PayPal."
+    methods: "Card, or Apple Pay / Google Pay where your browser supports it."
   };
 
   /* bundle page: one checkout button (paytest only) */
   var bp = document.getElementById("bundlePay");
   if (bp && BY.pay.on) {
-    var price = +bp.getAttribute("data-price") || 29.99, top = document.getElementById("buyTop"), gift = document.querySelector(".phero .gift");
+    var price = +bp.getAttribute("data-price"), top = document.getElementById("buyTop"), gift = document.querySelector(".phero .gift");
     // no strike-through anchor here: the honest comparison ("9 readings, $X if bought one by one") already sits next to the price
     var paint = function () {
       if (owns(BUNDLE)) { bp.innerHTML = '<p class="small pw-promise">All Readings is yours on this browser. Pick any reading below and it opens in full.</p><a class="btn" href="#list">Pick a reading</a>'; return; }
-      bp.innerHTML = buyLink(BUNDLE, "Get All Readings · $" + price) + BY.pay.trust + BY.pay.consent + BY.pay.statusEl(BUNDLE) + fallback();
+      bp.innerHTML = buyLink(BUNDLE, "Get All Readings · " + BY.moneyHTML(price)) + BY.pay.trust + BY.pay.consent + BY.pay.statusEl(BUNDLE) + fallback();
     };
     if (top) top.hidden = true; if (gift) gift.hidden = true;
     bp.hidden = false; paint();

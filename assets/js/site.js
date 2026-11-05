@@ -10,6 +10,47 @@
   BY.esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
   BY.paras = function (s) { return String(s || "").split(/\n\s*\n/).map(function (p) { return "<p>" + BY.esc(p.trim()) + "</p>"; }).join(""); };
 
+  /* ---------- prices (2026-11-05): one number per visitor, tax already in where Gumroad adds it at checkout ----------
+     Gumroad is the merchant of record and adds VAT/GST on top of the product price at checkout (gumroad.com/help/article/10,
+     github.com/antiwork/gumroad docs/taxes.md). UK, EU and AU visitors see the price WITH that tax, as one number, so the page
+     matches the checkout total; US/CA and everyone else see the base USD price. Country: the unlock worker's /geo
+     (Cloudflare's request.cf.country), cached a week; until it answers, a guess from the time zone. Never a tax line. */
+  var VAT = { GB: 20, AU: 10, AT: 20, BE: 21, BG: 20, HR: 25, CY: 19, CZ: 21, DK: 25, EE: 24, FI: 25.5, FR: 20, DE: 19, GR: 24, HU: 27, IE: 23, IT: 22,
+    LV: 21, LT: 21, LU: 17, MT: 18, NL: 21, PL: 23, PT: 23, RO: 21, SK: 23, SI: 22, ES: 21, SE: 25 };
+  var TZC = { London: "GB", Belfast: "GB", Jersey: "GB", Guernsey: "GB", Isle_of_Man: "GB", Dublin: "IE", Berlin: "DE", Busingen: "DE", Paris: "FR", Madrid: "ES", Rome: "IT",
+    Amsterdam: "NL", Brussels: "BE", Luxembourg: "LU", Vienna: "AT", Zurich: "CH", Lisbon: "PT", Athens: "GR", Warsaw: "PL", Prague: "CZ", Bratislava: "SK",
+    Budapest: "HU", Ljubljana: "SI", Zagreb: "HR", Bucharest: "RO", Sofia: "BG", Copenhagen: "DK", Stockholm: "SE", Helsinki: "FI", Mariehamn: "FI", Tallinn: "EE",
+    Riga: "LV", Vilnius: "LT", Malta: "MT", Nicosia: "CY", Famagusta: "CY", Canary: "ES", Ceuta: "ES", Madeira: "PT", Azores: "PT", Auckland: "NZ", Chatham: "NZ" };
+  BY.country = function () {
+    var g = BY.load("geo"); if (g && g.c && g.t > Date.now() - 7 * 864e5) return g.c;
+    var tz = BY.deviceZone(), m = /^(Europe|Atlantic|Africa|Asia|Pacific|Australia)\/(.+)$/.exec(tz);
+    if (!m) return "";
+    if (m[1] === "Australia") return "AU";
+    return TZC[m[2]] || "";
+  };
+  BY.taxRate = function () { var r = VAT[BY.country()]; return r ? r / 100 : 0; };
+  /* base USD -> what this visitor pays at checkout: "$19", "$12.99", "$22.80" */
+  BY.money = function (usd, rate) {
+    var c = Math.round(+usd * 100), r = rate == null ? BY.taxRate() : rate;
+    if (r) c = c + Math.round(c * r);
+    return "$" + (c % 100 ? (c / 100).toFixed(2) : String(c / 100));
+  };
+  BY.moneyHTML = function (usd) { return '<span class="usd" data-usd="' + (+usd) + '">' + BY.money(usd) + "</span>"; };
+  BY.paintPrices = function (scope) {
+    [].forEach.call((scope || doc).querySelectorAll("[data-usd]"), function (el) { var t = BY.money(el.getAttribute("data-usd")); if (el.textContent !== t) el.textContent = t; });
+  };
+  function geo() {
+    var g = BY.load("geo"); if (g && g.c && g.t > Date.now() - 7 * 864e5) return;
+    if (!window.fetch || /^(localhost|127\.)/.test(location.hostname) && !/[?&]geo=1/.test(location.search)) return;
+    var done = false, t = setTimeout(function () { done = true; }, 4000);
+    fetch("https://bom-yeon-unlock.bomandyeon.workers.dev/geo", { cache: "default" }).then(function (r) { return r.json(); }).then(function (j) {
+      clearTimeout(t);
+      if (!j || !/^[A-Z]{2}$/.test(j.country || "")) return;
+      var before = BY.country(); BY.store("geo", { c: j.country, t: Date.now() });
+      if (BY.country() !== before) { BY.paintPrices(); try { doc.dispatchEvent(new CustomEvent("by:geo")); } catch (e) { /* old browser */ } }
+    }).catch(function () { clearTimeout(t); });
+  }
+
   /* ---------- engine ---------- */
   if (window.SajuEngine && window.SAJU_TERMS) window.SajuEngine.setTerms(window.SAJU_TERMS);
   if (window.SajuEngine && window.BY_PAIR_MATRIX) window.SajuEngine.setPairScores(window.BY_PAIR_MATRIX);
@@ -112,6 +153,36 @@
     var dt = new Date(y, m - 1, d);
     return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
   };
+  /* date input (2026-11-05): month as a word (12 chips; a visually hidden select keeps bday-month autofill), day and year typed
+     as numbers. No default year. build.py date_selects() writes the same markup for the static forms. */
+  var MSHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  BY.dateHTML = function (prefix, label, own) {
+    var ac = own ? ["bday-month", "bday-day", "bday-year"] : ["off", "off", "off"];
+    var chips = MSHORT.map(function (m, i) { return '<button type="button" class="mchip" data-m="' + (i + 1) + '" aria-pressed="false" aria-label="' + MONTHS[i] + '">' + m + "</button>"; }).join("");
+    return '<div class="selects bdate" role="group" aria-label="' + BY.esc(label) + '" data-prefix="' + prefix + '">' +
+      '<span class="field-label bdate__l">Month</span><div class="mchips">' + chips + "</div>" +
+      '<label class="sr"><span>' + BY.esc(label) + ' month</span><select name="' + prefix + 'm" data-kind="m" autocomplete="' + ac[0] + '" tabindex="-1"><option value="">Month</option></select></label>' +
+      '<div class="bdate__dy"><label><span class="field-label">Day</span><input class="input" name="' + prefix + 'd" data-kind="d" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="' + ac[1] + '" placeholder="DD" enterkeyhint="next"></label>' +
+      '<label><span class="field-label">Year</span><input class="input" name="' + prefix + 'y" data-kind="y" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="' + ac[2] + '" placeholder="YYYY" enterkeyhint="go"></label></div></div>';
+  };
+  function syncChips(sel) {
+    var g = sel.closest(".bdate"); if (!g) return;
+    [].forEach.call(g.querySelectorAll(".mchip"), function (c) { c.setAttribute("aria-pressed", c.getAttribute("data-m") === sel.value ? "true" : "false"); });
+  }
+  doc.addEventListener("click", function (e) {
+    var c = e.target.closest && e.target.closest(".mchip"); if (!c) return;
+    e.preventDefault();
+    var g = c.closest(".bdate"), sel = g && g.querySelector('select[data-kind="m"]'); if (!sel) return;
+    sel.value = c.getAttribute("data-m"); syncChips(sel);
+    var err = g.closest("form") && g.closest("form").querySelector(".err"); if (err && /month/i.test(err.textContent)) err.textContent = "";
+    var d = g.querySelector('input[data-kind="d"]'); if (d && !d.value) d.focus();
+  });
+  doc.addEventListener("input", function (e) {
+    var t = e.target; if (!t || !t.getAttribute || !/^[dy]$/.test(t.getAttribute("data-kind") || "") || t.tagName !== "INPUT") return;
+    var v = t.value.replace(/\D+/g, ""); if (v !== t.value) t.value = v;
+    // a full day (2 digits, or 4-9) moves on to the year by itself
+    if (t.getAttribute("data-kind") === "d" && (v.length === 2 || /^[4-9]$/.test(v))) { var g = t.closest(".bdate"), y = g && g.querySelector('input[data-kind="y"]'); if (y && !y.value) y.focus(); }
+  });
   BY.fillSelects = function (scope) {
     [].forEach.call((scope || doc).querySelectorAll("select[data-kind]"), function (sel) {
       if (sel.options.length > 1) return;
@@ -119,8 +190,7 @@
       if (kind === "m") for (i = 1; i <= 12; i++) out.push('<option value="' + i + '">' + MONTHS[i - 1] + "</option>");
       if (kind === "d") for (i = 1; i <= 31; i++) out.push('<option value="' + i + '">' + i + "</option>");
       if (kind === "y") for (i = BY.MAX_YEAR; i >= 1925; i--) out.push('<option value="' + i + '">' + i + "</option>");
-      sel.insertAdjacentHTML("beforeend", out.join(""));
-      if (kind === "y" && sel.name === "by" && !sel.value) sel.value = "2000"; // most visitors are born around 2000: the wheel opens there
+      sel.insertAdjacentHTML("beforeend", out.join("")); // 2026-11-05: no default year (it silently gave people born in other years the wrong type)
     });
   };
   /* day list follows the chosen month and year, so 30 February can't be picked (Rok 2026-10-24) */
@@ -138,18 +208,29 @@
   };
   doc.addEventListener("change", function (e) {
     var t = e.target, k = t && t.getAttribute && t.getAttribute("data-kind");
-    if (k === "m" || k === "y") BY.syncDays(t);
+    if (k === "m" && t.closest && t.closest(".bdate")) { syncChips(t); return; }
+    if ((k === "m" || k === "y") && t.tagName === "SELECT") BY.syncDays(t);
   });
+  BY.MIN_YEAR = 1925;
   BY.readDate = function (form, prefix) {
-    var g = function (k) { var el = form.querySelector('[name="' + prefix + k + '"]'); return el ? +el.value : 0; };
-    var m = g("m"), d = g("d"), y = g("y");
-    if (!m || !d || !y) return { error: "Pick the month, day and year." };
-    if (!BY.validDate(y, m, d)) return { error: "That date doesn't exist. Check the day." };
+    var el = function (k) { return form.querySelector('[name="' + prefix + k + '"]'); };
+    var raw = function (k) { var x = el(k); return x ? String(x.value || "").trim() : ""; };
+    var focus = function (k) { var x = el(k); if (x && x.tagName === "INPUT") try { x.focus({ preventScroll: true }); } catch (e) { /* old browser */ } };
+    var m = +raw("m"), ds = raw("d"), ys = raw("y"), d = +ds, y = +ys;
+    if (!m && !ds && !ys) return { error: "Pick the month, then type the day and year." };
+    if (!m) return { error: "Pick the month." };
+    if (!ds || !(d >= 1 && d <= 31)) { focus("d"); return { error: "Type the day as a number, 1 to 31." }; }
+    if (!/^\d{4}$/.test(ys)) { focus("y"); return { error: "Type the year with 4 digits, like 1996." }; }
+    if (y < BY.MIN_YEAR || y > BY.MAX_YEAR) { focus("y"); return { error: y > BY.MAX_YEAR ? "The readings are for people 18 and over (born " + BY.MAX_YEAR + " or earlier)." : "Check the year: it should be " + BY.MIN_YEAR + " or later." }; }
+    if (!BY.validDate(y, m, d)) { focus("d"); return { error: MONTHS[m - 1] + " doesn't have " + d + " days" + (m === 2 && d === 29 ? " in " + y : "") + ". Check the day." }; }
     return { year: y, month: m, day: d };
   };
   BY.setDate = function (form, prefix, b) {
     if (!b) return;
-    ["m", "d", "y"].forEach(function (k) { var el = form.querySelector('[name="' + prefix + k + '"]'); if (el) el.value = { m: b.month, d: b.day, y: b.year }[k]; });
+    ["m", "d", "y"].forEach(function (k) { var el = form.querySelector('[name="' + prefix + k + '"]'); if (el) { el.value = { m: b.month, d: b.day, y: b.year }[k]; if (k === "m") syncChips(el); } });
+  };
+  BY.clearDate = function (form, prefix) {
+    ["m", "d", "y"].forEach(function (k) { var el = form.querySelector('[name="' + prefix + k + '"]'); if (el) { el.value = ""; if (k === "m") syncChips(el); } });
   };
   BY.store = function (key, val) { try { if (val == null) localStorage.removeItem("by_" + key); else localStorage.setItem("by_" + key, JSON.stringify(val)); } catch (e) { /* private mode */ } };
   BY.load = function (key) { try { return JSON.parse(localStorage.getItem("by_" + key) || "null"); } catch (e) { return null; } };
@@ -250,7 +331,7 @@
     var ch = known.querySelector("[data-bchange]");
     if (ch && !ch.getAttribute("data-wired")) {
       ch.setAttribute("data-wired", "1");
-      ch.addEventListener("click", function () { known.hidden = true; field.hidden = false; var s = field.querySelector("select"); if (s) s.focus(); if (onChange) onChange(); });
+      ch.addEventListener("click", function () { known.hidden = true; field.hidden = false; var s = field.querySelector(".mchip, select"); if (s) s.focus(); if (onChange) onChange(); });
     }
     return true;
   };
@@ -496,6 +577,8 @@
       var href = a.getAttribute("href");
       if (!href || href.charAt(0) !== "/" || href.indexOf("#") >= 0 && href.split("#")[0] === location.pathname) return;
       if (a.hasAttribute("download")) return;
+      // 2026-11-05: links into a reading (and anything on a reading page) go at once, no 300 ms fox run
+      if (/^\/(readings|ex|situationship|brutally-honest)\//.test(href) || /^\/(readings|ex|situationship|brutally-honest)\//.test(location.pathname) || doc.body.classList.contains("is-flow")) return;
       e.preventDefault();
       fox.classList.remove("go"); void fox.offsetWidth; fox.classList.add("go");
       setTimeout(function () { location.href = href; }, 300);
@@ -505,7 +588,8 @@
 
   /* ---------- ambient sky: plum petals + fireflies (light canvas) ---------- */
   function sky() {
-    if (reduced) return;
+    // speed 2026-11-05: phones get the still night sky (no canvas loop); elsewhere the petals drift for ~3 s, then stop
+    if (reduced || (window.matchMedia && matchMedia("(pointer: coarse)").matches)) return;
     var cv = doc.getElementById("sky"); if (!cv || !cv.getContext) return;
     var ctx = cv.getContext("2d"), W, H, dpr = Math.min(window.devicePixelRatio || 1, 2), items = [], running = true;
     function size() { W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
@@ -535,12 +619,12 @@
       });
       requestAnimationFrame(draw);
     }
-    doc.addEventListener("visibilitychange", function () { var was = running; running = !doc.hidden; if (running && !was) requestAnimationFrame(draw); });
+    setTimeout(function () { running = false; }, 3000);
     requestAnimationFrame(draw);
   }
 
   function start() {
-    BY.fillSelects();
+    BY.fillSelects(); BY.paintPrices(); geo();
     wireMenu(); wireDaily(); wireFox(); sky(); BY.watch();
   }
   if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", start); else start();

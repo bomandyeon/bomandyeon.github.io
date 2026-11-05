@@ -1119,3 +1119,58 @@ blockquote.send { margin: 10px 0 14px; }
 .sell__b { display: grid; align-content: start; }
 @media (min-width: 640px) { .sell--full { grid-template-columns: 180px 1fr; padding: 26px; } .sell__list { grid-column: 2 / -1; margin-top: 0; } .sell__img { grid-row: span 2; } }
 .from-daily .daily-box { display: none; }
+
+/* ===== conversion phase 1 (2026-11-05) ===== */
+/* cookie banner: one slim line, never covers the page (body padding while open), equal buttons */
+.cc { padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); border-radius: 0; display: flex; align-items: center; gap: 10px; box-shadow: 0 -6px 18px rgba(0, 0, 0, .35); }
+.cc__t { margin: 0; flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.35; }
+.cc__now { display: none; }
+.cc__b { display: flex; gap: 8px; flex: none; }
+.cc__btn { min-height: 40px; min-width: 84px; padding: 0 12px; font-size: 14px; }
+@media (min-width: 700px) { .cc { left: 0; right: 0; bottom: 0; max-width: none; border-radius: 0; border-width: 1px 0 0; padding: 8px max(20px, calc(50% - 480px)); } }
+body.has-cc { padding-bottom: var(--cc-h, 60px); }
+body.has-cc .sticky-buy { bottom: var(--cc-h, 60px); }
+/* date input: month chips + day/year numbers */
+.bdate { display: block; }
+.bdate__l { margin-bottom: 6px; }
+.mchips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.mchip { min-height: 40px; border-radius: 10px; border: 1px solid var(--hair, rgba(237, 230, 214, .22)); background: rgba(237, 230, 214, .05); color: var(--moon, #EDE6D6); font: 600 14px/1 Inter, system-ui, sans-serif; cursor: pointer; padding: 0; touch-action: manipulation; }
+.mchip[aria-pressed="true"] { background: #C9A45C; border-color: #C9A45C; color: #0E0F1A; }
+.mchip:focus-visible { outline: 2px solid #E2C483; outline-offset: 2px; }
+.bdate__dy { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; margin-top: 10px; }
+.bdate__dy label { display: block; }
+.bdate__dy .input { width: 100%; min-height: 48px; font-size: 16px; text-align: center; letter-spacing: .04em; }
+.bdate .field-label { font-size: 13px; }
+.bdate .sr, .bdate label.sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tfield { margin-top: 14px; }
+/* one-page flow hero */
+.phero--flow { padding: 14px 0 22px; }
+.phero--flow .kicker { color: #E2C483; margin-bottom: 4px; }
+.phero--flow h1 { margin: 0 0 6px; }
+.phero--flow .lede { margin: 0 0 12px; }
+.pv-form { margin-top: 6px; max-width: 460px; }
+.pv-form .btn.pv-go { min-height: 52px; }
+.pv-form .pv-note { margin: 6px 0 0; font-size: 12.5px; color: rgba(237, 230, 214, .7); }
+.pv-solo { display: block; width: 100%; min-height: 44px; margin: 8px 0 0; border: 1px solid rgba(201, 164, 92, .55); border-radius: 999px; font-size: 15px; color: #E2C483; text-align: center; }
+.pv-price { margin: 10px 0 0; }
+@media (max-width: 859px) {
+  .phero--flow .phero__cover { display: none; }
+  .phero--flow h1 { font-size: 27px; line-height: 1.15; }
+  .phero--flow .lede { font-size: 15px; line-height: 1.45; }
+}
+.pv-sec { padding-top: 0; }
+.pv-chips { margin: 18px 0; padding: 16px; border: 1px solid var(--hair, rgba(237, 230, 214, .22)); border-radius: 16px; background: rgba(237, 230, 214, .03); }
+.pv-q { margin: 10px 0 0; }
+.pv-q__t { margin: 0 0 6px; font-weight: 600; color: var(--moon, #EDE6D6); }
+.pv-q__o { display: flex; flex-wrap: wrap; gap: 6px; }
+.chipbtn { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(201, 164, 92, .55); background: transparent; color: #EDE6D6; font: 500 14px/1 Inter, system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
+.chipbtn[aria-pressed="true"] { background: #C9A45C; color: #0E0F1A; border-color: #C9A45C; }
+.pv-their { margin: 18px 0; }
+.pw-up { margin-top: 16px; padding: 14px; border: 1px dashed rgba(201, 164, 92, .55); border-radius: 14px; }
+.pw-up-h b { color: #E2C483; }
+.sticky-buy .sb-act .btn { min-height: 44px; }
+/* Pinterest/SEO: CTA right under the H1 */
+.cta-top { margin: 6px 0 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.btn--cta48 { min-height: 48px; padding: 12px 22px; }
+.start--hero { margin-top: 18px; }
+.start--hero .h2-pick { font-size: 20px; margin: 0 0 10px; }
