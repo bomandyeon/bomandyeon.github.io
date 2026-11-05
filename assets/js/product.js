@@ -805,11 +805,34 @@
       return d;
     }
 
+    /* faza 2 (2026-11-05): with P.gated the full data is not on the site; the unlock worker returns it for a license that covers
+       this reading (this browser's key for the reading or the bundle). No usable key or a "no" from the worker -> the key box. */
+    /* a string sentinel: readPage may call render() before this line runs, so no var-held object here */
+    function licKey() {
+      var re = /^[A-Za-z0-9-]{16,80}$/, a = BY.load("lic_" + P.slug), b = BY.load("lic_all-readings");
+      return typeof a === "string" && re.test(a) ? a : typeof b === "string" && re.test(b) ? b : "";
+    }
+    function fullData(dm) {
+      if (!P.gated) return fetch(P.files[dm]).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); });
+      var k = licKey();
+      if (!k) { failCard("Paste your license key once", "Your reading opens with the license key from Gumroad. Paste it from the Gumroad page or your purchase email."); return Promise.resolve("__locked__"); }
+      return fetch("https://bom-yeon-unlock.bomandyeon.workers.dev/full?slug=" + encodeURIComponent(P.slug) + "&dm=" + encodeURIComponent(dm) + "&h=" + encodeURIComponent(P.files[dm] || "") + "&key=" + encodeURIComponent(k))
+        .then(function (r) {
+          if (r.status === 403) return r.json().catch(function () { return {}; }).then(function (j) {
+            if (j && j.refunded) { PAY.forget(k); failCard(PAY.refundedMsg, "Refunds and disputed payments close the reading. Questions? Email <a href=\"mailto:yeon@bomandyeon.com\">yeon@bomandyeon.com</a>."); }
+            else failCard("We couldn't match your key to this reading", "Paste the license key from your Gumroad receipt for this reading (or All Readings).");
+            return "__locked__";
+          });
+          if (!r.ok) throw new Error("data");
+          return r.json();
+        });
+    }
     var opened = false;
     function render() {
       var R = analyze(), s = D.SOULS[R.dayMaster], them = R.partner ? D.SOULS[R.partner.dayMaster] : null;
       out.innerHTML = '<p class="center muted">Opening your reading…</p>';
-      fetch(P.files[s.slug]).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }).then(function (J) {
+      fullData(s.slug).then(function (J) {
+        if (J === "__locked__") return;
         if (refundClosed) return;
         if (PAY && !PAY.owns(P.slug)) { out.innerHTML = ""; return; } // fix 2026-11-05: the full reading renders only with a licence on this browser
         if (PRINT && (!PAY || PAY.owns(P.slug))) { renderPrint(R, s, them, J); return; }
