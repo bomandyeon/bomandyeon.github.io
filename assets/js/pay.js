@@ -154,10 +154,20 @@
 
   document.addEventListener("click", function (e) {
     var a = e.target.closest && e.target.closest("[data-pay]");
-    if (a) { var s = a.getAttribute("data-pay"); a.href = checkoutUrl(s); setPending(s); BY.track("checkout-" + s, "Checkout opened: " + s); BY.track("checkout-click-" + s, "Checkout click: " + s + (a.closest && a.closest("#stickyBuy") ? " (sticky bar)" : "")); setTimeout(function () { poll(s); }, 800); return; }
+    if (a) { var s = a.getAttribute("data-pay"); a.href = checkoutUrl(s); setPending(s); capiCk(s); BY.track("checkout-" + s, "Checkout opened: " + s); BY.track("checkout-click-" + s, "Checkout click: " + s + (a.closest && a.closest("#stickyBuy") ? " (sticky bar)" : "")); setTimeout(function () { poll(s); }, 800); return; }
     var c = e.target.closest && e.target.closest("[data-pay-cancel]");
     if (c) { e.preventDefault(); c.getAttribute("data-pay-cancel").split(" ").forEach(function (cs) { BY.store("pend_" + cs, null); if (polls[cs]) { clearInterval(polls[cs]); polls[cs] = null; } status(cs, ""); paintPending(cs, false); }); }
   }, true);
+  /* CAPI match keys (faza 2, 2026-11-05): with ads consent only, the checkout token + Meta's _fbp/_fbc cookies go to the worker,
+     which adds IP + user agent and keeps them 7 days so the server-side Purchase can be matched. No consent: nothing is sent.
+     Fire-and-forget; never delays the checkout tab. */
+  function cookie(n) { var m = document.cookie.match(new RegExp("(?:^|; )" + n + "=([^;]*)")); return m ? decodeURIComponent(m[1]) : ""; }
+  function capiCk(slug) {
+    try {
+      if (!(BY.consent && BY.consent.granted && BY.consent.granted())) return;
+      fetch(WK + "/ck", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ t: token(slug), fbp: cookie("_fbp"), fbc: cookie("_fbc") }), keepalive: true }).catch(function () {});
+    } catch (e) { /* ignore */ }
+  }
   /* back on this tab after checkout: check right away instead of waiting for the next tick */
   function checkNow() {
     Object.keys(polls).forEach(function (slug) {
