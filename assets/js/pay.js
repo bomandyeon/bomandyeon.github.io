@@ -255,7 +255,7 @@
   BY.pay = {
     on: !!BY.paytest, recheck: recheck, purchased: purchased, forget: forget, pendingAny: pendingAny,
     refundedMsg: "This purchase was refunded, so the reading is closed.", netMsg: "Couldn't check your purchase. Try again.", owns: owns, anchor: anchor, buyLink: buyLink, fallback: fallback, keyForm: keyForm, loadGumroad: loadGumroad, restore: restore, hasKey: function () { return !!keyParam(); },
-    keyParam: keyParam, stripKey: stripKey, lookup: lookup, attach: attach, decState: decState,
+    token: function (slug) { return token(slug); }, keyParam: keyParam, stripKey: stripKey, lookup: lookup, attach: attach, decState: decState,
     setState: function (fn) { stateFn = fn; },
     /* this browser started a checkout for slug: fresh = within the 10-minute poll window, any = within 30 days */
     pending: function (slug, any) { var p = BY.load("pend_" + slug), t = BY.load("tok_" + slug); return !!(p && t && p.tok === t && Date.now() - p.t < (any ? 30 * 864e5 : POLL_MAX)); },

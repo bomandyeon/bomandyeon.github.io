@@ -377,8 +377,42 @@
         (SHELF && diff > 0 ? '<div class="pw-up"><p class="pw-up-h"><b>+' + BY.moneyHTML(diff) + '</b> for all ' + SHELF.count + ' readings</p>' +
           '<p class="pw-up-s">This comic plus the other ' + (SHELF.count - 1) + ', ' + BY.moneyHTML(SHELF.price) + ' one time. ' + BY.moneyHTML(SHELF.total) + ' if bought one by one.</p>' +
           PAY.buyLink("all-readings", "Get all " + SHELF.count + " \u00B7 " + BY.moneyHTML(SHELF.price), "btn--ghost btn--block btn--sm pw-up-btn") + "</div>" : "") +
-        PAY.consent + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + PAY.fallback() + "</div>";
+        PAY.consent + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + mailBox() + PAY.fallback() + "</div>";
     }
+    /* faza 2 (2026-11-05): optional "send me the link" under the buy button. Never blocks checkout; reminders only with the
+       separate unticked box. The worker sends one mail (plus at most 2 reminders on opt-in) and deletes the address within 14 days. */
+    var mbN = 0;
+    function mailBox() {
+      if (BY.load("sl_" + P.slug)) return "";
+      var i = "pwm" + (++mbN);
+      return '<form class="pw-mail" novalidate><label class="pw-mail-l" for="' + i + '">Not now? We can email you the link to this comic.</label>' +
+        '<span class="pay-key-row"><input id="' + i + '" type="email" name="e" autocomplete="email" inputmode="email" spellcheck="false" placeholder="Your email" maxlength="254"><button class="btn btn--ghost btn--sm" type="submit">Send me the link</button></span>' +
+        '<label class="pw-mail-opt"><input type="checkbox" name="rem"> Also remind me, at most twice in the next 3 days</label>' +
+        '<p class="pw-mail-priv">Only for this link (and the reminders if you tick the box). No list, and we delete your address within 14 days. <a href="/privacy/#link-email">Privacy</a></p>' +
+        '<p class="pw-mail-msg" role="status" hidden></p></form>';
+    }
+    document.addEventListener("submit", function (e) {
+      var f = e.target; if (!f || !f.classList || !f.classList.contains("pw-mail")) return;
+      e.preventDefault();
+      var v = (f.e.value || "").trim(), msg = f.querySelector(".pw-mail-msg"), b = f.querySelector("button");
+      var say = function (t, bad) { msg.textContent = t; msg.hidden = false; msg.classList.toggle("err", !!bad); };
+      if (!/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/.test(v) || v.length > 254) { say("That email doesn't look right.", true); f.e.focus(); return; }
+      var rem = !!f.rem.checked;
+      var link = "https://bomandyeon.com/readings/" + P.slug + "/" + BY.urlState.query(urlObj(), true) + "#preview";
+      b.disabled = true; b.textContent = "Sending\u2026";
+      fetch("https://bom-yeon-unlock.bomandyeon.workers.dev/save-link", { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ email: v, slug: P.slug, url: link, remind: rem, t: rem && PAY.token ? PAY.token(P.slug) : "" }) })
+        .then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }); })
+        .then(function (x) {
+          if (x.j && x.j.ok) {
+            BY.store("sl_" + P.slug, 1); BY.track("email-submit-" + P.slug, "Paywall email link: " + P.slug + (rem ? " (reminders)" : ""));
+            [].forEach.call(document.querySelectorAll(".pw-mail"), function (g) { g.innerHTML = '<p class="pw-mail-ok">Sent. The link to your comic is in your inbox' + (x.j.status === "already" ? " (we sent it earlier)." : ".") + "</p>"; });
+            return;
+          }
+          b.disabled = false; b.textContent = "Send me the link";
+          say(x.st === 429 ? "We can't send more emails right now. Try again later." : "That didn't send. Try once more?", true);
+        }).catch(function () { b.disabled = false; b.textContent = "Send me the link"; say("That didn't send. Try once more?", true); });
+    });
     function wirePaywall() {}
     /* the free part ends mid-sentence: the first words of a locked chapter clear, the rest blurred */
     function cliffHTML(text, at) {
