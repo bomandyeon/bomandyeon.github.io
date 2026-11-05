@@ -663,15 +663,16 @@
         var known = !need();
         BY.track("key-open-" + P.slug, "Opened with key: " + P.slug);
         showBanner("Opening your reading…");
-        if (known) start();
+        // fix 2026-11-05: nothing renders before the key is confirmed (a made-up ?key= used to open the full reading)
         PAY.lookup(P.slug, key).then(function (res) {
           if (res.paid) {
             var hadInputs = !need();
             if (res.state && !hadInputs) applyState(res.state);
             confirmed(res.slug, key);
             PAY.purchased(res.slug, key, PAY.pendingAny(P.slug));
+            if (!PAY.owns(P.slug)) { failCard("This key opens another reading", "It's a valid purchase, just not for this reading. Open the link in your Gumroad email, or email <a href=\"mailto:yeon@bomandyeon.com\">yeon@bomandyeon.com</a>."); return; }
             if (!need()) BY.urlState.clean(urlObj());
-            if (!known) start();
+            start();
             if (!res.r) { if (!need()) PAY.attach(key); else paidKey = key; }
             return;
           }
@@ -682,19 +683,18 @@
               res.refunded ? "Refunds and disputed payments close the reading. Questions? Email <a href=\"mailto:yeon@bomandyeon.com\">yeon@bomandyeon.com</a>." : "Check the key on your Gumroad receipt (it looks like XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX). A key for another reading opens that reading.");
             return;
           }
-          // checker unreachable: keep what is open, try again on the next visit (key not stored)
-          if (known) showBanner(PAY.netMsg + " Your reading stays open; it saves to this browser once we can confirm.");
-          else failCard(PAY.netMsg, "Your connection or Gumroad didn't answer, so we couldn't confirm the key yet. Nothing is wrong with your purchase.");
+          // checker unreachable: nothing opens unconfirmed; the key box lets the buyer try again
+          failCard(PAY.netMsg, "Your connection or Gumroad didn't answer, so we couldn't confirm the key yet. Nothing is wrong with your purchase.");
         });
         return;
       }
       if (FROM_GR || PAY.pending(P.slug) || PAY.pending("all-readings")) {
         var fresh = PAY.pending(P.slug) || PAY.pending("all-readings");
-        var onPaid = function (s) { confirmed(s, ""); };
+        var onPaid = function (s) { confirmed(s, ""); start(); };
         var giveUp = function () { if (!PAY.owns(P.slug)) failCard("We haven't seen your payment yet", "Gumroad hasn't confirmed a purchase from this browser. If you paid, paste the license key from the Gumroad page or your email."); };
         if (fresh) {
+          // fix 2026-11-05: a started checkout is not a payment; the reading opens when Gumroad confirms (onPaid)
           showBanner("Confirming your payment with Gumroad. Usually under a minute.");
-          start();
           PAY.watch(P.slug, onPaid, giveUp); PAY.watch("all-readings", onPaid, giveUp);
           return;
         }
@@ -777,6 +777,7 @@
       out.innerHTML = '<p class="center muted">Opening your reading…</p>';
       fetch(P.files[s.slug]).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }).then(function (J) {
         if (refundClosed) return;
+        if (PAY && !PAY.owns(P.slug)) { out.innerHTML = ""; return; } // fix 2026-11-05: the full reading renders only with a licence on this browser
         if (PRINT && (!PAY || PAY.owns(P.slug))) { renderPrint(R, s, them, J); return; }
         out.innerHTML = "";
         if (!opened) { opened = true; BY.track("read-" + P.slug, "Opened reading: " + P.slug); }
@@ -789,6 +790,7 @@
             out.appendChild(html('<div class="say say--' + tv + ' rise thanks"><span class="av av--' + tv + '"><img src="/assets/img/av-' + tv + '.webp" alt="" width="56" height="56"></span><p class="bubble"><b>' + who(tv) + "</b>" + esc(THANKS[tv]) + "</p></div>"));
           }
         }
+        if (PAY) out.appendChild(html('<p class="small muted center no-print rd-owned">Paid on this browser.</p>'));
         out.appendChild(coverCard(info, R));
         if (R.termDay) out.appendChild(html(termBanner(R)));
         out.appendChild(actions());
