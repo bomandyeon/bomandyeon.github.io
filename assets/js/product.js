@@ -406,7 +406,7 @@
         .then(function (x) {
           if (x.j && x.j.ok) {
             BY.store("sl_" + P.slug, 1); BY.track("email-submit-" + P.slug, "Paywall email link: " + P.slug + (rem ? " (reminders)" : ""));
-            [].forEach.call(document.querySelectorAll(".pw-mail"), function (g) { g.innerHTML = '<p class="pw-mail-ok">Sent. The link to your comic is in your inbox' + (x.j.status === "already" ? " (we sent it earlier)." : ".") + "</p>"; });
+            [].forEach.call(document.querySelectorAll(".pw-mail"), function (g) { g.innerHTML = x.j.status === "queued" ? '<p class="pw-mail-ok">Saved. The link to your comic arrives in your inbox by tomorrow.</p>' : '<p class="pw-mail-ok">Sent. The link to your comic is in your inbox' + (x.j.status === "already" ? " (we sent it earlier)." : ".") + "</p>"; });
             return;
           }
           b.disabled = false; b.textContent = "Send me the link";
