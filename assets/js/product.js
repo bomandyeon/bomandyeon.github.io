@@ -319,7 +319,7 @@
       return t;
     }
     function lockKicker(c, s, them) {
-      if (c.type === "situation") { var a = ansLabels(); return a.length ? "Because you said: " + a.join(" · ") : !answers ? "Answer the optional taps above to shape it" : "Written for not knowing"; }
+      if (c.type === "situation") { var a = ansLabels(); if (a.length) return "Because you said: " + a.join(" · "); }
       return "Written for " + s.nick + (them && c.type !== "pair" && PAIR ? " + " + them.nick : "");
     }
     /* teaser UX 2026-10-21: the result opens with the COMIC. The reading's cover art as a webtoon panel with Bom + Yeon speech
@@ -354,11 +354,7 @@
         '<div class="tz-intro"><h2 class="tz-h">You\u2019re <em>' + esc(s.nick) + ".</em></h2>" +
         '<p class="tz-why">Your birthday type (' + esc(s.name) + ' in Korean saju). It shapes ' + esc(how) + ".</p>" +
         (them ? '<p class="tz-them">They\u2019re <b>' + esc(them.nick) + "</b> (" + esc(them.name) + ")" + (PAIR === "required" ? ". This comic is about the two of you." : ". They\u2019re in your comic too.") + "</p>" : "") +
-        '<ul class="tz-traits" aria-label="Your traits">' + (s.traits || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
-        '<p class="tz-card"><button type="button" class="btn btn--ghost btn--sm" data-typecard="' + esc(s.slug) + '" data-nick="' + esc(s.nick) + '">Share my type card</button></p>' +
-        '<p class="tz-next">Your first 2 chapters are right below. Scroll to read.</p>' +
-        chartHTML(R, s, them, cols) +
-        '<p class="small muted center"><button type="button" class="linkbtn small" data-redo>Change my answers</button></p></div></header>';
+        '</div></header>';
     }
     /* real chapter count for this reader (2 free + the locked list): price per chapter rounded UP to the cent, never flattering */
     function perChapter(total) { return total > 2 ? (Math.ceil(P.price / total * 100) / 100).toFixed(2) : ""; }
@@ -370,7 +366,6 @@
       var total = P.chaptersMin || (restCount + 2), plus = PAIR === "optional" ? " (+1 with their birthday)" : "";
       var pend = PAY.pending(P.slug) || (SHELF && PAY.pending("all-readings"));
       var both = P.slug + (SHELF ? " all-readings" : "");
-      var mb = mailBox();
       return '<div class="chapter-lock paywall pw3 rise' + (pend ? " is-pending" : "") + '" id="paywall" data-pw="' + both + '">' +
         '<div class="pw-pending" role="status"><p class="pw-pend-h"><span class="pw-dot" aria-hidden="true"></span>Opening your comic\u2026</p>' +
         '<p class="pw3-pend-s">Finish paying in the Gumroad tab. Your comic opens here by itself.</p>' +
@@ -384,9 +379,8 @@
         "</div>" +
         PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") +
         '<div class="pw3-folds">' +
-        (mb ? '<details class="pw3-fold pw3-fold--mail"><summary>Not now? Email me the link</summary>' + mb + "</details>" : "") +
         '<details class="pw3-fold"><summary>Already paid? Open it with your license key</summary>' + PAY.fallback() + "</details>" +
-        "</div>" + PAY.consent + "</div>";
+        "</div></div>";
     }
     /* faza 2 (2026-11-05): optional "send me the link" under the buy button. Never blocks checkout; reminders only with the
        separate unticked box. The worker sends one mail (plus at most 2 reminders on opt-in) and deletes the address within 14 days. */
@@ -506,11 +500,11 @@
         var asm = A4.assemble(R, V, { answers: ansFor() }), art = counter();
         asm.chapters.forEach(function (ch, ci) {
           // trimmed so the paywall comes fast: comic beats up to ~110 words per free chapter
-          var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim(); }), keep = [], wc = 0;
+          var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim() && !/^(?:(?:Yeon|Bom):\s*)?You skipped\b/.test(x.trim()); }), keep = [], wc = 0; // 2026-11-06: no questions in the free part, so no "you skipped" lines
           for (var pi = 0; pi < paras.length && keep.length < 8 && wc < 110; pi++) { if (/^###/.test(paras[pi]) && keep.length) break; keep.push(paras[pi]); if (!/^###/.test(paras[pi])) wc += paras[pi].split(/\s+/).length; }
-          var t = Object.assign({}, ch, { panels: (ch.panels || []).slice(0, ci === 0 ? 4 : 3), text: keep.join("\n\n") });
+          var t = Object.assign({}, ch, { panels: (ch.panels || []).filter(function (q) { return !/^You skipped\b/.test(q.text || ""); }).slice(0, ci === 0 ? 4 : 3), text: keep.join("\n\n") });
           var sec = comicChapter(t, R, art); sec.classList.add("comic--teaser"); out.appendChild(sec);
-          if (ci === 0) { var cc = chipsCard(); if (cc) out.appendChild(cc); }
+          /* 2026-11-06 Rok: no optional questions in the free part (they come after purchase) */
         });
         if (PAIR === "required" && !R.partner) out.appendChild(addTheirCard());
         var rest = J.plan.slice(2).filter(function (c) { return !(c.type === "pair" && c.optional && !R.partner && PAIR !== "optional"); });

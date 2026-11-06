@@ -1219,3 +1219,13 @@ body.has-cc .sticky-buy { bottom: var(--cc-h, 60px); }
 .sticky-buy .sb-amt { font: 700 20px/1.1 var(--sans); color: var(--moon); white-space: nowrap; }
 .sticky-buy .sb-sub { display: block; font: 400 13px/1.3 var(--sans); color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pw3-fold .pay-key-l { display: none; }
+/* 2026-11-06 Rok: free part tighter, no black holes, scene full width */
+.tz-hero { margin-bottom: 8px; }
+.tz-intro { padding-top: 16px; }
+.comic.comic--teaser { margin-bottom: 8px; padding: 0; }
+.lock-list { padding-top: 0; }
+.comic--teaser .comic__title { padding: 18px 12px 12px; margin-bottom: 10px; }
+.comic--teaser .comic__stage { width: 100%; height: auto; aspect-ratio: 16 / 10; max-height: none; margin-bottom: 10px; }
+.comic--teaser .comic__beats { padding-bottom: 4px; }
+.lock-list { margin-top: 8px; }
+.lock-head { margin-top: 18px; }
