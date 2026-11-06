@@ -385,6 +385,27 @@
     gcFlush();
     if (gcQueue.length && !gcTimer) gcTimer = setInterval(gcFlush, 500);
   };
+  /* ---------- per-ad funnel tag (2026-11-06, Rok): funnel steps are counted twice, once as before and once as
+     "via-<campaign>-<step>" so GoatCounter shows which ad or channel brought the step. Campaign = this visit's
+     utm_campaign (+utm_content) or ?src, else the first-touch tag. Campaign tags only, never personal data. ---------- */
+  (function () {
+    var tag = "";
+    try {
+      var q = new URLSearchParams(location.search), c = (q.get("utm_campaign") || "").trim(), u = (q.get("utm_content") || "").trim(), s = (q.get("src") || "").trim();
+      var now = c ? c + (u ? "-" + u : "") : s;
+      if (now && /^[A-Za-z0-9_.+-]{1,60}$/.test(now)) sessionStorage.setItem("by_via", now);
+      tag = sessionStorage.getItem("by_via") || "";
+      if (!tag) { var ft = BY.load("ft") || {}; tag = ft.utm_campaign ? ft.utm_campaign + (ft.utm_content ? "-" + ft.utm_content : "") : (ft.src || ""); }
+    } catch (e) { /* private mode */ }
+    tag = String(tag).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "none";
+    var base = BY.track, FUNNEL = /^(birthday-submit|ch1-view|paywall-view|checkout-click|checkout|purchase)-/;
+    BY.track = function (name, title) {
+      base(name, title);
+      var n = String(name || "").toLowerCase();
+      if (FUNNEL.test(n)) base("via-" + tag + "-" + n, (title || n) + " via " + tag);
+    };
+    BY.viaTag = function () { return tag; };
+  })();
   BY.trackOnce = function (name, title) {
     try { var k = "by_gc_" + name; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, "1"); } catch (e) { /* private mode: send anyway */ }
     BY.track(name, title);
