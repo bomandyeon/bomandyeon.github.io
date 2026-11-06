@@ -130,7 +130,7 @@
       return "<p>" + esc(b) + "</p>";
     }).join("");
   }
-  function chapterHTML(title, text, kicker, pre) { return '<section class="rise chap">' + (kicker ? '<p class="kicker">' + esc(kicker) + "</p>" : "") + "<h3>" + esc(title) + "</h3>" + (pre || "") + textHTML(text) + "</section>"; }
+  function chapterHTML(title, text, kicker, pre) { return '<section class="rise chap">' + "<h3>" + esc(title) + "</h3>" + (kicker ? '<p class="hsub">' + esc(kicker) + "</p>" : "") + (pre || "") + textHTML(text) + "</section>"; }
   /* one assembled v4 chapter -> [webtoon, text] (art cycles through all panel images) */
   function v4Panels(ch, artAt) { return webtoon(ch.panels.map(function (p) { return panel(ARTS[artAt() % ARTS.length], p, p.nar || null); })); }
   /* ---------- comic chapters: the chapter's own scene stays pinned while the text scrolls over it in caption boxes ---------- */
@@ -159,30 +159,71 @@
     return out;
   }
   var EL_TINT = { Wood: "#3E8E5A", Fire: "#C8443C", Earth: "#B08A4A", Metal: "#B9BCC8", Water: "#3B6FB0" };
+  /* v4 2026-11-06: the strip reads as a vertical webtoon, not a chat log.
+     - each chapter's scene is cut differently (tall establishing shot, wide shot, close shot; same art, different crop)
+     - the first one or two beats of a scene sit over the bottom of its panel (only the lower band: legs, torsos, never faces)
+     - a second, wide detail cut of the same scene opens the narration
+     - the face avatar shows once per speaker per chapter; after that the bubble style carries who is talking
+     - bubbles size to their line; gutters are tight inside a quick exchange and wide between beats (CSS)
+     Every line of text, its order and its speaker stay exactly as assembled. */
+  var CROPS = ["tall", "wide", "close"];
+  function subline(k, s) {
+    // the chapter's old eyebrow: keep only what the page doesn't already say (the type name sits in the reveal above)
+    k = String(k || "").replace(/^\s*[\u3400-\u9FFF]+\s*\u00B7\s*/, "");
+    [s.nick, s.name].forEach(function (n) { if (!n) return; k = k.split(n + " \u00B7 ").join("").split(" \u00B7 " + n).join(""); if (k.replace(/[.\s]/g, "") === n.replace(/\s/g, "")) k = ""; });
+    k = k.trim(); if (/^[\u3400-\u9FFF\s.\u00B7]*$/.test(k)) return "";
+    return k.charAt(0).toUpperCase() + k.slice(1);
+  }
   function comicChapter(ch, R, artAt, opts) {
     opts = opts || {};
     var sc = sceneFor(ch.id, R), s = D.SOULS[R.dayMaster], sec = document.createElement("section");
-    sec.className = "comic" + (sc ? "" : " comic--plain");
-    sec.style.setProperty("--tint", EL_TINT[s.el] || "#C9A45C");
-    var head = '<header class="comic__title"><p class="kicker">' + esc(ch.kicker || "") + "</p><h3>" + esc(ch.title || "") + "</h3></header>";
-    var stage = sc ? '<div class="comic__stage" aria-hidden="true"><div class="comic__img" style="background-image:url(' + sc.src + ')"></div><span class="comic__tint"></span><span class="comic__seal hz">' + s.hanja + "</span></div>" : "";
-    var html2 = head + stage + '<div class="comic__beats">';
+    var ci = artAt ? artAt() : 0, crop = CROPS[ci % CROPS.length];
+    sec.className = "comic comic--" + crop + (sc ? "" : " comic--plain");
+    var sub = subline(ch.kicker, s);
+    var head = '<header class="comic__title"><h3>' + esc(ch.title || "") + "</h3>" + (sub ? '<p class="comic__sub">' + esc(sub) + "</p>" : "") + "</header>";
+    var bg = sc ? 'style="background-image:url(' + sc.src + ')"' : "";
+    var stage = sc ? '<div class="comic__stage comic__stage--' + crop + '" aria-hidden="true"><div class="comic__img" ' + bg + '></div></div>' : "";
+    var items = [];
     (ch.panels || []).forEach(function (p) {
-      if (p.nar) html2 += '<div class="beat beat--nar"><p>' + esc(p.nar) + "</p></div>";
-      var sp = who(p.speaker);
-      html2 += '<div class="beat beat--say beat--' + sp.toLowerCase() + '"><span class="av av--' + sp.toLowerCase() + '"><img src="/assets/img/av-' + sp.toLowerCase() + '.webp" alt="" width="44" height="44"></span><p class="bubble"><b>' + sp + "</b>" + esc(p.text) + "</p></div>";
+      // the assembler's type tag ("己 · The Garden Field.") repeats the reveal right above it: not shown. Written narration always is.
+      if (p.nar && !(p.nar === s.hanja + " \u00B7 " + s.nick + "." || p.nar === s.hanja + " \u00B7 " + s.name + ".")) items.push({ k: "nar", text: p.nar });
+      items.push({ k: "say", w: who(p.speaker).toLowerCase(), text: p.text });
     });
-    if (opts.pre) html2 += '<div class="beat beat--cap beat--note"><p>' + opts.pre + "</p></div>";
+    if (opts.pre) items.push({ k: "note", html: opts.pre });
     var list = opts.blocks ? [] : beats(ch.text);
     if (opts.blocks) opts.blocks.forEach(function (b) { beats(b.t).forEach(function (x, i) { list.push({ label: i ? x.label : b.h, text: x.text }); }); if (b.note) list.push({ label: null, text: b.note, note: true }); });
-    list.forEach(function (b, i) {
-      if (b.say) { html2 += '<div class="beat beat--say beat--' + b.say + '"><span class="av av--' + b.say + '"><img src="/assets/img/av-' + b.say + '.webp" alt="" width="44" height="44" loading="lazy"></span><p class="bubble"><b>' + (b.say === "bom" ? "Bom" : "Yeon") + "</b>" + esc(b.text) + "</p></div>"; return; }
-      html2 += '<div class="beat beat--cap' + (b.note ? " beat--note" : "") + '" data-i="' + i + '">' + (b.label ? '<h4>' + esc(b.label) + "</h4>" : "") + (b.text ? "<p>" + esc(b.text) + "</p>" : "") + "</div>";
+    list.forEach(function (b) { items.push(b.say ? { k: "say", w: b.say, text: b.text } : { k: "cap", label: b.label, text: b.text, note: b.note }); });
+    // v5 2026-11-06: one panel per image (no second "detail" cut of the same scene), bubbles after the panel, never over it.
+    // Every bubble sits on the left like a webtoon column, offset by speaker (Bom a little in, Yeon further in); consecutive
+    // lines of one speaker are one group (tail and face only on the group's first line). On /read/ (opts.silent) a silent
+    // full-width panel of another scene from this reading comes in every ~5 beats. Every line, its order and speaker unchanged.
+    var seen = {}, html2 = head + stage + '<div class="comic__beats">', prev = null, since = 0, n = 0;
+    items.forEach(function (it) {
+      if (opts.silent && sc && since >= 5 && !(it.k === "say" && prev === it.w)) {
+        var a = opts.silent();
+        if (a) { html2 += '<div class="comic__stage comic__stage--silent" aria-hidden="true"><div class="comic__img" style="background-image:url(' + a.src + ');background-position:' + a.pos + '"></div></div>'; since = 0; prev = null; }
+      }
+      if (it.k === "say") {
+        var first = !seen[it.w], cont = prev === it.w; seen[it.w] = 1;
+        html2 += '<div class="beat beat--say beat--' + it.w + (first ? " beat--av" : " beat--noav") + (cont ? " beat--cont" : " beat--head") + '">' +
+          (first ? '<span class="av av--' + it.w + '"><img src="/assets/img/av-' + it.w + '.webp" alt="" width="44" height="44" loading="lazy"></span>' : "") +
+          '<p class="bubble"><b>' + who(it.w) + "</b>" + esc(it.text) + "</p></div>";
+        prev = it.w; since++;
+        return;
+      }
+      prev = null;
+      if (it.k === "nar") {
+        html2 += '<div class="beat beat--nar"><p>' + esc(it.text) + "</p></div>"; since++;
+      } else if (it.k === "note") {
+        html2 += '<div class="beat beat--cap beat--note"><p>' + it.html + "</p></div>";
+      } else {
+        html2 += '<div class="beat beat--cap' + (it.note ? " beat--note" : "") + '" data-i="' + (n++) + '">' + (it.label ? "<h4>" + esc(it.label) + "</h4>" : "") + (it.text ? "<p>" + esc(it.text) + "</p>" : "") + "</div>";
+        if (it.text) since++;
+      }
     });
     html2 += "</div>" + (opts.tail || "");
     sec.innerHTML = html2;
     [].forEach.call(sec.querySelectorAll(".beat, .comic__title"), function (b) { b.classList.add("rise"); });
-    /* panBeats off since 2026-10-22: scene is a static panel */
     return sec;
   }
   /* slow camera move: each caption that reaches the middle of the screen moves the pinned scene a step */
@@ -243,6 +284,7 @@
       BY.knownBirth(form);
       if (PAIR === "required" && their) BY.setDate(form, "t", their);
       var err = form.querySelector(".err");
+      if (PAIR === "required") pairStep();
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         var known = form.querySelector(".bknown"), usingKnown = known && !known.hidden && birth;
@@ -264,6 +306,26 @@
         err.textContent = ""; solo = true; BY.track("solo-start-" + P.slug, "Started with own birthday only: " + P.slug);
         go(b, null);
       });
+    }
+    /* v4 2026-11-06 (two birthdays on one phone screen): your birthday folds to one line once it is complete, and their
+       picker opens in its place. "change" opens yours again. A saved birthday starts folded (the .bknown line). */
+    function pairStep() {
+      var bf = form.querySelector(".bfield"), sum = form.querySelector(".bsum"), tf = form.querySelector(".tfield"), kn = form.querySelector(".bknown");
+      if (!bf || !sum || !tf) return;
+      var knownOn = function () { return kn && !kn.hidden; };
+      var fold = function () {
+        if (knownOn()) { tf.classList.remove("is-wait"); return; }
+        var b = BY.readDate(form, "b"); if (b.error) return;
+        sum.querySelector("[data-bsum]").textContent = BY.prettyDate(b);
+        bf.hidden = true; sum.hidden = false; tf.classList.remove("is-wait");
+        var er = form.querySelector(".err"); if (er && /^Your birthday/.test(er.textContent)) er.textContent = "";
+      };
+      if (knownOn()) tf.classList.remove("is-wait");
+      bf.addEventListener("input", function (e) { var k = e.target.getAttribute && e.target.getAttribute("data-kind"); if (k === "y" && e.target.value.length === 4) fold(); });
+      bf.addEventListener("click", function (e) { if (e.target.closest && e.target.closest(".mchip")) setTimeout(function () { var y = form.querySelector('[name="by"]'); if (y && y.value.length === 4) fold(); }, 0); });
+      var ed = sum.querySelector("[data-bedit]");
+      if (ed) ed.addEventListener("click", function () { sum.hidden = true; bf.hidden = false; var c = bf.querySelector('.mchip[aria-pressed="true"]') || bf.querySelector(".mchip"); if (c) c.focus(); });
+      if (kn) { var ch = kn.querySelector("[data-bchange]"); if (ch) ch.addEventListener("click", function () { tf.classList.remove("is-wait"); }); }
     }
     function go(b, t) {
       if (!birth || BY.iso(birth) !== BY.iso(b)) BY.store("btime", null); // a different birthday: the old birth time doesn't belong to it
@@ -337,33 +399,42 @@
         '. The top of the Day column, <span class="hz" style="color:' + D.EL_COLOR[s.el] + '">' + s.hanja + "</span>, is your birthday type: " + esc(s.name) + ". Your comic is written from it." +
         (them ? " Theirs is " + esc(them.name) + ' (<span class="hz" style="color:' + D.EL_COLOR[them.el] + '">' + them.hanja + "</span>)." : "") + "</p></div></details>";
     }
+    /* where each cover's two faces are, in % of the picture (tail tips land on the top of the head, never on the face) */
+    var COVER_TIPS = { ex: { bom: [73, 15], yeon: [50, 24] }, situationship: { bom: [34, 17], yeon: [66, 26] }, lover: { bom: [44, 7], yeon: [66, 27] },
+      brutal: { bom: [1, 8], yeon: [53, 10] }, couple: { bom: [35, 20], yeon: [72, 25] }, glowup: { bom: [78, 18], yeon: [59, 19] },
+      kpop: { bom: [35, 15], yeon: [68, 25] }, work: { bom: [77, 21], yeon: [36, 32] }, y2027: { bom: [32, 46], yeon: [74, 47] }, bundle: { bom: [45, 27], yeon: [68, 29] } };
     function coverHTML(R, s, them, title) {
       var pl = R.pillars, ml = moodLine(R, s), cv = coverImg(), how = HOW[P.slug] || "the core of who you are";
       var cols = [["Year", pl.year], ["Month", pl.month], ["Day", pl.day]].concat(pl.hour ? [["Hour", pl.hour]] : []);
       // Bom says the soul's own line, Yeon the reading's spicy line; a mood answer replaces the line of whoever says it (never the same line twice)
       var spicy = D.SPICY[R.dayMaster][P.spicy != null ? P.spicy : 4], mood = ml.text !== spicy;
       var bomLine = mood && ml.who === "bom" ? ml.text : s.bom, yeonLine = mood && ml.who !== "bom" ? ml.text : spicy;
+      // v4 2026-11-06: the two bubbles sit above the picture's head line, each tail drawn to its speaker's face (BY.tails):
+      // Bom is the man in the dark coat, Yeon the woman in hanbok. Nothing covers the middle of the cover.
+      var key = cv ? ((/cover-([a-z0-9]+)/.exec(cv.src) || [])[1] || "") : "", tip = COVER_TIPS[key] || COVER_TIPS.ex;
+      var bomL = tip.bom[0] <= tip.yeon[0];
+      var bub = function (w, line, t, left) { return '<p class="bub bub--' + w + (left ? " bub--l" : " bub--r") + '" data-tip="' + t.join(",") + '"><b class="sr">' + who(w) + ": </b>" + esc(line) + "</p>"; };
       return '<header class="tz-hero rise">' +
-        '<figure class="tz-panel"' + (cv ? "" : ' data-noimg="1"') + ">" +
+        '<figure class="tz-panel"' + (cv ? " data-tails" : ' data-noimg="1"') + ">" +
         (cv ? '<img src="' + esc(cv.src) + '"' + (cv.set ? ' srcset="' + esc(cv.set) + '" sizes="(min-width: 600px) 520px, 100vw"' : "") + ' alt="' + esc(cv.alt) + '" width="720" height="894" decoding="async">' : "") +
-        '<p class="tz-cap">' + esc(title) + "<span>" + (name ? esc(name) + "\u2019s reading" : "Your reading") + "</span></p>" +
-        '<span class="tz-seal hz" aria-hidden="true">' + s.hanja + "</span>" +
-        '<p class="tz-say tz-say--bom"><b>Bom</b>' + esc(bomLine) + "</p>" +
-        '<p class="tz-say tz-say--yeon"><b>Yeon</b>' + esc(yeonLine) + "</p>" +
+        bub("bom", bomLine, tip.bom, bomL) + bub("yeon", yeonLine, tip.yeon, !bomL) +
+        '<figcaption class="sr">' + esc(title) + ", " + (name ? esc(name) + "\u2019s reading" : "your reading") + "</figcaption>" +
         "</figure>" +
         '<div class="tz-intro"><h2 class="tz-h">You\u2019re <em>' + esc(s.nick) + ".</em></h2>" +
-        '<p class="tz-why">Your birthday type (' + esc(s.name) + ' in Korean saju). It shapes ' + esc(how) + ".</p>" +
+        '<p class="tz-why">Korean birthday astrology calls your type ' + esc(s.name) + '. It shapes ' + esc(how) + ".</p>" +
         (them ? '<p class="tz-them">They\u2019re <b>' + esc(them.nick) + "</b> (" + esc(them.name) + ")" + (PAIR === "required" ? ". This comic is about the two of you." : ". They\u2019re in your comic too.") + "</p>" : "") +
         '</div></header>';
     }
     /* real chapter count for this reader (2 free + the locked list): price per chapter rounded UP to the cent, never flattering */
     function perChapter(total) { return total > 2 ? (Math.ceil(P.price / total * 100) / 100).toFixed(2) : ""; }
-    function paywallHTML(restCount, sample) {
+    function paywallHTML(restCount, sample, hasThem) {
       if (!PAY) return "";
       if (PAY.owns(P.slug)) return '<div class="chapter-lock rise"><a class="btn" href="' + esc(readUrl()) + '">Open my full reading</a></div>';
       // 2026-11-06 (Rok: "ugly, unreadable"): one price, three short lines of what you get, one button, one fine-print line.
       // Bundle is a quiet text link; email link and license key fold away. Same checkout links, same consent notice.
-      var total = P.chaptersMin || (restCount + 2), plus = PAIR === "optional" ? " (+1 with their birthday)" : "";
+      // v4: one chapter phrase everywhere (build.py ch_phrase). Before their birthday is in, an optional pair chapter is the "+1".
+      // v5: one line "$19 · one time · all N chapters" (N = this reader's real count); the optional pair chapter is one muted note
+      var plus = PAIR === "optional" && !hasThem, allN = plus ? restCount + 1 : restCount + 2;
       var pend = PAY.pending(P.slug) || (SHELF && PAY.pending("all-readings"));
       var both = P.slug + (SHELF ? " all-readings" : "");
       return '<div class="chapter-lock paywall pw3 rise' + (pend ? " is-pending" : "") + '" id="paywall" data-pw="' + both + '">' +
@@ -371,16 +442,18 @@
         '<p class="pw3-pend-s">Finish paying in the Gumroad tab. Your comic opens here by itself.</p>' +
         '<p class="pw3-pend-s"><a href="#" data-pay-cancel="' + both + '">Not paid yet? Back to the price</a></p></div>' +
         '<div class="pw3-buy">' +
-        '<p class="pw3-amt">' + BY.moneyHTML(P.price) + '<em class="pw3-per">one time</em></p>' +
-        '<ul class="pw3-get"><li>All ' + total + ' chapters' + plus + '</li><li>PDF to keep</li><li>Your type as a wallpaper, plus your compatibility chart</li></ul>' +
+        '<p class="pw3-amt">' + BY.moneyHTML(P.price) + '<em class="pw3-per"> \u00B7 one time \u00B7 all ' + allN + ' chapters</em></p>' +
+        '<ul class="pw3-get"><li>PDF to keep</li><li>Your type as a wallpaper, plus your compatibility chart</li></ul>' +
+        (plus ? '<p class="pw3-plus">+1 chapter if you add their birthday</p>' : "") +
         '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest", "btn--block pw3-cta") + "</div>" +
         '<p class="pw3-fine">Secure checkout by Gumroad \u00B7 30-day refund</p>' +
-        (SHELF && SHELF.price > P.price ? '<p class="pw3-alt">' + PAY.buyLink("all-readings", "Or get all " + SHELF.count + " readings for " + BY.moneyHTML(SHELF.price), "pw-link") + "</p>" : "") +
         "</div>" +
         PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") +
         '<div class="pw3-folds">' +
         '<details class="pw3-fold"><summary>Already paid? Open it with your license key</summary>' + PAY.fallback() + "</details>" +
-        "</div></div>";
+        "</div></div>" +
+        // v4: the shelf offer is a quiet line under the card, not a second offer inside it (same link, same price logic)
+        (SHELF && SHELF.price > P.price ? '<p class="pw3-alt">' + PAY.buyLink("all-readings", "Or get all " + SHELF.count + " readings for " + BY.moneyHTML(SHELF.price), "pw-link") + "</p>" : "");
     }
     /* faza 2 (2026-11-05): optional "send me the link" under the buy button. Never blocks checkout; reminders only with the
        separate unticked box. The worker sends one mail (plus at most 2 reminders on opt-in) and deletes the address within 14 days. */
@@ -426,7 +499,7 @@
       var sents = plain.match(/[^.!?]+[.!?]+["'\u2019\u201D)\]]*/g) || [plain], outT = "", need = cut > 0 ? cut : Math.min(plain.length, 60);
       for (var k = 0; k < sents.length; k++) { outT += sents[k]; if (outT.length >= need) break; }
       outT = outT.trim(); if (!/[.!?]["'\u2019\u201D)\]]*$/.test(outT)) outT = outT.replace(/[,;:\s]+$/, "") + ".";
-      return '<div class="cliff"><p class="kicker">Chapter ' + at.n + " \u00B7 " + esc(at.title) + '</p><p class="cliff__t">' + (sp ? "<b>" + sp + "</b> " : "") + esc(outT) + "</p></div>";
+      return '<div class="cliff"><p class="cliff__h">Chapter ' + at.n + ": " + esc(at.title) + '</p><p class="cliff__t">' + (sp ? "<b>" + sp + "</b> " : "") + esc(outT) + "</p></div>";
     }
     function skipAll() { var o = {}; INTAKE.forEach(function (q) { o[q.id] = q.skip_value; }); return o; }
     /* optional chips after chapter 1 (2026-11-05): the reading's own questions (or its one mood question). Never blocking:
@@ -436,7 +509,7 @@
       if (!qs.length) return null;
       var cur = INTAKE.length ? Object.assign({}, answers || {}) : { __mood: BY.load(MOOD_KEY) };
       var box = document.createElement("section"); box.className = "pv-chips rise"; box.id = "pvChips";
-      box.innerHTML = '<p class="kicker">Optional \u00B7 makes the next chapters sharper</p>' + qs.map(function (q) {
+      box.innerHTML = '<p class="pv-chips__h">Optional: makes the next chapters sharper</p>' + qs.map(function (q) {
         return '<div class="pv-q" data-q="' + esc(q.id) + '"><p class="pv-q__t">' + esc(q.question) + '</p><div class="pv-q__o" role="group" aria-label="' + esc(q.question) + '">' +
           q.options.filter(function (o) { return o.value !== q.skip_value; }).map(function (o) {
             return '<button type="button" class="chipbtn" data-v="' + esc(o.value) + '" aria-pressed="' + (cur[q.id] === o.value ? "true" : "false") + '">' + esc(o.label) + "</button>";
@@ -456,7 +529,7 @@
     }
     function addTheirCard() {
       var c = document.createElement("section"); c.className = "card pv-their rise"; c.id = "pvTheir";
-      c.innerHTML = '<p class="kicker">One more date</p><h3>The rest of this comic compares your two charts</h3>' +
+      c.innerHTML = '<h3>The rest of this comic compares your two charts</h3>' +
         '<p class="muted small">Add their birthday so the full comic is about the two of you. Just the date, they never find out. You can also add it right after paying.</p>' +
         '<form class="form-stack" novalidate>' + BY.dateHTML("t", "Their birthday") + '<p class="err" role="alert"></p><button class="btn btn--ghost btn--block" type="submit">Add their birthday</button></form>';
       BY.fillSelects(c);
@@ -511,14 +584,26 @@
         var hook = d.hook || {}, numOf = function (id) { for (var i = 0; i < rest.length; i++) if (rest[i].id === id) return { n: i + 3, title: lockTitle(rest[i], R, s, them) }; return null; };
         var cl = hook.cliff && numOf(hook.cliff.id), sm = hook.sample && numOf(hook.sample.id);
         var lock = document.createElement("section"); lock.className = "lock-list rise";
-        lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") +
-          '<div class="lock-head"><p class="kicker">Locked \u00B7 ' + rest.length + ' more chapters about you</p><h3 class="lock-h">The rest of your comic, ' + esc(name || s.nick) + '</h3></div><ol class="lock-ol lock-ol--v2">' + rest.map(function (c, i) {
+        var optPair = PAIR === "optional" && !R.partner;
+        // v5: the optional pair chapter is the paywall's one "+1" note, so the locked list shows the chapters every buyer gets
+        var shown = optPair ? rest.filter(function (c) { return c.type !== "pair"; }) : rest;
+        if (optPair && shown.length !== rest.length - 1) shown = rest;
+        var restLine = shown.length + " more chapters";
+        var row = function (c, i) {
           var sc = sceneFor(c.id, R), th = sc ? sc.src.replace("/img/scenes/", "/img/scenes-t/") : "";
           return '<li><span class="lk-th"' + (th ? ' style="background-image:url(' + th + ')"' : "") + '><i>' + (i + 3) + '</i></span><span class="lk-tx"><b>' + esc(lockTitle(c, R, s, them)) +
-            '</b><small>' + esc(lockKicker(c, s, them)) + '</small></span><svg class="lk-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></li>';
-        }).join("") + "</ol>" + paywallHTML(rest.length, sm ? { text: hook.sample.text, who: hook.sample.who, n: sm.n, title: sm.title } : null);
+            '</b></span><svg class="lk-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></li>';
+        };
+        var SHOW = 3;
+        lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") +
+          '<div class="lock-head"><h3 class="lock-h">The rest of your comic, ' + esc(name || s.nick) + '</h3><p class="lock-sub">' + esc(restLine) + ', locked</p></div>' +
+          '<ol class="lock-ol lock-ol--v2">' + shown.slice(0, SHOW).map(row).join("") + "</ol>" +
+          (shown.length > SHOW ? '<details class="lock-more"><summary>And ' + (shown.length - SHOW) + " more</summary>" + '<ol class="lock-ol lock-ol--v2" start="' + (SHOW + 3) + '">' + shown.slice(SHOW).map(function (c, i) { return row(c, i + SHOW); }).join("") + "</ol></details>" : "") +
+          paywallHTML(rest.length, sm ? { text: hook.sample.text, who: hook.sample.who, n: sm.n, title: sm.title } : null, !!R.partner);
         out.appendChild(lock);
+        document.body.classList.add("has-strip");
         BY.watch(out);
+        if (BY.tails) BY.tails(out);
         extras(true);
         BY.trackOnce("teaser-" + P.slug, "Teaser shown: " + P.slug);
         var chs = out.querySelectorAll(".comic--teaser");
@@ -560,18 +645,41 @@
     }
     /* sticky price bar (2026-11-05): on from the type reveal, its button goes straight to checkout (one tap); hidden while the
        paywall's own button is on screen, so there are never two buy buttons at once */
-    var stickyIO = null;
+    var stickyIO = null, stickyScroll = null;
     function stickyPaywall() {
       var pw = out.querySelector(".paywall"), sb = $("stickyBuy"); if (!sb || !pw) return;
       var act = sb.querySelector(".sb-act");
       if (act) act.innerHTML = PAY.owns(P.slug) ? '<a class="btn btn--sm" href="' + esc(readUrl()) + '">Open my reading</a>' : PAY.buyLink(P.slug, "Read the rest", "btn--sm");
-      sb.classList.add("is-on"); document.body.classList.add("has-sb");
-      var area = pw.querySelector(".pw-btn") || pw;
+      sb.classList.add("is-hidden", "is-on"); document.body.classList.add("has-sb");
+      // 2026-11-06 redesign: hidden while ANY part of the paywall box is on screen, and over the footer (never two buy buttons)
+      // v3 2026-11-06: never over the strip while reading. The bar waits until chapter 1 has been read, then shows only when the
+      // reader scrolls back up (looking for the price) and slides away again on the next scroll down. The header does the same
+      // while a comic is on the page (site.js chromeHide), so reading down the strip is full screen, like a webtoon app.
+      var zones = [pw].concat([].slice.call(document.querySelectorAll(".foot"))), seen = [];
+      var ch1 = out.querySelector(".comic--teaser"), gate = false, dir = 0, lastY = window.scrollY, down = 0, up = 0, tick = false;
+      function apply() {
+        sb.classList.toggle("is-hidden", !(gate && dir < 0 && !seen.length));
+      }
       if ("IntersectionObserver" in window) {
         if (stickyIO) stickyIO.disconnect();
-        stickyIO = new IntersectionObserver(function (ents) { ents.forEach(function (en) { sb.classList.toggle("is-hidden", en.isIntersecting); }); });
-        stickyIO.observe(area);
+        stickyIO = new IntersectionObserver(function (ents) {
+          ents.forEach(function (en) { var i = seen.indexOf(en.target); if (en.isIntersecting && i < 0) seen.push(en.target); if (!en.isIntersecting && i > -1) seen.splice(i, 1); });
+          apply();
+        });
+        zones.forEach(function (z) { stickyIO.observe(z); });
       }
+      if (stickyScroll) window.removeEventListener("scroll", stickyScroll);
+      window.addEventListener("scroll", stickyScroll = function () {
+        if (tick) return; tick = true;
+        requestAnimationFrame(function () {
+          tick = false;
+          var y = window.scrollY, dy = y - lastY; lastY = y;
+          if (dy > 0) { down += dy; up = 0; if (down > 12) dir = 1; } else if (dy < 0) { up -= dy; down = 0; if (up > 40) dir = -1; }
+          if (!gate && ch1 && ch1.getBoundingClientRect().bottom < window.innerHeight * 0.6) gate = true;
+          if (y < 80) dir = 0;
+          apply();
+        });
+      }, { passive: true });
     }
     /* leave capture (2026-10-21): a teaser viewer with no email given who scrolls back up fast, moves the mouse out of the top
        of the window (desktop) or taps Back after seeing the paywall gets ONE small sheet per session offering the first two
@@ -659,6 +767,8 @@
     }
     if (PAY && PAY.owns(P.slug)) { goRead(true); return; }
     wireForm();
+    // v5: from the home form (birthday already saved there) a choice opens its comic straight away; two-birthday readings still ask for theirs
+    if (location.hash === "#go" && birth && PAIR !== "required") { try { history.replaceState(null, "", location.pathname + location.search + "#preview"); } catch (x) { /* file:// */ } go(birth, null); return; }
     // birthday known (return visit, another reading, emailed link): the comic is drawn under the hero right away
     if (ready() && (BY.load(DONE_KEY) || fromLink || BY.load("birth"))) renderPreview(fromLink);
     else extras(true);
@@ -850,7 +960,7 @@
             out.appendChild(html('<div class="say say--' + tv + ' rise thanks"><span class="av av--' + tv + '"><img src="/assets/img/av-' + tv + '.webp" alt="" width="56" height="56"></span><p class="bubble"><b>' + who(tv) + "</b>" + esc(THANKS[tv]) + "</p></div>"));
           }
         }
-        if (PAY) out.appendChild(html('<p class="small muted center no-print rd-owned">Paid on this browser.</p>'));
+        if (PAY) out.appendChild(html('<p class="small muted center no-print rd-owned">Yours on this browser. To read it on another phone, tap the button in your \u201CYour comic is ready\u201D email, or open <a href="' + esc(P.readUrl) + '">this page</a> there and paste the license key from your Gumroad receipt.</p>'));
         out.appendChild(coverCard(info, R));
         if (R.termDay) out.appendChild(html(termBanner(R)));
         out.appendChild(actions());
@@ -860,12 +970,27 @@
         var asm = A4.assemble(R, J, { answers: ansFor(), pairs: J.pairs || null }), art = counter();
         var pi = -1; J.plan.forEach(function (c, i) { if (c.type === "pair") pi = i; });
         var afterId = PAIR === "optional" && !them && pi > 0 ? J.plan[pi - 1].id : null;
-        asm.chapters.forEach(function (ch) {
-          if (ch.id === "balance" && ch.blocks) out.appendChild(comicChapter(ch, R, art, { blocks: ch.blocks }));
-          else if (ch.id === "strength") out.appendChild(comicChapter(ch, R, art, { pre: esc(strengthHow(R)) }));
-          else out.appendChild(comicChapter(ch, R, art));
+        // v5 2026-11-06: silent panels between the beats use this reading's other scenes; never the chapter's own scene, never the
+        // scene of the chapter right before or after, never the same picture twice in a row, top and bottom bands in turn.
+        var own = asm.chapters.map(function (c) { var x = sceneFor(c.id, R); return x ? x.src : ""; });
+        var pool = Object.keys(SC).filter(function (k) { return k.indexOf(P.slug + "/") === 0; }).map(function (k) { return "/assets/img/scenes/" + k + ".webp"; });
+        own.forEach(function (x) { if (x && pool.indexOf(x) < 0) pool.push(x); });
+        var useN = {}, lastS = "", band = 0;
+        var silentFor = function (ci) {
+          return function () {
+            var no = [own[ci], own[ci - 1], own[ci + 1], lastS], c = pool.filter(function (x) { return no.indexOf(x) < 0; });
+            if (!c.length) return null;
+            c.sort(function (a, b) { return (useN[a] || 0) - (useN[b] || 0); });
+            var src = c[0]; useN[src] = (useN[src] || 0) + 1; lastS = src;
+            return { src: src, pos: (band++ % 2 ? "50% 96%" : "50% 6%") };
+          };
+        };
+        asm.chapters.forEach(function (ch, ci) {
+          if (ch.id === "balance" && ch.blocks) out.appendChild(comicChapter(ch, R, art, { blocks: ch.blocks, silent: silentFor(ci) }));
+          else if (ch.id === "strength") out.appendChild(comicChapter(ch, R, art, { pre: esc(strengthHow(R)), silent: silentFor(ci) }));
+          else out.appendChild(comicChapter(ch, R, art, { silent: silentFor(ci) }));
           if (afterId && ch.id === afterId) {
-            out.appendChild(html('<div class="card rise no-print add-their"><p class="kicker">One more chapter</p><p>Add their birthday and Bom and Yeon write a chapter on how your two patterns meet.</p>' +
+            out.appendChild(html('<div class="card rise no-print add-their"><p>Add their birthday and Bom and Yeon write a chapter on how your two patterns meet.</p>' +
               '<form id="addTheir" class="form-stack" novalidate>' + document.querySelector("#rdForm .selects[aria-label^='Their']").outerHTML + '<p class="err" id="atErr" role="alert"></p><button class="btn" type="submit">Add the chapter</button></form></div>'));
           }
         });
@@ -1021,7 +1146,7 @@
       }).join("");
       var el = document.createElement("header");
       el.className = "cover-card rise";
-      el.innerHTML = '<p class="kicker">' + esc(I.title) + "</p>" +
+      el.innerHTML = '<p class="cv-title">' + esc(I.title) + "</p>" +
         '<p class="cv-name">' + (I.name ? esc(I.name) : "Your reading") + "</p>" +
         '<p class="hz cv-dm" style="color:' + I.color + '">' + I.hanja + "</p>" +
         "<h1>" + esc(I.dmName) + '</h1><p class="muted">' + esc(I.nick) + (I.them ? ' · with <span class="hz" style="color:' + I.them.color + '">' + I.them.hanja + "</span> " + esc(I.them.name) : "") + "</p>" +
@@ -1036,7 +1161,7 @@
     /* bonus 2026-10-25: owners get their type's wallpapers + compatibility chart (one card, after the last chapter) */
     function bonusBox(s) {
       var b = "/assets/bonus/k9/" + s.slug, d = document.createElement("section"); d.className = "card bonus-box no-print rise";
-      d.innerHTML = '<p class="kicker">Your bonus</p><h2 class="h3">' + esc(s.nick) + ', for your phone and your wall</h2>' +
+      d.innerHTML = '<h2 class="h3">' + esc(s.nick) + ', for your phone and your wall</h2>' +
         '<div class="bonus-grid"><a href="' + b + '-phone.jpg" download="' + s.slug + '-phone-wallpaper.jpg"><img src="' + b + '-phone.jpg" alt="Phone wallpaper: ' + esc(s.nick) + '" loading="lazy" width="1179" height="2556"><span>Phone wallpaper</span></a>' +
         '<a href="' + b + '-chart.jpg" download="' + s.slug + '-compatibility-chart.jpg"><img src="' + b + '-chart.jpg" alt="Compatibility chart: ' + esc(s.nick) + '" loading="lazy" width="1080" height="1920"><span>Compatibility chart</span></a></div>' +
         '<p class="small"><a class="link-arrow" href="' + b + '-desktop.jpg" download="' + s.slug + '-desktop-wallpaper.jpg">Desktop wallpaper</a> · On a phone, press and hold an image to save it.</p>';
@@ -1090,13 +1215,13 @@
       if (left.length < 2 || save <= 0) return; // nothing honest to offer
       shelf.hidden = true;
       var c = document.createElement("div"); c.className = "card upsell center";
-      c.innerHTML = '<p class="kicker">While your birthday is saved</p><h3>Add every other reading for ' + BY.moneyHTML(price) + "</h3>" +
+      c.innerHTML = '<h3>Add every other reading for ' + BY.moneyHTML(price) + "</h3>" +
         '<p class="muted">The other ' + left.length + " readings cost " + BY.moneyHTML(Math.round(sum * 100) / 100) + " one by one. All Readings is " + BY.moneyHTML(price) + ". Each one opens straight away, no forms.</p>" +
         PAY.buyLink("all-readings", "Add all " + left.length + " · " + BY.moneyHTML(price)) +
         PAY.trust + PAY.consent + PAY.statusEl("all-readings") + '<p class="small"><a href="/readings/all-readings/">See what\'s inside</a></p>';
       shelf.parentNode.insertBefore(c, shelf);
       BY.trackOnce("upsell-shown-" + P.slug, "Bundle card shown after purchase: " + P.slug);
-      PAY.watch("all-readings", function () { c.innerHTML = '<p class="kicker">All Readings</p><h3>Done. Every reading is yours.</h3><p class="muted">Bom saved them all to this browser. Pick the next one.</p>'; shelf.hidden = false; });
+      PAY.watch("all-readings", function () { c.innerHTML = '<h3>Done. Every reading is yours.</h3><p class="muted">Bom saved them all to this browser. Pick the next one.</p>'; shelf.hidden = false; });
     }
     function mins(w) { return Math.max(1, Math.round(w / 238)); }
     function aboutThis(R, L) {

@@ -493,12 +493,18 @@
     [].forEach.call(doc.querySelectorAll("form[data-daily]"), function (f) {
       var box = f.querySelector(".daily-bday");
       // no saved birthday: ask for it here (Day Master for the email + age check)
-      if (box && !BY.load("birth")) { BY.fillSelects(box); box.hidden = false; }
+      // v4 2026-11-06: the form starts as email + button; the birthday opens once she starts typing her email (or presses send)
+      if (box && !BY.load("birth")) {
+        BY.fillSelects(box);
+        var openB = function () { box.hidden = false; };
+        var em = f.querySelector('input[type="email"]'); if (em) { em.addEventListener("focus", openB, { once: true }); em.addEventListener("input", openB, { once: true }); }
+      }
       f.addEventListener("submit", function (e) {
         e.preventDefault();
         var inp = f.querySelector('input[type="email"]'), err = f.querySelector(".err"), v = inp.value.trim();
         if (!BY.EMAIL_RE.test(v)) { err.textContent = "Please enter a valid email."; inp.focus(); return; }
         var b = BY.load("birth");
+        if (box && box.hidden && !b) { box.hidden = false; err.textContent = "Add your birthday, so the email is about you."; return; }
         if (box && !box.hidden) {
           var r = BY.readDate(f, "ds");
           if (r.error) { err.textContent = r.error; return; }
@@ -555,10 +561,25 @@
   BY.PANEL_H = { 1: 1290, 2: 1290, 3: 1290, 4: 1290, 5: 1290, 6: 1290, 7: 1290, 8: 736, 9: 749, 10: 1290, 11: 1005, 12: 1096 };
 
   /* ---------- scroll reveal ---------- */
-  var io = ("IntersectionObserver" in window && !reduced) ? new IntersectionObserver(function (ents) {
+  /* 2026-11-06 redesign: content is never hidden waiting for a scroll reveal (no empty areas while scrolling in the IG
+     browser). .rise is now visible at once; the observer below is kept off. */
+  var io = false ? new IntersectionObserver(function (ents) {
     ents.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add("is-in"); io.unobserve(en.target); } });
   }, { threshold: 0.18, rootMargin: "0px 0px -6% 0px" }) : null;
+  /* v3 2026-11-06: typographic quotes and apostrophes in text rendered by script (the strip, the read page); static pages get the
+     same pass at build time. Text nodes only, never attributes or code. */
+  BY.typo = function (root) {
+    if (!root || !doc.createTreeWalker) return;
+    var w = doc.createTreeWalker(root, 4, null), n, t;
+    while ((n = w.nextNode())) {
+      if (n.parentNode && /^(SCRIPT|STYLE|TEXTAREA|INPUT)$/.test(n.parentNode.nodeName)) continue;
+      t = n.nodeValue; if (t.indexOf("'") < 0 && t.indexOf('"') < 0) continue;
+      n.nodeValue = t.replace(/([A-Za-z0-9])'([A-Za-z])/g, "$1\u2019$2").replace(/(^|[\s(\[-])'/g, "$1\u2018").replace(/'/g, "\u2019")
+        .replace(/(^|[\s(\[-])"/g, "$1\u201C").replace(/"/g, "\u201D");
+    }
+  };
   BY.watch = function (scope) {
+    if (scope) BY.typo(scope);
     [].forEach.call((scope || doc).querySelectorAll(".rise:not(.is-in)"), function (el, i) {
       if (el.classList.contains("panel") && !el.classList.contains("from-l") && !el.classList.contains("from-r")) el.classList.add(i % 2 ? "from-r" : "from-l");
       if (io) io.observe(el); else el.classList.add("is-in");
@@ -578,10 +599,29 @@
   /* ---------- menu ---------- */
   function wireMenu() {
     var btn = doc.querySelector(".menu-btn"); if (!btn) return;
-    btn.addEventListener("click", function () {
-      var on = !root.classList.contains("menu-open");
-      root.classList.toggle("menu-open", on); btn.setAttribute("aria-expanded", on ? "true" : "false");
-    });
+    var set = function (on) { root.classList.toggle("menu-open", on); btn.setAttribute("aria-expanded", on ? "true" : "false"); };
+    btn.addEventListener("click", function () { set(!root.classList.contains("menu-open")); });
+    // v4: the menu is a full-screen sheet; a tap on any of its links (same-page #readings too) or Escape closes it
+    var dr = doc.getElementById("drawer");
+    if (dr) dr.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("a")) set(false); });
+    doc.addEventListener("keydown", function (e) { if (e.key === "Escape" && root.classList.contains("menu-open")) { set(false); btn.focus(); } });
+  }
+
+  /* ---------- v3 2026-11-06: while a comic is on the page (teaser strip or the paid read page) the header slides away on
+     the way down and comes back on the way up, so the strip reads full screen like a webtoon app ---------- */
+  function chromeHide() {
+    var last = window.scrollY, down = 0, up = 0, tick = false;
+    window.addEventListener("scroll", function () {
+      if (tick) return; tick = true;
+      requestAnimationFrame(function () {
+        tick = false;
+        var y = window.scrollY, dy = y - last; last = y;
+        var on = doc.body.classList.contains("has-strip") || !!doc.getElementById("rdOut");
+        if (dy > 0) { down += dy; up = 0; } else if (dy < 0) { up -= dy; down = 0; }
+        if (!on || y < 160 || up > 40 || root.classList.contains("menu-open")) doc.body.classList.remove("rd-down");
+        else if (down > 12) doc.body.classList.add("rd-down");
+      });
+    }, { passive: true });
   }
 
   /* ---------- gumiho page transition ---------- */
@@ -644,9 +684,48 @@
     requestAnimationFrame(draw);
   }
 
+  /* ---------- v4 2026-11-06: speech bubbles over art (home hero, the comic cover) ----------
+     Each .bub carries data-tip="x,y", in % of the picture: the top of the speaker's head (Bom is the man in the dark coat,
+     Yeon the woman in hanbok). The figure gets just enough room above the picture for the bubbles, which overlap the
+     picture's top edge a little, and a tail is drawn from each bubble's bottom edge to its tip. Faces are never covered. */
+  var SVGNS = "http://www.w3.org/2000/svg", OVER = 22;
+  BY.tails = function (scope) {
+    [].forEach.call((scope || doc).querySelectorAll("figure[data-tails]"), function (fig) {
+      var img = fig.querySelector("img"); if (!img) return;
+      var draw = function () {
+        var bubs = [].slice.call(fig.querySelectorAll(".bub[data-tip]")); if (!bubs.length || !img.offsetWidth) return;
+        var mh = 0; bubs.forEach(function (b) { mh = Math.max(mh, b.offsetHeight + b.offsetTop); });
+        fig.style.paddingTop = Math.max(0, mh - OVER) + "px";
+        var fr = fig.getBoundingClientRect(), ir = img.getBoundingClientRect();
+        var svg = fig.querySelector("svg.tails");
+        if (!svg) { svg = doc.createElementNS(SVGNS, "svg"); svg.setAttribute("class", "tails"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("focusable", "false"); fig.appendChild(svg); }
+        svg.setAttribute("viewBox", "0 0 " + fr.width + " " + fr.height);
+        var out = "";
+        bubs.forEach(function (b) {
+          var t = b.getAttribute("data-tip").split(","), br = b.getBoundingClientRect(), cs = getComputedStyle(b);
+          var tx = ir.left - fr.left + ir.width * (+t[0]) / 100, ty = ir.top - fr.top + ir.height * (+t[1]) / 100;
+          var by = br.bottom - fr.top - 2, l = br.left - fr.left, r = br.right - fr.left;
+          var cx = Math.min(Math.max(tx, l + 26), r - 26), w = 9;
+          if (ty < by + 8) ty = by + 8;
+          var pts = (cx - w).toFixed(1) + "," + by.toFixed(1) + " " + tx.toFixed(1) + "," + ty.toFixed(1) + " " + (cx + w).toFixed(1) + "," + by.toFixed(1);
+          var edge = cs.borderTopWidth && parseFloat(cs.borderTopWidth) > 0 ? cs.borderTopColor : "";
+          out += '<polygon points="' + pts + '" fill="' + cs.backgroundColor + '"/>';
+          if (edge) out += '<polyline points="' + pts + '" fill="none" stroke="' + edge + '" stroke-width="' + cs.borderTopWidth + '" stroke-linejoin="round"/>';
+        });
+        svg.innerHTML = out;
+      };
+      fig._tails = draw; draw();
+      if (!img.complete) img.addEventListener("load", draw, { once: true });
+      if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(draw);
+    });
+  };
+  var tailT = 0;
+  window.addEventListener("resize", function () { clearTimeout(tailT); tailT = setTimeout(function () { [].forEach.call(doc.querySelectorAll("figure[data-tails]"), function (f) { if (f._tails) f._tails(); }); }, 120); });
+
   function start() {
     BY.fillSelects(); BY.paintPrices(); geo();
-    wireMenu(); wireDaily(); wireFox(); sky(); BY.watch();
+    // v3 2026-11-06: no gumiho run on link clicks and no drifting petals/fireflies (motion without a reason); wireFox and sky stay defined, unused
+    wireMenu(); wireDaily(); chromeHide(); BY.watch(); BY.tails();
   }
   if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", start); else start();
 })();

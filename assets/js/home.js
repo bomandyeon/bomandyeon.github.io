@@ -17,7 +17,27 @@
     vb.innerHTML = "<b>" + who + '</b> is <span class="hz" style="color:' + EL_COLOR[VS.soul.el] + '">' + VS.soul.hanja + "</span> " + esc(VS.soul.nick) + ". What are you?";
     vb.hidden = false;
     var sb = form.querySelector("button[type=submit]"); if (sb) sb.textContent = "Reveal mine and our match";
+    var soulSec = $("soul"); if (soulSec) soulSec.hidden = false; // v4: the soul form is off home except for compare links
     setTimeout(function () { var so = $("soul"); if (so) so.scrollIntoView({ block: "start" }); }, 250); // compare links land on the soul form
+  }
+  /* v5 2026-11-06: the birthday form sits right under the hero art. "Show my comic" saves the birthday in this browser and
+     moves to the love chooser; from then on each choice opens its comic straight away (product.js, #go). No new events. */
+  var hf = $("homeForm");
+  if (hf) {
+    BY.fillSelects(hf); BY.knownBirth(hf);
+    var setGo = function () { [].forEach.call(document.querySelectorAll(".chooser__opt"), function (a) { var h = a.getAttribute("href") || ""; if (h.indexOf("#preview") > 0) a.setAttribute("href", h.replace("#preview", "#go")); }); };
+    if (BY.load("birth")) setGo();
+    hf.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var kn = hf.querySelector(".bknown"), old = BY.load("birth"), er = hf.querySelector(".err");
+      var b = kn && !kn.hidden && old ? old : BY.readDate(hf, "b");
+      if (b.error) { er.textContent = "Your birthday: " + b.error; return; }
+      er.textContent = "";
+      if (!old || BY.iso(old) !== BY.iso(b)) BY.store("btime", null);
+      BY.store("birth", b); BY.knownBirth(hf); setGo();
+      document.body.classList.add("h2-picking");
+      var h = $("readings"); if (h) { h.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }); try { h.focus({ preventScroll: true }); } catch (x) { /* old browser */ } }
+    });
   }
   /* hero chooser + catalogue cards: which question people pick (event name only) */
   document.addEventListener("click", function (e) {

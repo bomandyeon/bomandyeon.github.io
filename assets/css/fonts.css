@@ -1,8 +1,8 @@
-/* Self-hosted fonts (subset at build time to the characters the site uses; no third-party requests). */
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 400; font-display: swap; src: url(/assets/fonts/inter-400.woff2) format("woff2"); }
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 500; font-display: swap; src: url(/assets/fonts/inter-500.woff2) format("woff2"); }
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 600; font-display: swap; src: url(/assets/fonts/inter-600.woff2) format("woff2"); }
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 700; font-display: swap; src: url(/assets/fonts/inter-700.woff2) format("woff2"); }
+/* Self-hosted fonts (subset at build time to the characters the site uses; no third-party requests).
+   IBM Plex Sans KR for reading and UI (v2 2026-11-06, replaces Inter), Gowun Batang for display and narration. */
+@font-face { font-family: "IBM Plex Sans KR"; font-style: normal; font-weight: 400; font-display: swap; src: url(/assets/fonts/plex-400.woff2) format("woff2"); }
+@font-face { font-family: "IBM Plex Sans KR"; font-style: normal; font-weight: 500; font-display: swap; src: url(/assets/fonts/plex-500.woff2) format("woff2"); }
+@font-face { font-family: "IBM Plex Sans KR"; font-style: normal; font-weight: 600 700; font-display: swap; src: url(/assets/fonts/plex-600.woff2) format("woff2"); }
 @font-face { font-family: "Gowun Batang"; font-style: normal; font-weight: 400; font-display: swap; src: url(/assets/fonts/gowun-400.woff2) format("woff2"); }
 @font-face { font-family: "Gowun Batang"; font-style: normal; font-weight: 700; font-display: swap; src: url(/assets/fonts/gowun-700.woff2) format("woff2"); }
 @font-face { font-family: "Noto Serif KR"; font-style: normal; font-weight: 700; font-display: swap; src: url(/assets/fonts/notoserifkr-700.woff2) format("woff2"); }

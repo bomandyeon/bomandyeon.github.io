@@ -5,7 +5,7 @@
   var BY = window.BY = window.BY || {};
   var W = 1080, H = 1920, BG = "#0E0F1A", MOON = "#EDE6D6", GOLD = "#C9A45C", RED = "#C8443C";
   var COL = { Wood: "#6FA86B", Fire: "#C8564C", Earth: "#C9A45C", Metal: "#C3C7CE", Water: "#5E86B8" };
-  var SERIF = "'Gowun Batang', Georgia, serif", SANS = "Inter, system-ui, sans-serif", HZ = "'Noto Serif KR', 'Gowun Batang', serif";
+  var SERIF = "'Gowun Batang', Georgia, serif", SANS = "'IBM Plex Sans KR', system-ui, sans-serif", HZ = "'Noto Serif KR', 'Gowun Batang', serif";
 
   function img(src) { return new Promise(function (ok) { var i = new Image(); i.onload = function () { ok(i); }; i.onerror = function () { ok(null); }; i.src = src; }); }
   function center(ctx, t, y, font, color) { ctx.font = font; ctx.fillStyle = color; ctx.textAlign = "center"; ctx.fillText(t, W / 2, y); }
@@ -20,7 +20,7 @@
     var cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     var ctx = cv.getContext("2d");
     var F = document.fonts, txt = I.hanja + I.pillars.map(function (p) { return p.stem + p.branch; }).join("") + I.seasonHz + "봄연" + (I.them ? I.them.hanja : "");
-    var ready = F && F.load ? Promise.all([F.load("700 96px 'Noto Serif KR'", txt), F.load("700 64px 'Gowun Batang'", "Bom & Yeon"), F.load("600 34px Inter", "A")])
+    var ready = F && F.load ? Promise.all([F.load("700 96px 'Noto Serif KR'", txt), F.load("700 64px 'Gowun Batang'", "Bom & Yeon"), F.load("600 34px 'IBM Plex Sans KR'", "A")])
       .catch(function () {}).then(function () { return F.ready; }) : Promise.resolve();
     return Promise.all([ready, img("/assets/img/hanji.webp"), img("/assets/img/av-bom.webp"), img("/assets/img/av-yeon.webp")]).then(function (r) {
       var hanji = r[1], bom = r[2], yeon = r[3];
@@ -122,7 +122,7 @@
   "use strict";
   var BY = window.BY = window.BY || {};
   var BG = "#0E0F1A", MOON = "#EDE6D6", GOLD = "#C9A45C", RED = "#C8443C";
-  var SERIF = "'Gowun Batang', Georgia, serif", SANS = "Inter, system-ui, sans-serif", HZ = "'Noto Serif KR', 'Gowun Batang', serif";
+  var SERIF = "'Gowun Batang', Georgia, serif", SANS = "'IBM Plex Sans KR', system-ui, sans-serif", HZ = "'Noto Serif KR', 'Gowun Batang', serif";
   var SIZES = { story: [1080, 1920], post: [1080, 1350] };
   function img(src) { return new Promise(function (ok) { var i = new Image(); i.onload = function () { ok(i); }; i.onerror = function () { ok(null); }; i.src = src; }); }
   function round(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }

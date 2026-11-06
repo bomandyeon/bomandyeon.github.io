@@ -23,9 +23,9 @@
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" href="/assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/css/fonts.css?v=6fb4c80a">
-<link rel="stylesheet" href="/assets/css/site.css?v=d2d45716">
+<link rel="preload" href="/assets/fonts/plex-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/fonts.css?v=d7d04164">
+<link rel="stylesheet" href="/assets/css/site.css?v=86ac07ab">
 <link rel="preload" as="image" href="/assets/img/hero-home-m.webp" imagesrcset="/assets/img/hero-home-m-640.webp 640w, /assets/img/hero-home-m.webp 800w" imagesizes="calc(100vw - 40px)" media="(max-width: 699px)" fetchpriority="high"><link rel="preload" as="image" href="/assets/img/hero-home.webp" media="(min-width: 700px)" fetchpriority="high">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Bom & Yeon","url":"https://bomandyeon.com/","description":"Korean saju personality types, compatibility and readings."},{"@type":"Organization","name":"Bom & Yeon","url":"https://bomandyeon.com/","email":"yeon@bomandyeon.com","logo":"https://bomandyeon.com/apple-touch-icon.png","description":"Korean saju as a personality language: ten birthday types, compatibility and comic readings. For entertainment and self-reflection."}]}</script>
 </head>
@@ -35,42 +35,40 @@
 <header class="top">
  <div class="wrap">
   <a class="brand" href="/"><span class="seal" aria-hidden="true">봄연</span>Bom &amp; Yeon</a>
-  <nav class="nav" aria-label="Main"><a href="/#readings">Readings</a><a href="/souls/">Souls</a><a href="/compatibility/">Compatibility</a><a href="/mbti/">MBTI</a><a href="/2027/">2027</a><a href="/about/">About</a></nav>
+  <nav class="nav" aria-label="Main"><a href="/#readings">Readings</a><a href="/souls/">Birthday types</a><a href="/compatibility/">Compatibility</a><a href="/mbti/">MBTI and saju</a><a href="/2027/">Your 2027</a><a href="/about/">About saju</a></nav>
   <button class="menu-btn" type="button" aria-expanded="false" aria-controls="drawer" aria-label="Menu"><span></span></button>
  </div>
- <nav class="drawer" id="drawer" aria-label="Main mobile"><a href="/#readings">Readings</a><a href="/souls/">Souls</a><a href="/compatibility/">Compatibility</a><a href="/mbti/">MBTI</a><a href="/2027/">2027</a><a href="/about/">About</a></nav>
+ <nav class="drawer" id="drawer" aria-label="Main mobile"><div class="drawer__in"><a href="/#readings">Readings</a><a href="/souls/">Birthday types</a><a href="/compatibility/">Compatibility</a><a href="/mbti/">MBTI and saju</a><a href="/2027/">Your 2027</a><a href="/about/">About saju</a></div><a class="btn btn--block drawer__go" href="/#readings">Read my free comic</a></nav>
 </header>
 <main id="main">
 
 <section class="hero2">
  <div class="wrap">
-  <figure class="h2-panel">
-   <picture><source media="(min-width: 700px)" srcset="/assets/img/hero-home.webp"><img src="/assets/img/hero-home-m.webp" srcset="/assets/img/hero-home-m-640.webp 640w, /assets/img/hero-home-m.webp 800w" sizes="(min-width: 700px) 1600px, calc(100vw - 40px)" alt="Bom and Yeon, the two comic characters, on a hanok veranda under a full moon" width="800" height="719" fetchpriority="high"></picture>
-   <p class="h2-say h2-say--bom"><b>Bom</b>Give me your birthday.</p>
-   <p class="h2-say h2-say--yeon"><b>Yeon</b>I'll show you the pattern you keep falling into.</p>
+  <figure class="h2-panel" data-tails>
+   <img src="/assets/img/hero-home-m.webp" srcset="/assets/img/hero-home-m-640.webp 640w, /assets/img/hero-home-m.webp 800w" sizes="(min-width: 860px) 520px, 100vw" alt="Bom and Yeon, the two comic characters, on a hanok veranda under a full moon" width="800" height="719" fetchpriority="high">
+   <p class="bub bub--bom bub--l" data-tip="53,20"><b class="sr">Bom:</b> Give me your birthday.</p>
+   <p class="bub bub--yeon bub--r" data-tip="70,23"><b class="sr">Yeon:</b> I’ll show you the pattern you keep falling into.</p>
   </figure>
-  <h1>A personal comic about your love life, <em>written from your birthday.</em></h1>
-  <p class="h2-sub">Why you keep ending up here, and what to do about it. Up to 11 illustrated chapters, explained by Bom and Yeon.</p>
+  <div class="h2-main">
+  <form id="homeForm" class="pv-form h2-form form-stack" novalidate><p class="bknown" hidden>Reading for <b data-bdate></b> · <button type="button" class="linkbtn" data-bchange>change</button></p><div class="bfield"><span class="field-label">Your birthday</span><div class="selects bdate" role="group" aria-label="Your birthday" data-prefix="b"><span class="field-label bdate__l">Month</span><div class="mchips"><button type="button" class="mchip" data-m="1" aria-pressed="false" aria-label="January">Jan</button><button type="button" class="mchip" data-m="2" aria-pressed="false" aria-label="February">Feb</button><button type="button" class="mchip" data-m="3" aria-pressed="false" aria-label="March">Mar</button><button type="button" class="mchip" data-m="4" aria-pressed="false" aria-label="April">Apr</button><button type="button" class="mchip" data-m="5" aria-pressed="false" aria-label="May">May</button><button type="button" class="mchip" data-m="6" aria-pressed="false" aria-label="June">Jun</button><button type="button" class="mchip" data-m="7" aria-pressed="false" aria-label="July">Jul</button><button type="button" class="mchip" data-m="8" aria-pressed="false" aria-label="August">Aug</button><button type="button" class="mchip" data-m="9" aria-pressed="false" aria-label="September">Sep</button><button type="button" class="mchip" data-m="10" aria-pressed="false" aria-label="October">Oct</button><button type="button" class="mchip" data-m="11" aria-pressed="false" aria-label="November">Nov</button><button type="button" class="mchip" data-m="12" aria-pressed="false" aria-label="December">Dec</button></div><label class="sr"><span>Your birthday month</span><select name="bm" data-kind="m" autocomplete="bday-month" tabindex="-1"><option value="">Month</option></select></label><div class="bdate__dy"><label><span class="field-label">Day</span><input class="input" name="bd" data-kind="d" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="bday-day" placeholder="DD" enterkeyhint="next"></label><label><span class="field-label">Year</span><input class="input" name="by" data-kind="y" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="bday-year" placeholder="YYYY" enterkeyhint="go"></label></div></div></div>
+   <p class="err" role="alert"></p><button class="btn btn--block pv-go" type="submit">Show my comic</button>
+   <p class="note pv-note">2 chapters free · no sign-up · your birthday stays in your browser</p></form>
+  <h1>A personal comic about your love life, written from your birthday.</h1>
+  <p class="h2-sub">Why you keep ending up here, and what to do about it. Bom and Yeon draw it from your birthday.</p>
   <div id="start" class="start start--hero">
-   <h2 class="h2-pick">What's going on in your love life?</h2>
+   <h2 class="h2-pick" id="readings" tabindex="-1">What’s going on in your love life?</h2>
    <div class="chooser" role="group" aria-label="Pick your situation">
-    <a class="chooser__opt" href="/readings/will-your-ex-come-back/#preview" data-choose="ex"><b>My ex</b><small>Why do I still check?</small></a><a class="chooser__opt" href="/readings/situationship/#preview" data-choose="situationship"><b>Crush or situationship</b><small>What are we?</small></a><a class="chooser__opt" href="/readings/what-kind-of-lover/#preview" data-choose="lover"><b>My love pattern</b><small>What kind of lover am I?</small></a><a class="chooser__opt" href="/readings/couple-reading/#preview" data-choose="together"><b>We&#x27;re together</b><small>How we love and fight</small></a><a class="chooser__opt" href="/readings/brutally-honest/#preview" data-choose="me"><b>Just me</b><small>Yeon&#x27;s honest take on you</small></a>
+    <a class="chooser__opt" href="/readings/will-your-ex-come-back/#preview" data-choose="ex"><b>My ex</b><small>Why do I still check?</small></a><a class="chooser__opt" href="/readings/situationship/#preview" data-choose="situationship"><b>Crush or situationship</b><small>What are we?</small></a><a class="chooser__opt" href="/readings/what-kind-of-lover/#preview" data-choose="lover"><b>My love pattern</b><small>What kind of lover am I?</small></a><a class="chooser__opt" href="/readings/couple-reading/#preview" data-choose="together"><b>We’re together</b><small>How we love and fight</small></a><a class="chooser__opt" href="/readings/brutally-honest/#preview" data-choose="me"><b>Just me</b><small>Yeon’s honest take on you</small></a>
    </div>
-   <p class="h2-free">Pick one, add your birthday, read the first 2 chapters free. No sign-up.</p>
+   <p class="h2-free">Pick one and read the first 2 chapters free. No sign-up.</p>
+   <p class="h2-more">Not about love? <a href="/readings/glow-up-aura/#preview" data-card="glow-up-aura">Glow-up aura</a> · <a href="/readings/your-2027/#preview" data-card="your-2027">Your 2027</a> · <a href="/readings/work-style/#preview" data-card="work-style">Work style</a> · <a href="/readings/k-pop-position/#preview" data-card="k-pop-position">K-pop position</a> · <a href="/readings/all-readings/" data-card="all-readings">All 9 readings</a></p>
+  </div>
   </div>
  </div>
 </section>
 
-<section id="readings">
- <div class="wrap">
-  <h2 id="shelfH">Pick your question</h2>
-  <div class="shelf shelf--grid"><a class="pcard rise" href="/readings/will-your-ex-come-back/#preview" data-card="will-your-ex-come-back"><span class="pcard__img"><img src="/assets/img/cover-ex.webp" srcset="/assets/img/cover-ex-360.webp 360w, /assets/img/cover-ex.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="Yeon holds a glowing red thread that leads to a figure walking away over a moonlit bridge" width="720" height="894" loading="lazy" decoding="async"><span class="badge">10 chapters</span></span><div class="pcard__b"><span class="for">Why you can&#x27;t stop checking</span><h3>Why it ended, why you keep checking, and what to do with the phone in your hand.</h3><span class="price"><span class="usd" data-usd="19">$19</span></span><span class="btn btn--sm pcard__cta">Get my reading</span></div></a><a class="pcard rise" href="/readings/situationship/#preview" data-card="situationship"><span class="pcard__img"><img src="/assets/img/cover-situationship.webp" srcset="/assets/img/cover-situationship-360.webp 360w, /assets/img/cover-situationship.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="Bom despairs over two phones tied by a red thread while Yeon sips tea" width="720" height="894" loading="lazy" decoding="async"><span class="badge">11 chapters</span></span><div class="pcard__b"><span class="for">Situationship</span><h3>Not dating. Not nothing. Two birthdays, and Yeon shows you where your patterns click and clash.</h3><span class="price"><span class="usd" data-usd="19">$19</span></span><span class="btn btn--sm pcard__cta">Get my reading</span></div></a><a class="pcard rise" href="/readings/brutally-honest/#preview" data-card="brutally-honest"><span class="pcard__img"><img src="/assets/img/cover-brutal.webp" srcset="/assets/img/cover-brutal-360.webp 360w, /assets/img/cover-brutal.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="Yeon points her fan at you, a nine-tailed fox glowing behind her" width="720" height="894" loading="lazy" decoding="async"><span class="badge">11 chapters</span></span><div class="pcard__b"><span class="for">Brutally honest</span><h3>Your red flag, the lie you tell yourself, and the fix Bom made her add.</h3><span class="price"><span class="usd" data-usd="12">$12</span></span><span class="btn btn--sm pcard__cta">Get my reading</span></div></a><a class="pcard rise" href="/readings/what-kind-of-lover/#preview" data-card="what-kind-of-lover"><span class="pcard__img"><img src="/assets/img/cover-lover.webp" srcset="/assets/img/cover-lover-360.webp 360w, /assets/img/cover-lover.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="Bom blushes holding a heart lantern while Yeon reads the five elements" width="720" height="894" loading="lazy" decoding="async"><span class="badge">11 chapters</span></span><div class="pcard__b"><span class="for">What kind of lover</span><h3>How you fall, how you flirt, what makes you jealous and what you actually need.</h3><span class="price"><span class="usd" data-usd="19">$19</span></span><span class="btn btn--sm pcard__cta">Get my reading</span></div></a><a class="pcard rise" href="/readings/glow-up-aura/#preview" data-card="glow-up-aura"><span class="pcard__img"><img src="/assets/img/cover-glowup.webp" srcset="/assets/img/cover-glowup-360.webp 360w, /assets/img/cover-glowup.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="Yeon looks into a bronze mirror that shows her glowing modern reflection" width="720" height="894" loading="lazy" decoding="async"><span class="badge">11 chapters</span></span><div class="pcard__b"><span class="for">Glow-up aura</span><h3>How people read you in ten seconds, plus your colors, worked out from your chart.</h3><span class="price"><span class="usd" data-usd="12">$12</span></span><span class="btn btn--sm pcard__cta">Get my reading</span></div></a><a class="pcard rise" href="/readings/couple-reading/#preview" data-card="couple-reading"><span class="pcard__img"><img src="/assets/img/cover-couple.webp" srcset="/assets/img/cover-couple-360.webp 360w, /assets/img/cover-couple.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="Bom and Yeon on a moonlit bridge, each holding one end of a glowing red thread between two heart lanterns" width="720" height="894" loading="lazy" decoding="async"><span class="badge">11 chapters</span></span><div class="pcard__b"><span class="for">Couple reading</span><h3>You picked each other. How your two charts love, fight, make up and build a home.</h3><span class="price"><span class="usd" data-usd="19">$19</span></span><span class="btn btn--sm pcard__cta">Get my reading</span></div></a><a class="pcard rise" href="/readings/your-2027/#preview" data-card="your-2027"><span class="pcard__img"><img src="/assets/img/cover-y2027.webp" srcset="/assets/img/cover-y2027-360.webp 360w, /assets/img/cover-y2027.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="A glowing fire goat spirit under a full moon ringed by twelve small lights, with Bom and Yeon" width="720" height="894" loading="lazy" decoding="async"><span class="badge">11 chapters</span></span><div class="pcard__b"><span class="for">Your 2027</span><h3>The Fire Goat year, two months at a time, read against your Day Master.</h3><span class="price"><span class="usd" data-usd="24">$24</span></span><span class="btn btn--sm pcard__cta">Get my reading</span></div></a><a class="pcard rise" href="/readings/work-style/#preview" data-card="work-style"><span class="pcard__img"><img src="/assets/img/cover-work.webp" srcset="/assets/img/cover-work-360.webp 360w, /assets/img/cover-work.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="Yeon at a night office desk flicking an abacus while Bom carries a tall stack of folders" width="720" height="894" loading="lazy" decoding="async"><span class="badge">11 chapters</span></span><div class="pcard__b"><span class="for">Work style</span><h3>How you work, lead, burn out and come back. With receipts.</h3><span class="price"><span class="usd" data-usd="12">$12</span></span><span class="btn btn--sm pcard__cta">Get my reading</span></div></a><a class="pcard rise" href="/readings/k-pop-position/#preview" data-card="k-pop-position"><span class="pcard__img"><img src="/assets/img/cover-kpop.webp" srcset="/assets/img/cover-kpop-360.webp 360w, /assets/img/cover-kpop.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="Bom and Yeon striking an idol pose on a concert stage under crossing spotlights" width="720" height="894" loading="lazy" decoding="async"><span class="badge">11 chapters</span></span><div class="pcard__b"><span class="for">K-pop position</span><h3>Main vocal, visual or leader? Your group position, read from your birthday.</h3><span class="price"><span class="usd" data-usd="2.99">$2.99</span></span><span class="btn btn--sm pcard__cta">Get my reading</span></div></a><a class="pcard pcard--bundle rise" href="/readings/all-readings/"><span class="pcard__img"><img src="/assets/img/cover-bundle.webp" srcset="/assets/img/cover-bundle-360.webp 360w, /assets/img/cover-bundle.webp 720w" sizes="(min-width: 900px) 220px, (min-width: 600px) 33vw, 44vw" alt="Bom and Yeon on a library ladder in a hanok library full of glowing scrolls" width="720" height="894" loading="lazy" decoding="async"><span class="badge">All 9 readings</span></span><div class="pcard__b"><span class="for">The whole shelf</span><h3>Every reading, one birthday. All 9 in one.</h3><span class="price"><span class="usd" data-usd="39">$39</span></span><span class="btn btn--sm pcard__cta">See the shelf</span></div></a></div>
- </div>
-</section>
-<div class="fox-div" aria-hidden="true"><img src="/assets/img/fox-280.webp" alt="" width="64" height="60" loading="lazy" decoding="async"></div>
-<section id="soul">
+<section id="soul" hidden>
  <div class="wrap read center">
-  <p class="kicker">Free · ten seconds</p>
   <h2>Your Korean soul type</h2>
   <p class="lede" style="margin:0 auto 18px">One birthday, one of 10 souls. Like MBTI, a thousand years older.</p>
   <p class="vs-banner" id="vsBanner" hidden></p>
@@ -98,7 +96,7 @@
     <p class="small muted" id="rvPillarP" hidden>Your day pillar: <a id="rvPillar" href="/day-pillars/"></a></p>
     <div class="bio-row"><p class="bio-line" id="rvBio"></p><button class="btn btn--ghost btn--sm" type="button" id="copyBio">Copy for bio</button></div>
     <div class="actions"><button class="btn btn--ghost" type="button" id="cardSoul">Save my soul card</button><a class="btn btn--ghost" id="rvMore" href="/souls/">All 10 souls</a></div>
-    <div class="vs-send"><p class="kicker">Compare with friends</p><p class="small muted">Send your soul to a friend. They see yours, find theirs, then see how you two match. Only your type travels in the link, never your birthday.</p>
+    <div class="vs-send"><h3 class="mini-h">Compare with friends</h3><p class="small muted">Send your soul to a friend. They see yours, find theirs, then see how you two match. Only your type travels in the link, never your birthday.</p>
      <div class="vs-row"><label><span class="sr">Your first name, optional</span><input class="input" id="vsName" type="text" maxlength="20" autocomplete="given-name" placeholder="Your first name (optional)"></label><button class="btn btn--ghost" type="button" id="shareSoul">Send a compare link</button></div></div>
    </article>
    <div class="door door--l" aria-hidden="true"><span class="door__shadow" id="dsL"></span></div>
@@ -114,15 +112,13 @@
   <a class="card next-card rise" id="nextCard" href="/readings/will-your-ex-come-back/">
    <img id="nextImg" src="/assets/img/cover-ex.webp" alt="" width="720" height="894" loading="lazy">
    <div class="next-card__b">
-    <p class="kicker">Your next chapter</p>
-    <h2 id="nextTitle">Why You Can't Stop Checking</h2>
+    <h2 id="nextTitle">Why you can’t stop checking</h2>
     <p class="bubble-line"><b id="nextWho">Yeon</b> <span id="nextLine"></span></p>
     <span class="btn btn--block" id="nextBtn">Start my reading</span>
     <p class="note" id="nextNote">Written for your soul. Your birthday is already in.</p>
    </div>
   </a>
   <div class="next-trio rise" id="nextTrio" hidden>
-   <p class="kicker">Where to next?</p>
    <h2>Pick your next chapter</h2>
    <div class="next-trio__list" id="nextTrioList"></div>
    <p class="note">Your birthday is already in. The first 2 chapters of each are free.</p>
@@ -134,7 +130,6 @@
 <section id="vs" hidden>
  <div class="wrap read">
   <div class="card center vs-card">
-   <p class="kicker">Compare with me</p>
    <h2 id="vsHead">You and your friend</h2>
    <div class="duo" id="vsDuo"></div>
    <p class="score" id="vsScore"></p>
@@ -149,8 +144,7 @@
 
 <section id="spicy" hidden>
  <div class="wrap read">
-  <p class="kicker">The honest part</p>
-  <h2>What your soul won't admit</h2>
+  <h2>What your soul won’t admit</h2>
   <p class="lede">Like your MBTI, but meaner. Screenshot it for the group chat.</p>
   <div class="tabs" id="spTabs" role="tablist" aria-label="Spicy truths"></div>
   <div class="card spcard" id="spCard" aria-live="polite"><p class="t" id="spTitle"></p><p class="x" id="spText"></p><p class="w" id="spWho"></p>
@@ -162,7 +156,6 @@
 
 <section id="crush" hidden>
  <div class="wrap read">
-  <p class="kicker">Compatibility</p>
   <h2>Check your crush</h2>
   <p class="lede">Add their birthday. Saju compares your two Day Masters.</p>
   <form id="crushForm" class="form-stack" novalidate>
@@ -193,48 +186,45 @@
  <div class="wrap read">
   <a class="card charm-card rise" href="/charm/">
    <p class="hz charm-card__hz" aria-hidden="true">桃花</p>
-   <div><p class="kicker">Free check</p><h2>Do you have the peach blossom mark?</h2>
-   <p class="muted">Dohwasal (도화살) is saju's "people look twice" star. One birthday, a few seconds, yes or no.</p>
+   <div><h2>Do you have the peach blossom mark?</h2>
+   <p class="muted">Dohwasal (도화살) is saju’s “people look twice” star. One birthday, a few seconds, yes or no.</p>
    <span class="link-arrow">Check mine</span></div>
   </a>
  </div>
 </section>
 <section id="daily"><div class="wrap read"><div class="card center rise daily-box">
- <p class="kicker">Daily Soul</p><h2>One line from Yeon, every morning.</h2>
- <p class="lede">A short daily reading for your Day Master, by email. Free, unsubscribe any time.</p>
+ <h2>One line from Yeon, every morning.</h2>
+ <p class="lede">The Daily Soul: a short reading for your Day Master, by email. Free, unsubscribe any time.</p>
  <form data-daily="daily_soul" class="form-stack" novalidate style="max-width:460px;margin:0 auto">
   <label><span class="sr">Email address</span><input class="input" type="email" name="email" inputmode="email" autocomplete="email" placeholder="you@email.com" required></label>
-  <p class="note consent">You'll get the Daily Soul by email, plus occasional news about new readings. We keep your email, Day Master and birth date only to send it, and you'll confirm by email first. Unsubscribe any time. For readers 18 and over. <a href="/privacy/">Privacy</a></p>
   <div class="daily-bday" hidden><p class="note" style="margin:0 0 6px">Your birthday, so the email is about your Day Master:</p><div class="selects bdate" role="group" aria-label="Your birthday" data-prefix="ds"><span class="field-label bdate__l">Month</span><div class="mchips"><button type="button" class="mchip" data-m="1" aria-pressed="false" aria-label="January">Jan</button><button type="button" class="mchip" data-m="2" aria-pressed="false" aria-label="February">Feb</button><button type="button" class="mchip" data-m="3" aria-pressed="false" aria-label="March">Mar</button><button type="button" class="mchip" data-m="4" aria-pressed="false" aria-label="April">Apr</button><button type="button" class="mchip" data-m="5" aria-pressed="false" aria-label="May">May</button><button type="button" class="mchip" data-m="6" aria-pressed="false" aria-label="June">Jun</button><button type="button" class="mchip" data-m="7" aria-pressed="false" aria-label="July">Jul</button><button type="button" class="mchip" data-m="8" aria-pressed="false" aria-label="August">Aug</button><button type="button" class="mchip" data-m="9" aria-pressed="false" aria-label="September">Sep</button><button type="button" class="mchip" data-m="10" aria-pressed="false" aria-label="October">Oct</button><button type="button" class="mchip" data-m="11" aria-pressed="false" aria-label="November">Nov</button><button type="button" class="mchip" data-m="12" aria-pressed="false" aria-label="December">Dec</button></div><label class="sr"><span>Your birthday month</span><select name="dsm" data-kind="m" autocomplete="bday-month" tabindex="-1"><option value="">Month</option></select></label><div class="bdate__dy"><label><span class="field-label">Day</span><input class="input" name="dsd" data-kind="d" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="bday-day" placeholder="DD" enterkeyhint="next"></label><label><span class="field-label">Year</span><input class="input" name="dsy" data-kind="y" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="bday-year" placeholder="YYYY" enterkeyhint="go"></label></div></div></div>
   <button class="btn" type="submit">Send me the Daily Soul</button>
   <p class="err" role="alert" aria-live="polite"></p>
+  <details class="consent-fold"><summary>Privacy</summary><p class="note consent">You’ll get the Daily Soul by email, plus occasional news about new readings. We keep your email, Day Master and birth date only to send it, and you’ll confirm by email first. Unsubscribe any time. For readers 18 and over. <a href="/privacy/">Privacy policy</a></p></details>
  </form>
 </div></div></section>
 
 <section id="souls">
- <div class="wrap">
-  <div class="center"><p class="kicker">Ten Day Masters</p><h2>The 10 souls</h2>
-  <p class="lede">Ten types, like MBTI, read from the day you were born. Tap one to meet it.</p></div>
-  <div class="souls"><a class="soul-tile el-wood rise" href="/souls/gap-wood/"><span class="hz">甲</span><b>Gap Wood</b><small>The Tall Pine</small></a><a class="soul-tile el-wood rise" href="/souls/eul-wood/"><span class="hz">乙</span><b>Eul Wood</b><small>The Climbing Flower</small></a><a class="soul-tile el-fire rise" href="/souls/byeong-fire/"><span class="hz">丙</span><b>Byeong Fire</b><small>The Sun</small></a><a class="soul-tile el-fire rise" href="/souls/jeong-fire/"><span class="hz">丁</span><b>Jeong Fire</b><small>The Candle</small></a><a class="soul-tile el-earth rise" href="/souls/mu-earth/"><span class="hz">戊</span><b>Mu Earth</b><small>The Mountain</small></a><a class="soul-tile el-earth rise" href="/souls/gi-earth/"><span class="hz">己</span><b>Gi Earth</b><small>The Garden Field</small></a><a class="soul-tile el-metal rise" href="/souls/gyeong-metal/"><span class="hz">庚</span><b>Gyeong Metal</b><small>The Sword</small></a><a class="soul-tile el-metal rise" href="/souls/sin-metal/"><span class="hz">辛</span><b>Sin Metal</b><small>The Jewel</small></a><a class="soul-tile el-water rise" href="/souls/im-water/"><span class="hz">壬</span><b>Im Water</b><small>The Ocean</small></a><a class="soul-tile el-water rise" href="/souls/gye-water/"><span class="hz">癸</span><b>Gye Water</b><small>The Rain</small></a></div>
+ <div class="wrap read">
+  <p class="h2-soulsline">Just curious about your type? <a class="link-arrow" href="/souls/">Meet the 10 Korean birthday types</a></p>
  </div>
 </section>
 
 <section>
  <div class="wrap">
   <div class="grid grid--3">
-   <a class="card rise" href="/compatibility/" style="text-decoration:none;color:inherit"><p class="kicker">55 pairings</p><h3>Saju compatibility</h3><p class="muted">Every Day Master pair: chemistry, fights and texting style.</p><span class="link-arrow">Find your pair</span></a>
-   <a class="card rise" href="/mbti/" style="text-decoration:none;color:inherit"><p class="kicker">160 combos</p><h3>MBTI x saju</h3><p class="muted">Your four letters meet your Day Master. One line each, no mercy.</p><span class="link-arrow">Find your combo</span></a>
-   <a class="card rise" href="/2027/" style="text-decoration:none;color:inherit"><p class="kicker">丁未 · Fire Goat</p><h3>Your 2027</h3><p class="muted">What the Fire Goat year means for each soul: love, work, money.</p><span class="link-arrow">Read 2027</span></a>
+   <a class="card rise" href="/compatibility/" style="text-decoration:none;color:inherit"><h3>Saju compatibility</h3><p class="muted">All 55 Day Master pairs: chemistry, fights and texting style.</p><span class="link-arrow">Find your pair</span></a>
+   <a class="card rise" href="/mbti/" style="text-decoration:none;color:inherit"><h3>MBTI x saju</h3><p class="muted">Your four letters meet your Day Master, 160 combos. One line each, no mercy.</p><span class="link-arrow">Find your combo</span></a>
+   <a class="card rise" href="/2027/" style="text-decoration:none;color:inherit"><h3>Your 2027</h3><p class="muted">What the Fire Goat year (丁未) means for each soul: love, work, money.</p><span class="link-arrow">Read 2027</span></a>
   </div>
  </div>
 </section>
 
 <section>
  <div class="wrap read center">
-  <img src="/assets/img/meet.webp" alt="Bom and Yeon, the two guides of the comic" width="720" height="402" loading="lazy" style="border-radius:14px;margin:0 auto 18px">
   <h2>Meet Bom &amp; Yeon</h2>
-  <div class="say say--bom rise"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Bom</b>I&#x27;m Bom. I read your chart and tell you what&#x27;s good about you. Someone has to.</p></div>
-  <div class="say say--yeon rise"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b>I&#x27;m Yeon. I tell you the other part. You&#x27;ll thank me later, or you won&#x27;t.</p></div>
+  <div class="say say--bom rise"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Bom</b>I’m Bom. I read your chart and tell you what’s good about you. Someone has to.</p></div>
+  <div class="say say--yeon rise"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span><p class="bubble"><b>Yeon</b>I’m Yeon. I tell you the other part. You’ll thank me later, or you won’t.</p></div>
   <p><a class="link-arrow" href="/about/">What saju is, in plain words</a> · <a class="link-arrow" href="/glossary/">The saju glossary</a></p>
  </div>
 </section>
@@ -246,7 +236,6 @@
    <div>
     <a class="brand" href="/"><span class="seal" aria-hidden="true">봄연</span>Bom &amp; Yeon</a>
     <p class="muted small" style="margin-top:12px">Korean saju as a personality language. Like MBTI, with about a thousand years of practice behind it. Bom tells you your strengths. Yeon tells you the rest.</p>
-    <div class="foot-meet"><span class="av av--bom"><img src="/assets/img/av-bom.webp" alt="" width="56" height="56"><img src="/assets/img/av-bom-blink.webp" alt="" width="56" height="56"></span><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="56" height="56"><img src="/assets/img/av-yeon-blink.webp" alt="" width="56" height="56"></span></div>
    </div>
    <div><h2 class="foot__h">Explore</h2><ul>
     <li><a href="/#readings">Readings</a></li><li><a href="/souls/">The 10 souls</a></li><li><a href="/compatibility/">Compatibility</a></li>
@@ -264,10 +253,10 @@
 </footer>
 <script src="/assets/js/legacy-data.js?v=43ed1650"></script><script src="/assets/js/saju-terms.js?v=a22e3827"></script><script src="/assets/js/saju-engine.js?v=f77dcdf7"></script><script src="/assets/js/pair-data.js?v=8b71a9f9"></script>
 <script>window.BY_CFG={"pixel":"1126802100001168","ga4":"G-YSRKW6ZY1H","prices":{"will-your-ex-come-back":19,"situationship":19,"brutally-honest":12,"what-kind-of-lover":19,"glow-up-aura":12,"couple-reading":19,"your-2027":24,"work-style":12,"k-pop-position":2.99,"all-readings":39}};</script>
-<script src="/assets/js/site.js?v=c5c5118c"></script>
+<script src="/assets/js/site.js?v=42b27342"></script>
 <script src="/assets/js/consent.js?v=98a7fe54"></script>
 <script>window.BY_PILLARS={"甲子":["gap-ja-wood-rat","Gap-ja","The Pine by the Midnight River"],"乙丑":["eul-chuk-wood-ox","Eul-chuk","The Flower Under Frost"],"丙寅":["byeong-in-fire-tiger","Byeong-in","The Sun at Spring Dawn"],"丁卯":["jeong-myo-fire-rabbit","Jeong-myo","The Candle in the Reading Room"],"戊辰":["mu-jin-earth-dragon","Mu-jin","The Dragon Mountain"],"己巳":["gi-sa-earth-snake","Gi-sa","The Sunlit Field"],"庚午":["gyeong-o-metal-horse","Gyeong-o","The Sword in the Forge"],"辛未":["sin-mi-metal-goat","Sin-mi","The Jewel in Warm Sand"],"壬申":["im-sin-water-monkey","Im-sin","The River from the Mountain Spring"],"癸酉":["gye-yu-water-rooster","Gye-yu","The Spring Welling from Stone"],"甲戌":["gap-sul-wood-dog","Gap-sul","The Pine on the Autumn Ridge"],"乙亥":["eul-hae-wood-pig","Eul-hae","The Flower Floating on Night Water"],"丙子":["byeong-ja-fire-rat","Byeong-ja","The Sun over the Midnight Sea"],"丁丑":["jeong-chuk-fire-ox","Jeong-chuk","The Candle in the Snowed-In Cabin"],"戊寅":["mu-in-earth-tiger","Mu-in","The Forested Mountain"],"己卯":["gi-myo-earth-rabbit","Gi-myo","The Garden of Spring Shoots"],"庚辰":["gyeong-jin-metal-dragon","Gyeong-jin","The Dragon's Blade"],"辛巳":["sin-sa-metal-snake","Sin-sa","The Jewel in the Sun"],"壬午":["im-o-water-horse","Im-o","The Sea Under the Midday Sun"],"癸未":["gye-mi-water-goat","Gye-mi","The Summer Rain on Dry Fields"],"甲申":["gap-sin-wood-monkey","Gap-sin","The Pine on the Cliff Edge"],"乙酉":["eul-yu-wood-rooster","Eul-yu","The Flower in the Steel Vase"],"丙戌":["byeong-sul-fire-dog","Byeong-sul","The Sun Setting on the Hills"],"丁亥":["jeong-hae-fire-pig","Jeong-hae","The Lantern on the Night River"],"戊子":["mu-ja-earth-rat","Mu-ja","The Mountain Above the Winter Lake"],"己丑":["gi-chuk-earth-ox","Gi-chuk","The Winter Field"],"庚寅":["gyeong-in-metal-tiger","Gyeong-in","The Axe in the Forest"],"辛卯":["sin-myo-metal-rabbit","Sin-myo","The Jewel Among Blossoms"],"壬辰":["im-jin-water-dragon","Im-jin","The Ocean Dragon"],"癸巳":["gye-sa-water-snake","Gye-sa","The Rain in Sunshine"],"甲午":["gap-o-wood-horse","Gap-o","The Pine in Full Summer"],"乙未":["eul-mi-wood-goat","Eul-mi","The Flower in the Summer Garden"],"丙申":["byeong-sin-fire-monkey","Byeong-sin","The Sun on Polished Steel"],"丁酉":["jeong-yu-fire-rooster","Jeong-yu","The Candle on the Silver Tray"],"戊戌":["mu-sul-earth-dog","Mu-sul","The Mountain Fortress"],"己亥":["gi-hae-earth-pig","Gi-hae","The Riverside Field"],"庚子":["gyeong-ja-metal-rat","Gyeong-ja","The Blade in the Winter Stream"],"辛丑":["sin-chuk-metal-ox","Sin-chuk","The Jewel Under Snow"],"壬寅":["im-in-water-tiger","Im-in","The River Through the Forest"],"癸卯":["gye-myo-water-rabbit","Gye-myo","The Rain on Spring Blossoms"],"甲辰":["gap-jin-wood-dragon","Gap-jin","The Pine in Spring Rain"],"乙巳":["eul-sa-wood-snake","Eul-sa","The Flower in Early Summer Sun"],"丙午":["byeong-o-fire-horse","Byeong-o","The Sun at High Noon"],"丁未":["jeong-mi-fire-goat","Jeong-mi","The Lantern at the Summer Festival"],"戊申":["mu-sin-earth-monkey","Mu-sin","The Mountain with a Mine"],"己酉":["gi-yu-earth-rooster","Gi-yu","The Orchard at Harvest"],"庚戌":["gyeong-sul-metal-dog","Gyeong-sul","The Sword in the Stone"],"辛亥":["sin-hae-metal-pig","Sin-hae","The Jewel in Clear Water"],"壬子":["im-ja-water-rat","Im-ja","The Midnight Ocean"],"癸丑":["gye-chuk-water-ox","Gye-chuk","The Winter Sleet"],"甲寅":["gap-in-wood-tiger","Gap-in","The Pine in the Old Forest"],"乙卯":["eul-myo-wood-rabbit","Eul-myo","The Flower in the Spring Meadow"],"丙辰":["byeong-jin-fire-dragon","Byeong-jin","The Sun Through Spring Mist"],"丁巳":["jeong-sa-fire-snake","Jeong-sa","The Torch at the Start of Summer"],"戊午":["mu-o-earth-horse","Mu-o","The Volcano"],"己未":["gi-mi-earth-goat","Gi-mi","The Summer Field"],"庚申":["gyeong-sin-metal-monkey","Gyeong-sin","The Iron Peak"],"辛酉":["sin-yu-metal-rooster","Sin-yu","The Flawless Gem"],"壬戌":["im-sul-water-dog","Im-sul","The Ocean Against the Cliffs"],"癸亥":["gye-hae-water-pig","Gye-hae","The Monsoon"]};window.BY_READS={"will-your-ex-come-back":{"t":"Why you can't stop checking","c":"ex","p":19,"h":"Why it ended, why you keep checking, and what to do with the phone in your hand.","v":"yeon"},"situationship":{"t":"Situationship","c":"situationship","p":19,"h":"Not dating. Not nothing. Two birthdays, and Yeon shows you where your patterns click and clash.","v":"yeon"},"brutally-honest":{"t":"Brutally honest","c":"brutal","p":12,"h":"Your red flag, the lie you tell yourself, and the fix Bom made her add.","v":"yeon"},"what-kind-of-lover":{"t":"What kind of lover","c":"lover","p":19,"h":"How you fall, how you flirt, what makes you jealous and what you actually need.","v":"bom"},"glow-up-aura":{"t":"Glow-up aura","c":"glowup","p":12,"h":"How people read you in ten seconds, plus your colors, worked out from your chart.","v":"bom"},"couple-reading":{"t":"Couple reading","c":"couple","p":19,"h":"You picked each other. How your two charts love, fight, make up and build a home.","v":"bom"},"your-2027":{"t":"Your 2027","c":"y2027","p":24,"h":"The Fire Goat year, two months at a time, read against your Day Master.","v":"bom"},"work-style":{"t":"Work style","c":"work","p":12,"h":"How you work, lead, burn out and come back. With receipts.","v":"yeon"},"k-pop-position":{"t":"K-pop position","c":"kpop","p":2.99,"h":"Main vocal, visual or leader? Your group position, read from your birthday.","v":"bom"}};</script>
-<script src="/assets/js/compat-lines.js?v=edcd0d76"></script><script src="/assets/js/share-card.js?v=65ee0086"></script><script src="/assets/js/home.js?v=db604432"></script>
+<script src="/assets/js/compat-lines.js?v=edcd0d76"></script><script src="/assets/js/share-card.js?v=a725daff"></script><script src="/assets/js/home.js?v=7ef192b4"></script>
 <script>if(/^(localhost|127\.|0\.0\.0\.0$|\[::1\]$)|\.local$/.test(location.hostname)||location.protocol==="file:")window.goatcounter={no_onload:true,no_events:true};</script>
 <script data-goatcounter="https://bomandyeon.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
