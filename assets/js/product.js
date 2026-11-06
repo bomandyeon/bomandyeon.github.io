@@ -140,6 +140,17 @@
     if (!SC[k] && chId === "pair") k = "soul/" + D.SOULS[(R.partner || R).dayMaster].slug;
     return SC[k] ? { src: "/assets/img/scenes/" + k + ".webp", w: SC[k][0], h: SC[k][1] } : null;
   }
+  /* v6 2026-11-06 (art curation): on the free preview, chapter 1 (the season chapter, whose shared garden scene drew Yeon
+     off-model and repeated on every page) and, where the reading's own chapter 2 scene was off-brief, chapter 2 show one of
+     this reading's own on-model scenes instead. Only the free preview; the paid reading keeps every chapter's own scene. */
+  var LANDER_ART = {
+    "will-your-ex-come-back": ["the-pull", "your-story"], "situationship": ["either-way"], "what-kind-of-lover": ["attachment", "the-fight"],
+    "brutally-honest": ["the-fix"], "couple-reading": ["the-home"], "glow-up-aura": ["vibe"], "k-pop-position": ["the-encore"],
+    "work-style": ["your-desk"], "your-2027": ["the-plan"]
+  };
+  var ART_AVOID = { "will-your-ex-come-back/why-it-ended": 1, "what-kind-of-lover/how-you-fall": 1, "what-kind-of-lover/red-flag": 1, "what-kind-of-lover/what-you-need": 1 };
+  function sceneKey(k) { return SC[k] ? { src: "/assets/img/scenes/" + k + ".webp", w: SC[k][0], h: SC[k][1] } : null; }
+  function landerScene(ci) { var a = (LANDER_ART[P.slug] || [])[ci]; return a ? sceneKey(P.slug + "/" + a) : null; }
   /* text -> beats: paragraphs, long ones split at a sentence near the middle; "### X" becomes the beat's label */
   function beats(t) {
     var out = [];
@@ -176,7 +187,7 @@
   }
   function comicChapter(ch, R, artAt, opts) {
     opts = opts || {};
-    var sc = sceneFor(ch.id, R), s = D.SOULS[R.dayMaster], sec = document.createElement("section");
+    var sc = opts.scene || sceneFor(ch.id, R), s = D.SOULS[R.dayMaster], sec = document.createElement("section");
     var ci = artAt ? artAt() : 0, crop = CROPS[ci % CROPS.length];
     sec.className = "comic comic--" + crop + (sc ? "" : " comic--plain");
     var sub = subline(ch.kicker, s);
@@ -206,7 +217,7 @@
       if (it.k === "say") {
         var first = !seen[it.w], cont = prev === it.w; seen[it.w] = 1;
         html2 += '<div class="beat beat--say beat--' + it.w + (first ? " beat--av" : " beat--noav") + (cont ? " beat--cont" : " beat--head") + '">' +
-          (first ? '<span class="av av--' + it.w + '"><img src="/assets/img/av-' + it.w + '.webp" alt="" width="44" height="44" loading="lazy"></span>' : "") +
+          (first ? '<span class="av av--' + it.w + '"><img src="/assets/img/av-' + it.w + '.webp" alt="" width="44" height="44"></span>' : "") +
           '<p class="bubble"><b>' + who(it.w) + "</b>" + esc(it.text) + "</p></div>";
         prev = it.w; since++;
         return;
@@ -570,13 +581,14 @@
         V.base[s.slug] = d.base; V.base_panels[s.slug] = d.base_panels; V.season[s.slug] = d.season; V.extra[s.slug] = d.extra || {};
         if (d.open) { V.open = {}; V.open[s.slug] = d.open; } V.echo = J.echo || {};
         if (d.terms) { V.terms = {}; V.terms[s.slug] = d.terms; }
-        var asm = A4.assemble(R, V, { answers: ansFor() }), art = counter();
+        var asm = A4.assemble(R, V, { answers: ansFor() }), art = counter(), usedArt = [];
         asm.chapters.forEach(function (ch, ci) {
           // trimmed so the paywall comes fast: comic beats up to ~110 words per free chapter
           var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim() && !/^(?:(?:Yeon|Bom):\s*)?You skipped\b/.test(x.trim()); }), keep = [], wc = 0; // 2026-11-06: no questions in the free part, so no "you skipped" lines
           for (var pi = 0; pi < paras.length && keep.length < 8 && wc < 110; pi++) { if (/^###/.test(paras[pi]) && keep.length) break; keep.push(paras[pi]); if (!/^###/.test(paras[pi])) wc += paras[pi].split(/\s+/).length; }
           var t = Object.assign({}, ch, { panels: (ch.panels || []).filter(function (q) { return !/^You skipped\b/.test(q.text || ""); }).slice(0, ci === 0 ? 4 : 3), text: keep.join("\n\n") });
-          var sec = comicChapter(t, R, art); sec.classList.add("comic--teaser"); out.appendChild(sec);
+          var own1 = landerScene(ci) || sceneFor(ch.id, R); if (own1) usedArt.push(own1.src);
+          var sec = comicChapter(t, R, art, { scene: own1 }); sec.classList.add("comic--teaser"); out.appendChild(sec);
           /* 2026-11-06 Rok: no optional questions in the free part (they come after purchase) */
         });
         if (PAIR === "required" && !R.partner) out.appendChild(addTheirCard());
@@ -589,8 +601,14 @@
         var shown = optPair ? rest.filter(function (c) { return c.type !== "pair"; }) : rest;
         if (optPair && shown.length !== rest.length - 1) shown = rest;
         var restLine = shown.length + " more chapters";
+        // v6: a locked row never repeats a picture already shown in the free chapters; it borrows an unused scene of this reading
+        var rowOwn = shown.slice(0, 3).map(function (c) { var x = sceneFor(c.id, R); return x ? x.src : ""; });
+        var spare = Object.keys(SC).filter(function (k) { return k.indexOf(P.slug + "/") === 0 && !ART_AVOID[k]; }).map(function (k) { return "/assets/img/scenes/" + k + ".webp"; })
+          .filter(function (x) { return usedArt.indexOf(x) < 0 && rowOwn.indexOf(x) < 0; }).reverse();
         var row = function (c, i) {
-          var sc = sceneFor(c.id, R), th = sc ? sc.src.replace("/img/scenes/", "/img/scenes-t/") : "";
+          var sc = sceneFor(c.id, R);
+          if (sc && usedArt.indexOf(sc.src) >= 0 && spare.length) sc = { src: spare.shift() };
+          var th = sc ? sc.src.replace("/img/scenes/", "/img/scenes-t/") : "";
           return '<li><span class="lk-th"' + (th ? ' style="background-image:url(' + th + ')"' : "") + '><i>' + (i + 3) + '</i></span><span class="lk-tx"><b>' + esc(lockTitle(c, R, s, them)) +
             '</b></span><svg class="lk-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></li>';
         };
@@ -598,7 +616,7 @@
         lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") +
           '<div class="lock-head"><h3 class="lock-h">The rest of your comic, ' + esc(name || s.nick) + '</h3><p class="lock-sub">' + esc(restLine) + ', locked</p></div>' +
           '<ol class="lock-ol lock-ol--v2">' + shown.slice(0, SHOW).map(row).join("") + "</ol>" +
-          (shown.length > SHOW ? '<details class="lock-more"><summary>And ' + (shown.length - SHOW) + " more</summary>" + '<ol class="lock-ol lock-ol--v2" start="' + (SHOW + 3) + '">' + shown.slice(SHOW).map(function (c, i) { return row(c, i + SHOW); }).join("") + "</ol></details>" : "") +
+          (shown.length > SHOW ? '<details class="lock-more"><summary>See the other ' + (shown.length - SHOW) + "</summary>" + '<ol class="lock-ol lock-ol--v2" start="' + (SHOW + 3) + '">' + shown.slice(SHOW).map(function (c, i) { return row(c, i + SHOW); }).join("") + "</ol></details>" : "") +
           paywallHTML(rest.length, sm ? { text: hook.sample.text, who: hook.sample.who, n: sm.n, title: sm.title } : null, !!R.partner);
         out.appendChild(lock);
         document.body.classList.add("has-strip");

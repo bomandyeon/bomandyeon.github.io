@@ -729,3 +729,6 @@
   }
   if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", start); else start();
 })();
+/* v6 2026-11-06: once the page has loaded, lazy pictures load right away, so nothing on the page waits for a scroll to appear */
+(function () { function go() { setTimeout(function () { [].forEach.call(document.querySelectorAll('img[loading="lazy"]'), function (i) { i.loading = "eager"; }); }, 600); }
+  if (document.readyState === "complete") go(); else window.addEventListener("load", go); })();

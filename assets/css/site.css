@@ -2393,3 +2393,38 @@ body.has-strip .phero--flow .phero__cover { display: none; }
   .flowx .tz-panel[data-tails] { max-width: none; margin-left: 0; margin-right: 0; }
 }
 .mini-h { margin: 0 0 8px; font: 600 16px/1.35 var(--sans); color: var(--moon); letter-spacing: 0; text-transform: none; }
+
+/* ---------- v6 (2026-11-06): desktop hierarchy and calmer first screens. Mobile untouched except where noted. ---------- */
+@media (min-width: 1100px) {
+  /* reading landers: the cover fits the first screen, the headline carries the column */
+  .flowx { grid-template-columns: 600px 400px; column-gap: 72px; padding-top: 48px; }
+  .flowx .phero__cover { width: 600px; height: 700px; border: 0; border-radius: 10px; box-shadow: 0 1px 0 rgba(255,255,255,.04), 0 30px 70px rgba(0,0,0,.45); }
+  .flowx .phero__cover img { width: 600px; height: 700px; object-fit: cover; object-position: 50% 12%; }
+  .flowx .phero__cover img[src*="cover-lover"] { object-position: 50% 0; }
+  .flowx > section:not(.phero--flow) > .wrap { max-width: 600px; }
+  .flowx .phero__main { max-width: 400px; top: 96px; }
+  .flowx .phero__main h1 { font-size: 46px; line-height: 1.08; letter-spacing: -.015em; margin: 6px 0 18px; text-wrap: balance; }
+  .flowx .phero__main .lede { font-size: 18px; line-height: 1.55; color: var(--mute); margin: 0 0 30px; max-width: 34ch; }
+  .flowx .phero__main .field-label { font-size: 15px; }
+  .flowx .phero__main .pv-note, .flowx .phero__main .note, .flowx .pv-price { font-size: 14.5px; line-height: 1.5; }
+  .flowx .phero__main .btn { min-height: 54px; font-size: 17px; }
+  .flowx .tz-panel[data-tails] > img { border-radius: 10px; }
+  /* home: headline first, then the form, the art beside it at a size that holds the page */
+  .hero2 { padding: 56px 0 40px; }
+  .hero2 .wrap { grid-template-columns: minmax(0, 560px) minmax(0, 460px); gap: 0 80px; justify-content: center; max-width: 1180px; }
+  .hero2 .h2-panel[data-tails] { position: sticky; top: 96px; align-self: start; }
+  .hero2 .h2-panel[data-tails] > img { border-radius: 10px; }
+  .h2-main { display: flex; flex-direction: column; max-width: 460px; }
+  .h2-main > h1 { order: 0; font-size: 46px; line-height: 1.08; letter-spacing: -.015em; margin: 4px 0 16px; text-wrap: balance; }
+  .h2-main > .h2-sub { order: 1; font-size: 18px; line-height: 1.55; margin: 0 0 30px; max-width: 36ch; }
+  .h2-main > .h2-form { order: 2; margin-bottom: 44px; }
+  .h2-main > .start { order: 3; padding-top: 0; }
+  .h2-form .btn.pv-go { font-size: 17px; }
+  .h2-form .pv-note { font-size: 14.5px; }
+  .chooser__opt b { font-size: 17px; }
+  .chooser__opt small { font-size: 14.5px; }
+}
+/* v6: the situationship "start with yours" way out reads as a real option, not fine print */
+.pv-solo-l { margin: 12px 0 0; text-align: center; }
+.pv-solo-l .linkbtn.pv-solo { font-size: 16px; color: var(--moon); text-underline-offset: 4px; padding: 6px 0; }
+.tfield__next { color: var(--mute) !important; font-size: 14px !important; opacity: 1 !important; }
