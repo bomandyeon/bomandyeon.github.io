@@ -274,7 +274,11 @@
       try { if (BY.urlState) BY.urlState.clean(urlObj()); } catch (x) { /* ignore */ }
       wiz.hidden = false;
       wiz.scrollIntoView({ behavior: smooth(), block: "start" });
-      loading(function () { wiz.hidden = true; wiz.innerHTML = ""; renderPreview(true); });
+      loading(function () {
+        // 2026-11-06: no jump. The comic is built while the loader still holds the spot, then swaps in at the same place.
+        var done = function () { wiz.hidden = true; wiz.innerHTML = ""; var hd = document.querySelector(".top"), off = (hd ? hd.getBoundingClientRect().height : 56) + 8; window.scrollTo({ top: Math.max(0, out.getBoundingClientRect().top + window.scrollY - off), behavior: "instant" }); };
+        var pr = renderPreview(false); if (pr && pr.then) pr.then(done, done); else done();
+      });
     }
 
     /* a short honest beat: the chart is already worked out, Bom and Yeon just pick your chapters */
@@ -361,23 +365,28 @@
     function paywallHTML(restCount, sample) {
       if (!PAY) return "";
       if (PAY.owns(P.slug)) return '<div class="chapter-lock rise"><a class="btn" href="' + esc(readUrl()) + '">Open my full reading</a></div>';
-      // one chapter count everywhere: the reading's own number, +1 where their birthday adds a chapter
+      // 2026-11-06 (Rok: "ugly, unreadable"): one price, three short lines of what you get, one button, one fine-print line.
+      // Bundle is a quiet text link; email link and license key fold away. Same checkout links, same consent notice.
       var total = P.chaptersMin || (restCount + 2), plus = PAIR === "optional" ? " (+1 with their birthday)" : "";
       var pend = PAY.pending(P.slug) || (SHELF && PAY.pending("all-readings"));
-      var diff = SHELF ? Math.round((SHELF.price - P.price) * 100) / 100 : 0;
-      return '<div class="chapter-lock paywall rise' + (pend ? " is-pending" : "") + '" id="paywall" data-pw="' + P.slug + (SHELF ? " all-readings" : "") + '">' +
+      var both = P.slug + (SHELF ? " all-readings" : "");
+      var mb = mailBox();
+      return '<div class="chapter-lock paywall pw3 rise' + (pend ? " is-pending" : "") + '" id="paywall" data-pw="' + both + '">' +
         '<div class="pw-pending" role="status"><p class="pw-pend-h"><span class="pw-dot" aria-hidden="true"></span>Opening your comic\u2026</p>' +
-        '<p class="small">Finish paying in the Gumroad tab. Your full comic opens right here the moment it goes through, usually within a minute.</p>' +
-        '<p class="small"><a href="#" data-pay-cancel="' + P.slug + (SHELF ? " all-readings" : "") + '">Not paid yet? Show the price again</a></p></div>' +
-        (sample ? '<figure class="pw-sample"><blockquote><p>\u201C' + esc(sample.text) + '\u201D</p></blockquote><figcaption>' + (sample.who ? (sample.who === "bom" ? "Bom" : "Yeon") + ", in chapter " : "From chapter ") + sample.n + ", " + esc(sample.title) + "</figcaption></figure>" : "") +
-        '<p class="pw-what">One time, <b>' + BY.moneyHTML(P.price) + '</b>. All ' + total + ' chapters' + plus + ', yours forever, PDF included.</p>' +
-        '<p class="pw-bonus small">+ Bonus: your type as a phone and desktop wallpaper, and your compatibility chart. No subscription.</p>' +
-        '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest \u00B7 " + BY.moneyHTML(P.price), "btn--block") + PAY.trust + "</div>" +
-        // bundle as a second, quieter option: the real extra cost and the honest one-by-one sum (no strike-through, no timer)
-        (SHELF && diff > 0 ? '<div class="pw-up"><p class="pw-up-h"><b>+' + BY.moneyHTML(diff) + '</b> for all ' + SHELF.count + ' readings</p>' +
-          '<p class="pw-up-s">This comic plus the other ' + (SHELF.count - 1) + ', ' + BY.moneyHTML(SHELF.price) + ' one time. ' + BY.moneyHTML(SHELF.total) + ' if bought one by one.</p>' +
-          PAY.buyLink("all-readings", "Get all " + SHELF.count + " \u00B7 " + BY.moneyHTML(SHELF.price), "btn--ghost btn--block btn--sm pw-up-btn") + "</div>" : "") +
-        PAY.consent + PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") + mailBox() + PAY.fallback() + "</div>";
+        '<p class="pw3-pend-s">Finish paying in the Gumroad tab. Your comic opens here by itself.</p>' +
+        '<p class="pw3-pend-s"><a href="#" data-pay-cancel="' + both + '">Not paid yet? Back to the price</a></p></div>' +
+        '<div class="pw3-buy">' +
+        '<p class="pw3-amt">' + BY.moneyHTML(P.price) + '<em class="pw3-per">one time</em></p>' +
+        '<ul class="pw3-get"><li>All ' + total + ' chapters' + plus + '</li><li>PDF to keep</li><li>Your type as a wallpaper, plus your compatibility chart</li></ul>' +
+        '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest", "btn--block pw3-cta") + "</div>" +
+        '<p class="pw3-fine">Secure checkout by Gumroad \u00B7 30-day refund</p>' +
+        (SHELF && SHELF.price > P.price ? '<p class="pw3-alt">' + PAY.buyLink("all-readings", "Or get all " + SHELF.count + " readings for " + BY.moneyHTML(SHELF.price), "pw-link") + "</p>" : "") +
+        "</div>" +
+        PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") +
+        '<div class="pw3-folds">' +
+        (mb ? '<details class="pw3-fold pw3-fold--mail"><summary>Not now? Email me the link</summary>' + mb + "</details>" : "") +
+        '<details class="pw3-fold"><summary>Already paid? Open it with your license key</summary>' + PAY.fallback() + "</details>" +
+        "</div>" + PAY.consent + "</div>";
     }
     /* faza 2 (2026-11-05): optional "send me the link" under the buy button. Never blocks checkout; reminders only with the
        separate unticked box. The worker sends one mail (plus at most 2 reminders on opt-in) and deletes the address within 14 days. */

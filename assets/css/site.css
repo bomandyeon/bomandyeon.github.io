@@ -1185,3 +1185,37 @@ body.has-cc .sticky-buy { bottom: var(--cc-h, 60px); }
 .pw-mail-msg { font-size: 12.5px; margin: 6px 0 0; }
 .pw-mail-ok { font-size: 13px; color: #C9A45C; margin: 0; text-align: center; }
 .paywall.is-pending .pw-mail { display: none !important; }
+
+/* ---- paywall v3 (2026-11-06, Rok: "ugly, unreadable"): one price, what you get, one button, fine print, folds ---- */
+#pvWizard, #pvOut { scroll-margin-top: 64px; }
+.paywall.pw3 { max-width: 420px; margin: 18px auto 0; padding: 26px 22px 18px; text-align: left; border: 1px solid var(--gold); border-radius: 18px; background: #151729; }
+.pw3-amt { margin: 0 0 14px; display: flex; align-items: baseline; gap: 10px; font: 700 40px/1 var(--sans); letter-spacing: -.01em; color: var(--moon); }
+.pw3-amt .pw3-per { font: 500 15px/1 var(--sans); font-style: normal; letter-spacing: 0; color: var(--mute); }
+.pw3-alt .btn::before, .pw3-alt .btn::after { display: none !important; content: none !important; }
+.pw3-get { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 10px; }
+.pw3-get li { position: relative; padding-left: 28px; font: 400 16px/1.4 var(--sans); color: var(--moon); }
+.pw3-get li::before { content: ""; position: absolute; left: 2px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: rgba(201,164,92,.18) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.3l2.6 2.5L12 5.4' fill='none' stroke='%23E2C483' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat; }
+.pw3 .pw-btn { margin: 0; }
+.pw3 .btn.pw3-cta { width: 100%; min-height: 56px; font-size: 18px; }
+.pw3-fine { margin: 10px 0 0; text-align: center; font: 400 13px/1.4 var(--sans); color: var(--mute); }
+.pw3-alt { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--hair); text-align: center; }
+.pw3-alt .btn.pw-link { font: 600 15px/1.4 var(--sans); color: var(--gold2); text-underline-offset: 3px; }
+.pw3-folds { margin: 14px 0 0; display: grid; gap: 2px; }
+.pw3-fold > summary { list-style: none; cursor: pointer; padding: 10px 0; text-align: center; font: 500 14px/1.3 var(--sans); color: var(--mute); text-decoration: underline; text-underline-offset: 3px; }
+.pw3-fold > summary::-webkit-details-marker { display: none; }
+.pw3-fold[open] > summary { color: var(--moon); text-decoration: none; }
+.pw3-fold .pw-mail, .pw3-fold .pay-key-line { margin: 4px auto 10px; }
+.pw3-fold .pw-mail-l { display: none; }
+.pw3-fold .pay-help { text-align: center; }
+.pw3 .pw-consent { margin: 10px 0 0; text-align: center; font-size: 11.5px; color: var(--faint); }
+.pw3 .pw-consent a { color: var(--faint); }
+.pw3 .pay-status { text-align: center; }
+/* paying: only the waiting message, the key fold and nothing else */
+.paywall.pw3.is-pending .pw3-buy, .paywall.pw3.is-pending .pw3-fold--mail, .paywall.pw3.is-pending .pw-consent { display: none !important; }
+.paywall.pw3 .pw-pending { text-align: center; }
+.pw3-pend-s { margin: 0 0 6px; font: 400 15px/1.45 var(--sans); color: var(--moon); }
+.pw3-pend-s a { color: var(--gold2); }
+/* sticky bar: price first, readable, no truncated title */
+.sticky-buy .sb-amt { font: 700 20px/1.1 var(--sans); color: var(--moon); white-space: nowrap; }
+.sticky-buy .sb-sub { display: block; font: 400 13px/1.3 var(--sans); color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pw3-fold .pay-key-l { display: none; }
