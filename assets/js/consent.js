@@ -107,6 +107,7 @@
   /* ---------- Meta events from the existing GoatCounter event names ---------- */
   function meta(name, params, custom) {
     if (!granted() || !window.fbq || ID === "ga-only") return;
+    if (BY.isTest && BY.isTest()) return; /* funnel fix 2026-11-07: test browsers (?test=1) send no Meta events */
     try { window.fbq(custom ? "trackCustom" : "track", name, params || {}); } catch (e) { /* ignore */ }
   }
   function prod(slug) {

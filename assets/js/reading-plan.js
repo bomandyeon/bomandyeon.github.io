@@ -68,15 +68,16 @@
   function bridgeText(R, heavy) {
     var where = R.seasonInCommand ? "your season does back you, but your day branch and the stems around you don't add enough" :
       "the places that count most, your season and your day branch, don't hold it";
-    return EL[heavy] + " shows up often in your characters, so the bars above lean that way. The strength count still lands on weak, because " +
+    return EL[heavy] + " shows up often in your characters, so the bars above lean that way. On balance you still come out soft, because " +
       where + ". So the usual \"too much " + EL[heavy] + "\" story doesn't fit you. Think of it as plenty of " + EL[heavy] +
       " in the room and not much of it in your hands. The strength section below explains what that does.";
   }
 
+  // round 3 2026-11-07: kept in step with assemble-v4.js strengthBridge (same cases, plain words)
   function strengthBridge(R) {
-    var weak = R.dmStrength === "weak";
-    if (weak && R.seasonInCommand) return "Your season is on your side, which is why you may not feel weak at all. The rest of your pillars don't add much, so the count stays under half.";
-    if (!weak && !R.seasonInCommand) return "You were born out of season, so the season gave you nothing. Your roots and helpers carry you past the halfway mark anyway.";
+    var weak = R.dmStrength === "weak", el = EL[R.dayMasterEl];
+    if (weak && R.seasonInCommand) return "Your birth season is on your side, which is why you may not feel soft at all. The rest of your birth date gives your " + el + " little extra, so overall your chart still reads as soft.";
+    if (!weak && !R.seasonInCommand) return "You weren't born in your own season, so your strength doesn't come from the calendar. It comes from the rest of your birth date, and there's enough of it to make your " + el + " strong anyway.";
     return "";
   }
 

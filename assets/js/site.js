@@ -377,9 +377,33 @@
       while (gcQueue.length) { try { gc.count(gcQueue.shift()); } catch (e) { /* ignore */ } }
     } else if (++gcTries > 40) { clearInterval(gcTimer); gcTimer = null; gcQueue = []; } // script blocked: drop quietly
   }
+  /* funnel fix 2026-11-07: test traffic is tagged, not mixed in. ?test=1 marks this browser as a test browser (localStorage,
+     survives reloads and new tabs), ?test=0 clears it. Every event of a test browser is sent as "test-<name>" (GoatCounter),
+     and consent.js sends no Meta events for it, so Rok's own runs never land in the real funnel counts. */
+  BY.isTest = function () {
+    try {
+      var v = new URLSearchParams(location.search).get("test");
+      if (v === "1") localStorage.setItem("by_test", "1");
+      if (v === "0") localStorage.removeItem("by_test");
+      return localStorage.getItem("by_test") === "1";
+    } catch (e) { return false; }
+  };
+  var IS_TEST = BY.isTest();
+  /* funnel fix round 2 2026-11-07: basic automated-traffic filter. A browser driven by automation (navigator.webdriver) or with a
+     bot / link-preview / headless user agent sends no GoatCounter events (land-*, src-*, every funnel step), only one
+     "auto-traffic" marker per session so the volume stays visible. Meta's ad review runs a normal-looking browser, so some of it
+     can still slip through; the land-meta spike right after an ad edit is the tell. */
+  var AUTO_RE = /facebookexternalhit|facebot|bot\b|bot\/|crawler|spider|headlesschrome|lighthouse|pagespeed|preview/i;
+  var IS_AUTO = (function () { try { return navigator.webdriver === true || AUTO_RE.test(navigator.userAgent || ""); } catch (e) { return false; } })();
+  BY.isAuto = function () { return IS_AUTO; };
   BY.track = function (name, title) {
     if (GC_LOCAL) return;
+    if (IS_AUTO) {
+      try { if (sessionStorage.getItem("by_gc_auto")) return; sessionStorage.setItem("by_gc_auto", "1"); } catch (e) { return; }
+      name = "auto-traffic"; title = "Automated traffic skipped (events off for this session)";
+    }
     var n = String(name || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+    if (IS_TEST && n.indexOf("test-") !== 0) n = ("test-" + n).slice(0, 60);
     if (!n) return;
     gcQueue.push({ path: "evt-" + n, title: title || n, event: true });
     gcFlush();
@@ -398,7 +422,7 @@
       if (!tag) { var ft = BY.load("ft") || {}; tag = ft.utm_campaign ? ft.utm_campaign + (ft.utm_content ? "-" + ft.utm_content : "") : (ft.src || ""); }
     } catch (e) { /* private mode */ }
     tag = String(tag).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "none";
-    var base = BY.track, FUNNEL = /^(birthday-submit|ch1-view|paywall-view|checkout-click|checkout|purchase)-/;
+    var base = BY.track, FUNNEL = /^(form-started|birthday-submit|result-rendered|ch1-view|teaser-ch2|ch2-end-reached|paywall-view|paywall-dwell|checkout-click|checkout|purchase)-/;
     BY.track = function (name, title) {
       base(name, title);
       var n = String(name || "").toLowerCase();
@@ -409,6 +433,19 @@
   BY.trackOnce = function (name, title) {
     try { var k = "by_gc_" + name; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, "1"); } catch (e) { /* private mode: send anyway */ }
     BY.track(name, title);
+  };
+  /* funnel fix 2026-11-07: one shared denominator. The source of this session (?src, else utm_source, else the first one seen
+     this session, else "direct"), kept per tab session, so every funnel step and the landing count share one session basis. */
+  BY.sessionSrc = function () {
+    var s = "";
+    try {
+      var q = new URLSearchParams(location.search);
+      s = (q.get("src") || q.get("utm_source") || "").toLowerCase();
+      if (/^(facebook|fb|instagram|ig|meta)/.test(s)) s = "meta";
+      s = s.replace(/[^a-z0-9]+/g, "").slice(0, 12);
+      if (s) sessionStorage.setItem("by_ssrc", s); else s = sessionStorage.getItem("by_ssrc") || "";
+    } catch (e) { /* private mode */ }
+    return s || "direct";
   };
   /* GoatCounter counts pageviews on the canonical URL (no query string, so birthdays in reading URLs never leave the browser).
      ?src survives as one event per session instead. */

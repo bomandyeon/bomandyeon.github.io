@@ -11,6 +11,13 @@
   "use strict";
   var BY = window.BY; if (!BY) return;
   var SHOP = "https://bomandyeon.gumroad.com/l/";
+  /* Gumroad permalink per site slug (funnel fix 2026-11-07, PREP ONLY). The site slug stays the same everywhere (URLs, data, worker
+     KV, licences use product_id). Flip GR_RENAMED to true in the SAME deploy that follows the Gumroad API change of the ex product's
+     custom_permalink to "why-you-cant-stop-checking" (see work/qa/funnel-fix-2026-11-07/gumroad-plan.md). Gumroad does not redirect
+     an old custom permalink, so flipping it early or late breaks the ex checkout. */
+  var GR_RENAMED = false;
+  var GR_PERMALINK = { "will-your-ex-come-back": "why-you-cant-stop-checking" };
+  function grSlug(slug) { return GR_RENAMED && GR_PERMALINK[slug] ? GR_PERMALINK[slug] : slug; }
   var WK = "https://bom-yeon-unlock.bomandyeon.workers.dev", API = WK + "/status?token=";
   var BUNDLE = "all-readings";
   /* license verify product_id per Gumroad product (?key= restore only) */
@@ -51,7 +58,7 @@
     Object.keys(a).forEach(function (k) { s += "&" + k + "=" + encodeURIComponent(a[k]); });
     return s;
   }
-  function checkoutUrl(slug) { var r = stateParam(); return SHOP + slug + "?wanted=true&token=" + token(slug) + (r ? "&r=" + r : "") + (OFFER ? "&offer_code=" + encodeURIComponent(OFFER) : "") + utmParams(); }
+  function checkoutUrl(slug) { var r = stateParam(); return SHOP + grSlug(slug) + "?wanted=true&token=" + token(slug) + (r ? "&r=" + r : "") + (OFFER ? "&offer_code=" + encodeURIComponent(OFFER) : "") + utmParams(); }
   function loadGumroad() { /* kept as a no-op for callers; see header */ }
   /* our own gold button, no Gumroad styling: checkout opens in a new tab, this tab keeps polling */
   function buyLink(slug, label, cls) {
@@ -154,7 +161,7 @@
 
   document.addEventListener("click", function (e) {
     var a = e.target.closest && e.target.closest("[data-pay]");
-    if (a) { var s = a.getAttribute("data-pay"); a.href = checkoutUrl(s); setPending(s); capiCk(s); BY.track("checkout-" + s, "Checkout opened: " + s); BY.track("checkout-click-" + s, "Checkout click: " + s + (a.closest && a.closest("#stickyBuy") ? " (sticky bar)" : "")); setTimeout(function () { poll(s); }, 800); return; }
+    if (a) { var s = a.getAttribute("data-pay"); a.href = checkoutUrl(s); setPending(s); capiCk(s); BY.trackOnce("checkout-" + s, "Checkout opened: " + s); BY.track("checkout-click-" + s, "Checkout click: " + s + (a.closest && a.closest("#stickyBuy") ? " (sticky bar)" : "")); setTimeout(function () { poll(s); }, 800); return; }
     var c = e.target.closest && e.target.closest("[data-pay-cancel]");
     if (c) { e.preventDefault(); c.getAttribute("data-pay-cancel").split(" ").forEach(function (cs) { BY.store("pend_" + cs, null); if (polls[cs]) { clearInterval(polls[cs]); polls[cs] = null; } status(cs, ""); paintPending(cs, false); }); }
   }, true);

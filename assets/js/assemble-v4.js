@@ -61,7 +61,14 @@
     var map = { dm: NAMES[R.dayMaster] + " " + EL[R.dayMasterEl], dm_short: NAMES[R.dayMaster], dm_el: EL[R.dayMasterEl],
       heavy_el: k.heavyEl == null ? "" : EL[k.heavyEl], press_el: k.pressEl == null ? "" : EL[k.pressEl],
       miss_el: k.missEl == null ? "" : EL[k.missEl], helper_el: EL[k.helperEl], second_el: k.secondEl == null ? "" : EL[k.secondEl],
-      easy_el: EL[k.easyEl], season: R.season, nick: NICKS[R.dayMaster], nick_word: NICKS[R.dayMaster].split(" ").slice(-1)[0], dm_hanja: HANJA.charAt(R.dayMaster), slug: s,
+      easy_el: EL[k.easyEl], season: R.season, score: R.strengthScore == null ? "" : String(R.strengthScore), score_max: R.strengthMax == null ? "" : String(R.strengthMax),
+      // funnel fix round 2 2026-11-07: the chapter-2 strength line in plain words, no numbers, still what the count found:
+      // strong/weak from R.dmStrength, season support from R.seasonInCommand ({score_note} and {backing} kept for old copy).
+      strength_line: R.dmStrength === "strong" ? (R.seasonInCommand ? "Your chart has strong " + EL[R.dayMasterEl] + " energy, and your season reinforces it." : "Your chart has strong " + EL[R.dayMasterEl] + " energy. Your season doesn't back it, but the rest of your chart does.")
+        : (R.seasonInCommand ? "Your chart's " + EL[R.dayMasterEl] + " energy is on the softer side. Your season backs it, but the rest of your chart adds little." : "Your chart's " + EL[R.dayMasterEl] + " energy is on the softer side, and it gets little support from your season or the rest of your chart."),
+      score_note: R.dmStrength === "strong" ? "strong " + EL[R.dayMasterEl] + " energy" : "softer " + EL[R.dayMasterEl] + " energy",
+      backing: R.dmStrength === "strong" ? (R.seasonInCommand ? "Your season reinforces it" : "Your season doesn't back it, but the rest of your chart does")
+        : (R.seasonInCommand ? "Your season backs it, but the rest of your chart adds little" : "It gets little support from your season or the rest of your chart"), nick: NICKS[R.dayMaster], nick_word: NICKS[R.dayMaster].split(" ").slice(-1)[0], dm_hanja: HANJA.charAt(R.dayMaster), slug: s,
       day_animal: k.dayBranch == null ? "" : ANIMALS[k.dayBranch], day_branch: k.dayBranch == null ? "" : BRANCH_HZ.charAt(k.dayBranch) };
     if (R.partner && R.partner.dayMaster != null) { map.them = NAMES[R.partner.dayMaster] + " " + EL[R.partner.dayMaster >> 1]; map.them_short = NAMES[R.partner.dayMaster]; map.them_el = EL[R.partner.dayMaster >> 1]; }
     var T = TERMS && TERMS[s]; if (T) for (var tk in T) if (T.hasOwnProperty(tk)) map[tk] = T[tk];
@@ -78,13 +85,14 @@
   function bridgeText(R, heavy) {
     var where = R.seasonInCommand ? "your season does back you, but your day branch and the stems around you don't add enough" :
       "the places that count most, your season and your day branch, don't hold it";
-    return EL[heavy] + " shows up often in your characters, so the bars above lean that way. The strength count still lands on weak, because " +
+    return EL[heavy] + " shows up often in your characters, so the bars above lean that way. On balance you still come out soft, because " +
       where + ". So the usual \"too much " + EL[heavy] + "\" story doesn't fit you. Think of it as plenty of " + EL[heavy] + " in the room and not much of it in your hands.";
   }
+  // round 3 2026-11-07: same two cases as before (weak + season in command, strong + out of season), plain words, no counts
   function strengthBridge(R) {
-    var weak = R.dmStrength === "weak";
-    if (weak && R.seasonInCommand) return "Your season is on your side, which is why you may not feel weak at all. The rest of your pillars don't add much, so the count stays under half.";
-    if (!weak && !R.seasonInCommand) return "You were born out of season, so the season gave you nothing. Your roots and helpers carry you past the halfway mark anyway.";
+    var weak = R.dmStrength === "weak", el = EL[R.dayMasterEl];
+    if (weak && R.seasonInCommand) return "Your birth season is on your side, which is why you may not feel soft at all. The rest of your birth date gives your " + el + " little extra, so overall your chart still reads as soft.";
+    if (!weak && !R.seasonInCommand) return "You weren't born in your own season, so your strength doesn't come from the calendar. It comes from the rest of your birth date, and there's enough of it to make your " + el + " strong anyway.";
     return "";
   }
 
@@ -160,7 +168,11 @@
     function echoPanels(c, ch) {
       (c.echo || []).forEach(function (q) {
         var E = (V.echo || {})[q]; if (!E) return;
-        var Q = (V.intake || []).filter(function (z) { return z.id === q; })[0], a = answers[q] || (Q ? Q.skip_value : "unsaid");
+        var Q = (V.intake || []).filter(function (z) { return z.id === q; })[0], given = answers[q], a = given || (Q ? Q.skip_value : "unsaid");
+        // funnel fix 2026-11-07: an echo of a question nobody was asked ("You didn't say how long...") never shows. Only a real
+        // answer, or a skip the reader actually tapped (opts.echoSkipped: the paid flow asked the questions), gets its line.
+        var skipped = !given || given === "unsaid" || (Q && given === Q.skip_value);
+        if (skipped && !opts.echoSkipped) return;
         var x = E[a] || E[Q ? Q.skip_value : "unsaid"] || E.unsaid; if (x) ch.panels.push(P(x));
       });
     }
@@ -189,14 +201,22 @@
         ch.text = F(s.intro);
       } else if (c.type === "base") {
         var e = (V.ext[c.id] || {})[k.strength], adds = (c.add || []).map(function (id) { return V.extra[dm][id]; });
-        ch.text = join([F(base[c.id]), e && F(e.text)].concat(adds.map(function (x) { return (x.heading ? "### " + F(x.heading) + "\n\n" : "") + F(x.text); })));
+        var addT = adds.filter(Boolean).map(function (x) { return (x.heading ? "### " + F(x.heading) + "\n\n" : "") + F(x.text); });
+        // c.add_last (funnel fix 2026-11-07): the added section closes the chapter, after the day-branch section.
+        // c.add_pos "after_base" (round 2): the added section follows the base text, before the strength part;
+        // c.ext_heading puts a caption over the strength part; c.end closes the chapter (after the day-branch section).
+        var addPos = c.add_pos || (c.add_last ? "last" : "after_ext");
+        var extT = e && F(e.text); if (extT && c.ext_heading) extT = "### " + F(c.ext_heading) + "\n\n" + extT;
+        ch.text = addPos === "after_base" ? join([F(base[c.id])].concat(addT, [extT])) : join([F(base[c.id]), extT].concat(addPos === "last" ? [] : addT));
         if (e && e.panel) ch.panels.push(P(e.panel));
         if (c.branch && V.day_branch && k.dayBranch != null) {
           var db = V.day_branch[BRANCH_SLUG[k.dayBranch]];
           ch.text = join([ch.text, "### " + F(V.day_branch_heading || "Your spouse palace: the {day_animal} ({day_branch})"), F(db.text)]);
           if (db.panel) ch.panels.push(P(db.panel));
         }
-        adds.forEach(function (x) { (x.panels || []).forEach(function (q) { ch.panels.push(P(q)); }); });
+        if (addPos === "last") ch.text = join([ch.text].concat(addT));
+        if (c.end) ch.text = join([ch.text, F(c.end)]);
+        adds.forEach(function (x) { ((x && x.panels) || []).forEach(function (q) { ch.panels.push(P(q)); }); });
       } else if (c.type === "extra") {
         var x = V.extra[dm][c.id];
         ch.title = x.title || c.title; ch.text = F(x.text);
@@ -230,7 +250,7 @@
         ch.blocks = blocks; ch.text = blocks.map(function (b) { return "### " + b.h + "\n\n" + b.t + (b.note ? "\n\n" + b.note : ""); }).join("\n\n");
       } else if (c.type === "strength") {
         var hr = V.helper ? V.helper.roles[k.helperRole] : null, he = V.helper ? V.helper.elements[EL[k.helperEl].toLowerCase()] : null;
-        ch.kicker = (R.dmStrength === "strong" ? "Built strong" : "Built soft") + " \u00B7 " + R.strengthScore + " of " + R.strengthMax + " on your chart";
+        ch.kicker = R.dmStrength === "strong" ? "Built strong \u00B7 plenty backing your " + EL[R.dayMasterEl] : "Built soft \u00B7 not much backing your " + EL[R.dayMasterEl]; // round 3: no "N of 8"
         ch.title = (V.strength_titles || {})[R.dmStrength] || (R.dmStrength === "strong" ? "Your blind spot: you push" : "Your blind spot: you give too much");
         ch.text = join([strengthBridge(R), F(V.strength[dm][k.strength]), hr && "### " + F(hr.title), hr && F(hr.text), he && F(he.text)]);
         var sp = (V.strength_panels || {})[dm]; if (sp && sp[k.strength]) ch.panels.push(P(sp[k.strength]));

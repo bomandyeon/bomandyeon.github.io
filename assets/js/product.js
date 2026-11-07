@@ -19,6 +19,12 @@
   var ARTS = ART.concat(EXTRA); // v4 readings have 21-28 panels: cycle through all 12 images, the product's own six first
   var PAIR = P.pair || (P.two ? "required" : "");
   var THEIR_KEY = PAIR === "optional" ? "their_" + P.slug : "their";
+  // round 3 2026-11-07: couple-reading needs both birthdays again (needTheir); situationship stays "start with yours"
+  var NEED_THEIR = PAIR === "required" && !!P.needTheir;
+  var NEED_MSG = "Add their birthday too. This comic compares your two charts, so it needs both.";
+  /* chapters that use the second birthday (partner keys in assemble-v4.js partKey): only those say "Written for you + them" */
+  var THEM_KEYS = { partner_dm: 1, partner_strength: 1, partner_season: 1, partner_el: 1, tengod: 1, el_rel: 1, stem_rel: 1, branch_rel: 1, pair_strength: 1 };
+  function usesThem(c) { return c.type === "pair" || (c.parts || []).some(function (x) { return THEM_KEYS[x.key]; }); }
   BY.fillSelects();
 
   /* inputs from the link: ?s=<id> (this browser), &x=<code> (emailed link), or an old ?b=&t=&a= link (rewritten below) */
@@ -77,7 +83,9 @@
   function ansFor() { var o = Object.assign({}, answers || (function () { var z = {}; INTAKE.forEach(function (q) { z[q.id] = q.skip_value; }); return z; })()); try { var m = BY.load("mood_" + P.slug); if (m) o.mood = m; } catch (e) {} return o; }
   function ansStr() { return INTAKE.length && answers ? INTAKE.map(function (q) { return answers[q.id]; }).join(".") : ""; }
   function urlObj() { return { b: birth, t: PAIR && their ? their : null, a: ansStr() }; }
-  function ready() { return !!birth && (PAIR !== "required" || !!their); }
+  // funnel fix 2026-11-07: a two-birthday reading can start (and open after paying) with your own birthday only
+  function soloOk() { return PAIR === "required" && !NEED_THEIR && !!BY.load("solo_" + P.slug); }
+  function ready() { return !!birth && (PAIR !== "required" || !!their || soloOk()); }
   /* owned reading: straight to the comic; the read page asks for birthdays itself when they are missing */
   function goRead(replace) { var u = ready() ? readUrl() : P.readUrl; if (replace) location.replace(u); else location.href = u; }
   /* portable = the link leaves this browser (email): it carries the scrambled inputs too */
@@ -91,14 +99,14 @@
   function readTheir(form) {
     var any = false;
     ["tm", "td", "ty"].forEach(function (k) { var el = form.querySelector('[name="' + k + '"]'); if (el && String(el.value || "").trim()) any = true; });
-    if (!any) return PAIR === "required" ? { error: "Pick the month, day and year." } : null;
+    if (!any) { if (NEED_THEIR) return { error: NEED_MSG, missing: true }; if (PAIR === "required") BY.store("solo_" + P.slug, 1); return null; } // funnel fix 2026-11-07: theirs is optional (not for couple)
     return BY.readDate(form, "t");
   }
   function readForm(form, errEl) {
     var b = BY.readDate(form, "b");
     if (b.error) { errEl.textContent = "Your birthday: " + b.error; return false; }
     var t = PAIR ? readTheir(form) : null;
-    if (t && t.error) { errEl.textContent = "Their birthday: " + t.error; return false; }
+    if (t && t.error) { errEl.textContent = t.missing ? t.error : "Their birthday: " + t.error; return false; }
     errEl.textContent = "";
     var nm = form.querySelector('[name="nm"]'), n = nm ? nm.value.replace(/[<>]/g, "").trim().slice(0, 24) : "";
     birth = b; BY.store("birth", b); their = t; BY.store(THEIR_KEY, t); name = n; BY.store("name", n || null);
@@ -264,6 +272,8 @@
       (T.yearChanges ? ", in a " + esc(T.altYear) + " " + esc(T.altAnimal) + " year" : "") + ". Add your birth time to the form to be exact.</div>";
   }
   function strengthWord(R) { return R.dmStrength === "strong" ? "Strong chart" : "Weak chart"; }
+  // final 2026-11-07: plain tag, same wording as the strength chapter kicker (no "N of 8")
+  function strengthTag(R) { var el = D.EL_NAMES[R.dayMasterEl]; return R.dmStrength === "strong" ? "Strong \u00B7 plenty backing your " + el : "Soft \u00B7 not much backing your " + el; }
 
   /* ======================= PRODUCT PAGE ======================= */
   /* SajuTight-style funnel (2026-10-21): one question per screen with a step counter.
@@ -281,6 +291,7 @@
     var fromLink = !!(US && US.b);
     var solo = false; // situationship "Start with yours": their birthday comes before the paywall
     document.body.classList.add("is-flow");
+    if (BY.sessionSrc) BY.trackOnce("land-" + BY.sessionSrc() + "-" + P.slug, "Landed (" + BY.sessionSrc() + "): " + P.slug + " " + location.pathname);
     function data() { if (!dataP) dataP = fetch(P.dataUrl).then(function (r) { if (!r.ok) throw new Error("data"); return r.json(); }); return dataP; }
     function smooth() { return BY.reduced ? "auto" : "smooth"; }
     function extras(show) { [].forEach.call(document.querySelectorAll(".pv-faq, .pv-more, .pv-article"), function (x) { x.hidden = !show; }); }
@@ -296,15 +307,45 @@
       if (PAIR === "required" && their) BY.setDate(form, "t", their);
       var err = form.querySelector(".err");
       if (PAIR === "required") pairStep();
+      if (NEED_THEIR) { var tfc = form.querySelector(".tfield"); if (tfc) ["input", "change", "click"].forEach(function (ev) { tfc.addEventListener(ev, function () { setTimeout(function () { var t2 = BY.readDate(form, "t"); if (!t2.error) { tfc.classList.remove("is-missing"); if (err.textContent === NEED_MSG) err.textContent = ""; } }, 0); }); }); }
+      // round 2: form-started-<slug> = first real interaction with the birthday picker (tap, key, pick), once per session.
+      // Only the event name is sent, never a value.
+      var started = function (e) {
+        if (!e.isTrusted || !e.target || !e.target.closest || !e.target.closest(".selects, .mchip, .bfield, .tfield, .bknown, select, input")) return;
+        ["pointerdown", "keydown", "change", "input"].forEach(function (t) { form.removeEventListener(t, started, true); });
+        BY.trackOnce("form-started-" + P.slug, "Birthday picker first used: " + P.slug);
+      };
+      ["pointerdown", "keydown", "change", "input"].forEach(function (t) { form.addEventListener(t, started, true); });
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         var known = form.querySelector(".bknown"), usingKnown = known && !known.hidden && birth;
         var b = usingKnown ? birth : BY.readDate(form, "b");
         if (b.error) { err.textContent = "Your birthday: " + b.error; return; }
         var t = null;
-        if (PAIR === "required" && !solo) {
+        if (NEED_THEIR) {
+          // round 3 2026-11-07: couple needs both. A missing date opens their picker and says so right above the button.
+          var tf = form.querySelector(".tfield");
           t = BY.readDate(form, "t");
-          if (t.error) { err.textContent = (/^Pick the month, then/.test(t.error) ? "Their birthday: add it, or tap \u201CDon't know theirs? Start with yours\u201D." : "Their birthday: " + t.error); return; }
+          if (t.error) {
+            var none = !["tm", "td", "ty"].some(function (k) { var el = form.querySelector('[name="' + k + '"]'); return el && String(el.value || "").trim(); });
+            if (tf) { tf.classList.remove("is-wait"); tf.classList.add("is-missing"); }
+            err.textContent = none ? NEED_MSG : "Their birthday: " + t.error;
+            BY.trackOnce("their-missing-" + P.slug, "Tapped Show my comic without their birthday: " + P.slug);
+            var fc = tf && (tf.querySelector('.mchip[aria-pressed="true"]') || tf.querySelector(".mchip, select, input"));
+            if (fc) { try { fc.focus({ preventScroll: true }); } catch (x) { fc.focus(); } }
+            if (tf && tf.scrollIntoView) tf.scrollIntoView({ behavior: smooth(), block: "center" });
+            return;
+          }
+          if (tf) tf.classList.remove("is-missing");
+        } else if (PAIR === "required" && !solo) {
+          // funnel fix 2026-11-07: your own birthday is enough to start. Their birthday is optional (one chapter compares the two
+          // charts); an untouched picker means "start with mine", a half-filled one still asks to finish it.
+          var tAny = ["tm", "td", "ty"].some(function (k) { var el = form.querySelector('[name="' + k + '"]'); return el && String(el.value || "").trim(); });
+          if (!tAny) { solo = true; BY.track("solo-start-" + P.slug, "Started with own birthday only: " + P.slug); }
+          else {
+            t = BY.readDate(form, "t");
+            if (t.error) { err.textContent = "Their birthday: " + t.error + " Or leave it empty and start with yours."; return; }
+          }
         }
         err.textContent = "";
         go(b, t);
@@ -342,8 +383,9 @@
       if (!birth || BY.iso(birth) !== BY.iso(b)) BY.store("btime", null); // a different birthday: the old birth time doesn't belong to it
       birth = b; BY.store("birth", b);
       if (PAIR) { their = t || (PAIR === "optional" ? their : null); BY.store(THEIR_KEY, their); }
+      if (PAIR === "required" && !NEED_THEIR) BY.store("solo_" + P.slug, their ? null : 1);
       BY.store(DONE_KEY, 1);
-      BY.track("birthday-submit-" + P.slug, "Birthday submitted: " + P.slug);
+      BY.trackOnce("birthday-submit-" + P.slug, "Birthday submitted: " + P.slug); // funnel fix 2026-11-07: one per session
       try { if (BY.urlState) BY.urlState.clean(urlObj()); } catch (x) { /* ignore */ }
       wiz.hidden = false;
       wiz.scrollIntoView({ behavior: smooth(), block: "start" });
@@ -393,7 +435,7 @@
     }
     function lockKicker(c, s, them) {
       if (c.type === "situation") { var a = ansLabels(); if (a.length) return "Because you said: " + a.join(" · "); }
-      return "Written for " + s.nick + (them && c.type !== "pair" && PAIR ? " + " + them.nick : "");
+      return "Written for " + s.nick + (them && c.type !== "pair" && PAIR && usesThem(c) ? " + " + them.nick : ""); // round 3: only chapters that read theirs
     }
     /* teaser UX 2026-10-21: the result opens with the COMIC. The reading's cover art as a webtoon panel with Bom + Yeon speech
        bubbles, then a plain-English headline ("You're Sin Metal. The Jewel.") and one human line. The hanja chart sits folded below. */
@@ -433,7 +475,7 @@
         "</figure>" +
         '<div class="tz-intro"><h2 class="tz-h">You\u2019re <em>' + esc(s.nick) + ".</em></h2>" +
         '<p class="tz-why">Korean birthday astrology calls your type ' + esc(s.name) + '. It shapes ' + esc(how) + ".</p>" +
-        (them ? '<p class="tz-them">They\u2019re <b>' + esc(them.nick) + "</b> (" + esc(them.name) + ")" + (PAIR === "required" ? ". This comic is about the two of you." : ". They\u2019re in your comic too.") + "</p>" : "") +
+        (them ? '<p class="tz-them">They\u2019re <b>' + esc(them.nick) + "</b> (" + esc(them.name) + ")" + (NEED_THEIR ? ". Chapters 3 and 4 read them and your chemistry, and a few more sections use both charts. The rest is mostly about you." : PAIR === "required" ? ". One chapter of your comic compares your two charts." : ". They\u2019re in your comic too.") + "</p>" : "") +
         '</div></header>';
     }
     /* real chapter count for this reader (2 free + the locked list): price per chapter rounded UP to the cent, never flattering */
@@ -445,7 +487,7 @@
       // Bundle is a quiet text link; email link and license key fold away. Same checkout links, same consent notice.
       // v4: one chapter phrase everywhere (build.py ch_phrase). Before their birthday is in, an optional pair chapter is the "+1".
       // v5: one line "$19 · one time · all N chapters" (N = this reader's real count); the optional pair chapter is one muted note
-      var plus = PAIR === "optional" && !hasThem, allN = plus ? restCount + 1 : restCount + 2;
+      var plus = !!PAIR && !hasThem && HAS_PAIR, allN = plus ? restCount + 1 : restCount + 2;
       var pend = PAY.pending(P.slug) || (SHELF && PAY.pending("all-readings"));
       var both = P.slug + (SHELF ? " all-readings" : "");
       return '<div class="chapter-lock paywall pw3 rise' + (pend ? " is-pending" : "") + '" id="paywall" data-pw="' + both + '">' +
@@ -454,8 +496,10 @@
         '<p class="pw3-pend-s"><a href="#" data-pay-cancel="' + both + '">Not paid yet? Back to the price</a></p></div>' +
         '<div class="pw3-buy">' +
         '<p class="pw3-amt">' + BY.moneyHTML(P.price) + '<em class="pw3-per"> \u00B7 one time \u00B7 all ' + allN + ' chapters</em></p>' +
-        '<ul class="pw3-get"><li>PDF to keep</li><li>Your type as a wallpaper, plus your compatibility chart</li></ul>' +
-        (plus ? '<p class="pw3-plus">+1 chapter if you add their birthday</p>' : "") +
+        '<ul class="pw3-get">' + (sample && sample.answer ? '<li class="pw3-ans">' + esc(sample.answer) + "</li>" : "") +
+        '<li>Opens right here after paying, plus an email link to open it on any phone</li><li>' + esc(PW_EXTRA[P.slug] || PW_EXTRA._) + '</li></ul>' +
+        (plus ? (PAIR === "required" ? '<p class="pw3-plus pw3-plus--note">Add their birthday before you unlock if you want the chapter on the two of you. You can also add it later on your comic page.</p>'
+          : '<p class="pw3-plus">+1 chapter if you add their birthday</p>') : "") +
         '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest", "btn--block pw3-cta") + "</div>" +
         '<p class="pw3-fine">Secure checkout by Gumroad \u00B7 30-day refund</p>' +
         "</div>" +
@@ -468,6 +512,23 @@
     }
     /* faza 2 (2026-11-05): optional "send me the link" under the buy button. Never blocks checkout; reminders only with the
        separate unticked box. The worker sends one mail (plus at most 2 reminders on opt-in) and deletes the address within 14 days. */
+    var HAS_PAIR = false;
+    /* round 2 2026-11-07: the third paywall line says what every buyer of this reading really gets on the read page (bonusBox +
+       print view): a PDF, phone and desktop wallpapers of their type, and the per-type chart "You and every birthday type"
+       (a love-match chart of their type with all 10 types; it needs no second birthday). */
+    var PW_EXTRA = {
+      _: "PDF to keep, plus phone and desktop wallpapers of your type and a bonus love chart: your type with all 10 types",
+      "will-your-ex-come-back": "PDF to keep, plus phone and desktop wallpapers of your type and a chart of how your type matches all 10 types",
+      "situationship": "PDF to keep, plus phone and desktop wallpapers of your type and a chart of how your type matches all 10 types",
+      "what-kind-of-lover": "PDF to keep, plus phone and desktop wallpapers of your type and a chart of how your type matches all 10 types",
+      "couple-reading": "PDF to keep, plus phone and desktop wallpapers of your type and a chart of how your type matches all 10 types"
+    };
+    var PW_ANSWER = {
+      "will-your-ex-come-back": { id: "the-pull", line: "why you still check their profile, what it costs you, and how to stop" },
+      "situationship": { id: "where-it-stands", line: "where this really is, not where you hope" },
+      "what-kind-of-lover": { id: "flirting", line: "your flirting style, rated" },
+      "couple-reading": { id: "who-they-are", line: "who they are, then what your two types make together", n2: true }
+    };
     var mbN = 0;
     function mailBox() {
       if (BY.load("sl_" + P.slug)) return "";
@@ -512,6 +573,31 @@
       outT = outT.trim(); if (!/[.!?]["'\u2019\u201D)\]]*$/.test(outT)) outT = outT.replace(/[,;:\s]+$/, "") + ".";
       return '<div class="cliff"><p class="cliff__h">Chapter ' + at.n + ": " + esc(at.title) + '</p><p class="cliff__t">' + (sp ? "<b>" + sp + "</b> " : "") + esc(outT) + "</p></div>";
     }
+    /* funnel fix 2026-11-07 (lover): one open question right under the type card, answered in chapter 3. It is the start of the
+       real chapter 3 cliff line (up to its " | " cut), so the free part promises nothing the comic doesn't say. */
+    var OPEN_Q = { "what-kind-of-lover": 1 };
+    function openQHTML(hk, J) {
+      var t = String(hk.text), sp = "", sy = SAY_RE.exec(t); if (sy) { sp = sy[1]; t = sy[2]; }
+      var cut = t.indexOf(" | "), head = (cut > 0 ? t.slice(0, cut) : t.split(/[.!?]/)[0]).replace(/[,;:\s]+$/, "");
+      var n = 0, title = ""; J.plan.forEach(function (c, i) { if (c.id === hk.id) { n = i + 1; title = planTitle(c); } });
+      return '<div class="cliff cliff--open rise"><p class="cliff__h">Still open \u00B7 answered in chapter ' + n + (title ? ": " + esc(title) : "") + '</p><p class="cliff__t">' + (sp ? "<b>" + sp + "</b> " : "") + esc(head) + "\u2026</p></div>";
+    }
+    /* funnel fix 2026-11-07 (situationship): when their birthday is in, one short honest beat from the two Day Master elements
+       (the same five-element cycle the paid pair chapter uses), and a plain note that one chapter compares the two charts. */
+    var ELN = ["Wood", "Fire", "Earth", "Metal", "Water"];
+    function pairBeatHTML(R, s, them, J) {
+      var a = R.dayMasterEl, b = R.partner.dayMaster >> 1, r = ((b - a) % 5 + 5) % 5, A = ELN[a], B = ELN[b], x;
+      if ((((R.dayMaster - R.partner.dayMaster) % 10) + 10) % 10 === 5) x = "Your two day stems are one of saju\u2019s five classic stem pairs, which is read as a strong pull. A pull is not the same thing as clarity.";
+      else x = [
+        "You\u2019re both " + A + ". Same element, so you recognise each other fast, and you dig in the same way. Two of the same rarely makes the other move first.",
+        "Your " + A + " feeds their " + B + ". In the five-element cycle that makes you the one who gives and them the one who grows. Easy to fall into, easy to stay lopsided in.",
+        "Your " + A + " keeps their " + B + " in check. In the five-element cycle that puts you in the steering seat, even when you don\u2019t mean to drive.",
+        "Their " + B + " keeps your " + A + " in check. In the five-element cycle that puts them in the steering seat, so you may be the one adjusting more.",
+        "Their " + B + " feeds your " + A + ". In the five-element cycle they give and you grow, which feels good and can make it hard to ask for more."][r];
+      var n = 0, nc = 0; J.plan.forEach(function (c, i) { if (c.type === "pair") n = i + 1; if (NEED_THEIR && c.id === "your-chemistry") nc = i + 1; });
+      return '<div class="say say--yeon rise pv-pairbeat"><span class="av av--yeon"><img src="/assets/img/av-yeon.webp" alt="" width="44" height="44"></span><p class="bubble"><b>Yeon</b>' + esc(x) +
+        (n ? " Chapter " + n + " reads the two of you in full." : nc ? " Chapter " + nc + " reads your chemistry in full." : "") + "</p></div>";
+    }
     function skipAll() { var o = {}; INTAKE.forEach(function (q) { o[q.id] = q.skip_value; }); return o; }
     /* optional chips after chapter 1 (2026-11-05): the reading's own questions (or its one mood question). Never blocking:
        a tap stores the answer and redraws the free chapters with it; skipping changes nothing. */
@@ -540,8 +626,8 @@
     }
     function addTheirCard() {
       var c = document.createElement("section"); c.className = "card pv-their rise"; c.id = "pvTheir";
-      c.innerHTML = '<h3>The rest of this comic compares your two charts</h3>' +
-        '<p class="muted small">Add their birthday so the full comic is about the two of you. Just the date, they never find out. You can also add it right after paying.</p>' +
+      c.innerHTML = '<h3>Add theirs for the chapter on the two of you</h3>' +
+        '<p class="muted small">Optional. One chapter compares your two charts: whose element feeds whose, and where you clash. The rest of the comic reads you. Just the date, they never find out. You can also add it right after paying.</p>' +
         '<form class="form-stack" novalidate>' + BY.dateHTML("t", "Their birthday") + '<p class="err" role="alert"></p><button class="btn btn--ghost btn--block" type="submit">Add their birthday</button></form>';
       BY.fillSelects(c);
       c.querySelector("form").addEventListener("submit", function (e) {
@@ -568,6 +654,22 @@
       var io = new IntersectionObserver(function (ents) { ents.forEach(function (en) { if (en.isIntersecting) { io.disconnect(); BY.trackOnce(name, title); } }); }, { rootMargin: "0px 0px -35% 0px" });
       io.observe(el);
     }
+    function shownOnce(el, name, title) {
+      if (!el) return;
+      if (!("IntersectionObserver" in window)) { BY.trackOnce(name, title); return; }
+      var io = new IntersectionObserver(function (ents) { ents.forEach(function (en) { if (en.isIntersecting && el.getBoundingClientRect().height > 0) { io.disconnect(); BY.trackOnce(name, title); } }); }, { threshold: 0.01 });
+      io.observe(el);
+    }
+    function dwellOnce(el, ms, name, title) {
+      if (!el || !("IntersectionObserver" in window)) return;
+      var tm = null, io = new IntersectionObserver(function (ents) {
+        ents.forEach(function (en) {
+          if (en.isIntersecting && en.intersectionRatio >= 0.5) { if (!tm) tm = setTimeout(function () { io.disconnect(); BY.trackOnce(name, title); }, ms); }
+          else if (tm) { clearTimeout(tm); tm = null; }
+        });
+      }, { threshold: [0, 0.5, 1] });
+      io.observe(el);
+    }
     function renderPreview(scroll) {
       var R = analyze(), s = D.SOULS[R.dayMaster], them = PAIR && R.partner ? D.SOULS[R.partner.dayMaster] : null;
       if (!out.firstChild) out.innerHTML = '<p class="center muted">Bom and Yeon are pulling your chapters\u2026</p>';
@@ -575,18 +677,21 @@
         var d = J.by_day_master[s.slug];
         if (!d || !A4) { out.innerHTML = '<p class="err">This reading isn\'t ready for ' + esc(s.name) + " yet. Try another one for now.</p>"; return; }
         out.innerHTML = coverHTML(R, s, them, J.title) + termBanner(R);
+        var hk0 = (d.hook || {}).cliff;
+        if (OPEN_Q[P.slug] && hk0 && hk0.text) out.insertAdjacentHTML("beforeend", openQHTML(hk0, J));
+        if (PAIR === "required" && R.partner && them) out.insertAdjacentHTML("beforeend", pairBeatHTML(R, s, them, J));
         // the reading's real opening: the first two plan chapters, assembled exactly as on the reading page
         var V = { plan: J.plan2, intake: J.intake, ext: J.ext || {}, keyed: J.keyed || {}, day_branch: J.day_branch, day_branch_heading: J.day_branch_heading, heavy: {}, missing: {},
           base: {}, base_panels: {}, season: {}, extra: {} };
         V.base[s.slug] = d.base; V.base_panels[s.slug] = d.base_panels; V.season[s.slug] = d.season; V.extra[s.slug] = d.extra || {};
         if (d.open) { V.open = {}; V.open[s.slug] = d.open; } V.echo = J.echo || {};
         if (d.terms) { V.terms = {}; V.terms[s.slug] = d.terms; }
-        var asm = A4.assemble(R, V, { answers: ansFor() }), art = counter(), usedArt = [];
+        var asm = A4.assemble(R, V, { answers: ansFor(), echoSkipped: false }), art = counter(), usedArt = []; // funnel fix 2026-11-07: no echo of unasked questions in the free part
         asm.chapters.forEach(function (ch, ci) {
-          // trimmed so the paywall comes fast: comic beats up to ~110 words per free chapter
-          var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim() && !/^(?:(?:Yeon|Bom):\s*)?You skipped\b/.test(x.trim()); }), keep = [], wc = 0; // 2026-11-06: no questions in the free part, so no "you skipped" lines
-          for (var pi = 0; pi < paras.length && keep.length < 8 && wc < 110; pi++) { if (/^###/.test(paras[pi]) && keep.length) break; keep.push(paras[pi]); if (!/^###/.test(paras[pi])) wc += paras[pi].split(/\s+/).length; }
-          var t = Object.assign({}, ch, { panels: (ch.panels || []).filter(function (q) { return !/^You skipped\b/.test(q.text || ""); }).slice(0, ci === 0 ? 4 : 3), text: keep.join("\n\n") });
+          // funnel fix 2026-11-07 (Rok): the two free chapters show whole, never cut mid-thought. A chapter that is too long or ends
+          // weakly is fixed in the copy, not here. The old ~110-word / 8-paragraph / 3-4-panel trim is gone.
+          var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim() && !/^(?:(?:Yeon|Bom):\s*)?You skipped\b/.test(x.trim()); });
+          var t = Object.assign({}, ch, { panels: (ch.panels || []).filter(function (q) { return !/^You skipped\b/.test(q.text || ""); }), text: paras.join("\n\n") });
           var own1 = landerScene(ci) || sceneFor(ch.id, R); if (own1) usedArt.push(own1.src);
           var sec = comicChapter(t, R, art, { scene: own1 }); sec.classList.add("comic--teaser"); out.appendChild(sec);
           /* 2026-11-06 Rok: no optional questions in the free part (they come after purchase) */
@@ -596,7 +701,7 @@
         var hook = d.hook || {}, numOf = function (id) { for (var i = 0; i < rest.length; i++) if (rest[i].id === id) return { n: i + 3, title: lockTitle(rest[i], R, s, them) }; return null; };
         var cl = hook.cliff && numOf(hook.cliff.id), sm = hook.sample && numOf(hook.sample.id);
         var lock = document.createElement("section"); lock.className = "lock-list rise";
-        var optPair = PAIR === "optional" && !R.partner;
+        var optPair = !!PAIR && !R.partner; HAS_PAIR = rest.some(function (c) { return c.type === "pair"; });
         // v5: the optional pair chapter is the paywall's one "+1" note, so the locked list shows the chapters every buyer gets
         var shown = optPair ? rest.filter(function (c) { return c.type !== "pair"; }) : rest;
         if (optPair && shown.length !== rest.length - 1) shown = rest;
@@ -613,11 +718,19 @@
             '</b></span><svg class="lk-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></li>';
         };
         var SHOW = 3;
+        /* funnel fix 2026-11-07: the paywall's first line names this reading's answer, from its own locked chapter list */
+        function pwAnswer(rest, R, s, them) {
+          var want = PW_ANSWER[P.slug], hit = null, i;
+          for (i = 0; i < rest.length && !hit; i++) if (want && rest[i].id === want.id) hit = { c: rest[i], n: i + 3 };
+          if (!hit) for (i = 0; i < rest.length && !hit; i++) if (rest[i].type !== "pair") hit = { c: rest[i], n: i + 3 };
+          if (!hit) return "";
+          return (want && want.n2 ? "Chapters " + hit.n + " and " + (hit.n + 1) : "Chapter " + hit.n) + ": " + (want && want.line ? want.line : lockTitle(hit.c, R, s, them));
+        }
         lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") +
           '<div class="lock-head"><h3 class="lock-h">The rest of your comic, ' + esc(name || s.nick) + '</h3><p class="lock-sub">' + esc(restLine) + ', locked</p></div>' +
           '<ol class="lock-ol lock-ol--v2">' + shown.slice(0, SHOW).map(row).join("") + "</ol>" +
           (shown.length > SHOW ? '<details class="lock-more"><summary>See the other ' + (shown.length - SHOW) + "</summary>" + '<ol class="lock-ol lock-ol--v2" start="' + (SHOW + 3) + '">' + shown.slice(SHOW).map(function (c, i) { return row(c, i + SHOW); }).join("") + "</ol></details>" : "") +
-          paywallHTML(rest.length, sm ? { text: hook.sample.text, who: hook.sample.who, n: sm.n, title: sm.title } : null, !!R.partner);
+          paywallHTML(rest.length, Object.assign(sm ? { text: hook.sample.text, who: hook.sample.who, n: sm.n, title: sm.title } : {}, { answer: pwAnswer(rest, R, s, them) }), !!R.partner);
         out.appendChild(lock);
         document.body.classList.add("has-strip");
         BY.watch(out);
@@ -625,10 +738,16 @@
         extras(true);
         BY.trackOnce("teaser-" + P.slug, "Teaser shown: " + P.slug);
         var chs = out.querySelectorAll(".comic--teaser");
+        // round 2: result-rendered-<slug> = the personalised free comic is in the page AND its first chapter is visible on screen
+        shownOnce(chs[0], "result-rendered-" + P.slug, "Free comic rendered on screen: " + P.slug);
         // measurement 2026-11-05: chapter 1 read (end of it on screen) and the paywall seen; Meta ReadChapter1 / PaywallView via consent.js
         seenOnce(chs[0] && (chs[0].querySelector(".comic__beats > :last-child") || chs[0]), "ch1-view-" + P.slug, "Chapter 1 read: " + P.slug);
         seenOnce(chs[1], "teaser-ch2-" + P.slug, "Teaser chapter 2 reached: " + P.slug);
         seenOnce(out.querySelector(".paywall"), "paywall-view-" + P.slug, "Paywall seen: " + P.slug);
+        // funnel fix 2026-11-07: chapter 2 read to its last beat, and the paywall on screen for 5 s or more (one per session each)
+        // round 2: renamed ch2-end-reached-<slug> (the last beat of chapter 2 reached the reading zone of the screen)
+        seenOnce(chs[1] && (chs[1].querySelector(".comic__beats > :last-child") || chs[1]), "ch2-end-reached-" + P.slug, "Chapter 2 end reached: " + P.slug);
+        dwellOnce(out.querySelector(".paywall .pw3-buy") || out.querySelector(".paywall"), 5000, "paywall-dwell-" + P.slug, "Paywall on screen 5s+: " + P.slug);
         if (PAY) { stickyPaywall(); exitCapture(); }
         if (scroll) out.scrollIntoView({ behavior: smooth(), block: "start" });
       }).catch(function () { out.innerHTML = '<p class="err">The preview didn\'t load. Check your connection and tap the button again.</p>'; });
@@ -803,7 +922,7 @@
        ?from=gumroad (Gumroad's own button) or a checkout this browser started: render and confirm by polling.
        Only a definite "not paid" shows the key box; nothing known at all -> "paid, enter the birthdays once". */
     var banner = null, paidKey = "", refundClosed = false;
-    function need() { return !birth || (PAIR === "required" && !their); }
+    function need() { return !birth || (PAIR === "required" && !their && !soloOk()); }
     function showBanner(msg) {
       if (!msg) { if (banner && banner.parentNode) banner.parentNode.removeChild(banner); banner = null; return; }
       if (!banner) { banner = document.createElement("p"); banner.className = "rd-confirm no-print"; banner.setAttribute("role", "status"); out.parentNode.insertBefore(banner, out); }
@@ -881,7 +1000,7 @@
     function start() {
     if (need()) {
       out.innerHTML = ""; $("rdAsk").hidden = false; fillForm(form);
-      if (PAY && PAY.owns(P.slug)) { var an = $("rdAskNote"); if (an) { an.textContent = "Your reading is paid for. Enter the birthdays once to open it" + (PAIR === "required" ? " (yours and theirs)." : "."); an.className = "pw-owned"; } }
+      if (PAY && PAY.owns(P.slug)) { var an = $("rdAskNote"); if (an) { an.textContent = "Your reading is paid for. Enter the birthdays once to open it" + (NEED_THEIR ? " (yours and theirs: this one compares your two charts)." : PAIR === "required" ? " (yours, plus theirs if you know it: it adds the chapter on the two of you)." : "."); an.className = "pw-owned"; } }
       if (!form.getAttribute("data-wired")) { form.setAttribute("data-wired", "1"); form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (!readForm(form, $("rdErr"))) return;
@@ -985,9 +1104,10 @@
         if (PAIR === "required" && them) out.appendChild(bondBox(R, s, them));
 
         var al = answersLine(); if (al) out.appendChild(al);
-        var asm = A4.assemble(R, J, { answers: ansFor(), pairs: J.pairs || null }), art = counter();
+        var asm = A4.assemble(R, J, { answers: ansFor(), pairs: J.pairs || null, echoSkipped: INTAKE.length > 0 }), art = counter();
         var pi = -1; J.plan.forEach(function (c, i) { if (c.type === "pair") pi = i; });
-        var afterId = PAIR === "optional" && !them && pi > 0 ? J.plan[pi - 1].id : null;
+        // round 2: a two-birthday reading opened with your birthday only (situationship) also gets the "add theirs" card
+        var afterId = (PAIR === "optional" || PAIR === "required") && !them && pi > 0 ? J.plan[pi - 1].id : null;
         // v5 2026-11-06: silent panels between the beats use this reading's other scenes; never the chapter's own scene, never the
         // scene of the chapter right before or after, never the same picture twice in a row, top and bottom bands in turn.
         var own = asm.chapters.map(function (c) { var x = sceneFor(c.id, R); return x ? x.src : ""; });
@@ -1028,7 +1148,9 @@
           at.addEventListener("submit", function (e) {
             e.preventDefault();
             var t = BY.readDate(at, "t"); if (t.error) { $("atErr").textContent = t.error; return; }
-            their = t; BY.store(THEIR_KEY, t); try { history.replaceState(null, "", readUrl()); } catch (x) { /* ignore */ }
+            their = t; BY.store(THEIR_KEY, t); if (PAIR === "required") BY.store("solo_" + P.slug, null);
+            BY.track("their-added-read-" + P.slug, "Their birthday added on the read page: " + P.slug);
+            try { history.replaceState(null, "", readUrl()); } catch (x) { /* ignore */ }
             render(); window.scrollTo(0, 0);
           });
         }
@@ -1058,7 +1180,7 @@
       }).join("");
     }
     function buildPrint(R, s, them, J) {
-      var I = coverInfo(R, s, them, J.title), asm = A4.assemble(R, J, { answers: ansFor(), pairs: J.pairs || null }), EC = D.EL_COLOR;
+      var I = coverInfo(R, s, them, J.title), asm = A4.assemble(R, J, { answers: ansFor(), pairs: J.pairs || null, echoSkipped: INTAKE.length > 0 }), EC = D.EL_COLOR;
       var n = asm.chapters.length, two = function (i) { return (i < 9 ? "0" : "") + (i + 1); };
       var pill = function (p) {
         return '<div class="pp-pillar"><span class="pp-pl">' + p.label + '</span><span class="hz" style="color:' + EC[p.stemEl] + '">' + p.stem + '</span><span class="hz" style="color:' + EC[p.branchEl] + '">' + p.branch + '</span><span class="pp-pe">' + p.stemEl + " · " + p.branchEl + "<br>" + p.animal + "</span></div>";
@@ -1079,7 +1201,7 @@
       h += '<section class="pp-sheet pp-chart"><p class="pp-kicker">Your chart</p><h2 class="pp-h2">' + esc(I.dmName) + ' <span class="hz" style="color:' + EC[I.el] + '">' + I.hanja + "</span></h2>" +
         '<p class="pp-lead">' + esc(I.nick) + ". " + esc(s.tag || "") + "</p>" +
         '<div class="pp-pillars">' + I.pillars.map(pill).join("") + "</div>" +
-        '<div class="pp-facts"><p><b>Season</b>' + I.seasonHz + " " + esc(seasonLine(R)) + "</p><p><b>Strength</b>" + esc(strengthWord(R)) + " · " + I.score + " of " + I.max + "</p><p><b>Your book</b>" + n + " illustrated chapters</p></div>" +
+        '<div class="pp-facts"><p><b>Season</b>' + I.seasonHz + " " + esc(seasonLine(R)) + "</p><p><b>Strength</b>" + esc(strengthTag(R)) + "</p><p><b>Your book</b>" + n + " illustrated chapters</p></div>" +
         '<div class="pp-bars"><p class="pp-mini">Your five elements</p>' + bars + "</div>";
       if (PAIR === "required" && them && R.compat) {
         var pd = PAIRS[pairSlug(R.dayMaster, R.partner.dayMaster)] || {};
@@ -1169,7 +1291,7 @@
         '<p class="hz cv-dm" style="color:' + I.color + '">' + I.hanja + "</p>" +
         "<h1>" + esc(I.dmName) + '</h1><p class="muted">' + esc(I.nick) + (I.them ? ' · with <span class="hz" style="color:' + I.them.color + '">' + I.them.hanja + "</span> " + esc(I.them.name) : "") + "</p>" +
         '<div class="pillars' + (I.pillars.length > 3 ? " pillars--4" : "") + '" aria-label="Your pillars">' + pills + "</div>" +
-        '<ul class="tags"><li>' + I.seasonHz + " " + esc(seasonLine(R)) + "</li><li>" + esc(strengthWord(R)) + " · " + I.score + " of " + I.max + "</li></ul>" +
+        '<ul class="tags"><li>' + I.seasonHz + " " + esc(seasonLine(R)) + "</li><li>" + esc(strengthTag(R)) + "</li></ul>" +
         '<p class="muted small" id="rdLen">&nbsp;</p>' +
         '<div class="bars">' + bars + "</div>" +
         '<p class="muted small">' + (R.hasHour ? "Four pillars from your birth date and time." : "Three pillars from your birth date (year, month, day). Your birth hour would add a fourth.") +
@@ -1247,16 +1369,21 @@
       return '<section class="rise chap about-reading"><p class="kicker">About this reading</p><p class="muted small">This reading is ' + L.chapters + " illustrated chapters and " + L.panels + " panels. " +
         (R.hasHour ? "It uses four pillars: your birth year, month, day and hour. " : "It uses three pillars: your birth year, month and day. A birth hour would add a fourth. ") +
         "It doesn't include your 10-year luck cycles (대운), which traditional readers use for timing. If you were born between 11 pm and midnight, some saju schools count you as the next day's Day Master" +
-        (PAIR ? ". The chapter on the two of you compares your Day Masters (and notes your day branches); a full Korean compatibility reading (궁합) compares both whole charts" : "") +
+        (NEED_THEIR ? ". The parts that use their birthday compare your Day Masters, both chart strengths and your day branches; a full Korean compatibility reading (궁합) compares both whole charts"
+          : PAIR ? ". The chapter on the two of you compares your Day Masters (and notes your day branches); a full Korean compatibility reading (궁합) compares both whole charts" : "") +
         ". For entertainment and self-reflection.</p></section>";
     }
-    /* the "what backs you up" line above the strength chapter (same count as the cover card) */
+    /* the "what backs you up" line above the strength chapter (same count as the cover card; round 3 2026-11-07: plain words,
+       no points, same parts and the same strong/soft result as R.dmStrength) */
     function strengthHow(R) {
-      var names = { season: R.seasonKey === "earth" ? "your season (the Earth days)" : "your season (" + R.seasonElName + " in command)", day_branch: "your day branch", year_branch: "your year branch", hour_branch: "your hour branch",
-        year_stem: "your year stem", month_stem: "your month stem", hour_stem: "your hour stem" };
+      var el = D.EL_NAMES[R.dayMasterEl];
+      var names = { season: R.seasonKey === "earth" ? "your birth season (the Earth days)" : "your birth season (" + R.seasonElName + " in command)", day_branch: "your birth day\u2019s animal",
+        year_branch: "your birth year\u2019s animal", hour_branch: "your birth hour\u2019s animal", year_stem: "your birth year\u2019s element", month_stem: "your birth month\u2019s element", hour_stem: "your birth hour\u2019s element" };
       var yes = R.strengthParts.filter(function (p) { return p.ok; }).map(function (p) { return names[p.part]; });
-      return "Bom and Yeon count what backs your " + D.EL_NAMES[R.dayMasterEl] + " up: your own element or the one that feeds it. " +
-        (yes.length ? "Support comes from " + yes.join(", ") + "." : "None of your pillars carries it.") + " That is " + R.strengthScore + " of " + R.strengthMax + " points, with the season worth the most. A simplified count from the pillars we have.";
+      var list = yes.length > 1 ? yes.slice(0, -1).join(", ") + " and " + yes[yes.length - 1] : yes[0];
+      return "Bom and Yeon look at what backs your " + el + " up: more " + el + ", or the element that feeds it. " +
+        (yes.length ? "For you that\u2019s " + list + "." : "Nothing in your birth date does.") + " The season counts most, and overall your " + el +
+        (R.dmStrength === "strong" ? " reads as strong." : " reads as soft.") + " A simplified reading of the birth date you gave.";
     }
   }
 
