@@ -2459,3 +2459,18 @@ body.has-strip .phero--flow .phero__cover { display: none; }
 /* round 3 2026-11-07: couple-reading needs both birthdays; a missing second date is marked at the field */
 .pv-form--pair .tfield.is-missing { padding: 8px 10px 4px; margin: 6px -10px 0; border-left: 3px solid #F2A39A; border-radius: 6px; background: rgba(242, 163, 154, .06); }
 .pv-form--pair .tfield.is-missing > .field-label { color: #F2A39A; }
+
+/* round 4 2026-11-07: Instagram in-app first screen (about 390x640 / 360x640 visible). Birthday and button above the fold:
+   shorter cover band, and on /ex/ Yeon's sample line moves under the form. Phones only; desktop unchanged. */
+@media (max-width: 859px) {
+  .phero--flow .phero__main { display: flex; flex-direction: column; }
+  .phero--flow .phero__main > .pv-sample { order: 1; margin: 16px 0 0; }
+  .phero--flow .phero__main > .pv-price, .phero--flow .phero__main > .flow-buy { order: 2; }
+  .phero--flow .phero__cover, .phero--flow .phero__cover img { height: 100px; }
+  .phero--flow .phero__cover { margin-bottom: 14px; }
+  .phero--flow .phero__cover:has(img[src*="cover-ex"]), .phero--flow .phero__cover img[src*="cover-ex"] { height: 108px; }
+  .phero--flow .phero__cover img[src*="cover-ex"] { object-position: 50% 27%; }
+  .phero--flow .phero__cover:has(img[src*="cover-situationship"]), .phero--flow .phero__cover img[src*="cover-situationship"] { height: 100px; }
+  .phero--flow .phero__cover:has(img[src*="cover-lover"]), .phero--flow .phero__cover img[src*="cover-lover"] { height: 104px; }
+  .phero--flow .lede { margin-bottom: 14px; }
+}
