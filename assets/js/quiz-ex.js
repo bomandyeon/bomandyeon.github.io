@@ -2,7 +2,7 @@
  * Hands over exactly what the /ex/ form would store: by_birth, by_btime (cleared for a new birthday), by_name, the product's
  * intake answers (by_ans_will-your-ex-come-back, same ids/values as content/products/will-your-ex-come-back.v4.json "intake"),
  * by_wiz_<slug>, and the link id ?s=<id> (BY.urlState), so no readable birthday or answer ever sits in an address.
- * Raw answers also in localStorage "quiz_ex". Email: the same /save-link worker call and privacy line as the paywall box.
+ * Raw answers also in localStorage "quiz_ex". Email (v2, 2026-11-08): required, MoonReading-style; same /save-link worker as the paywall box, with remind: true (link + at most 2 reminders).
  * Keep INTAKE in sync with the v4.json intake if that ever changes. */
 (function () {
   "use strict";
@@ -16,10 +16,10 @@
   var SAYS = {
     who_ended: ["bom", "No wrong answer. It changes what we draw for you."],
     how_long: ["yeon", "Be honest. We can count."],
-    what_you_want: ["bom", "Whatever you pick, the comic is about you. No predictions about them."]
+    what_you_want: ["yeon", "Be honest. It changes the comic."]
   };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  var TOTAL = 9, st = { ans: {}, m: 0, d: 0, dec: 0, y: 0, name: "" }, hist = [], cur = null, firstBday = true;
+  var TOTAL = 7, st = { ans: {}, m: 0, d: 0, dec: 0, y: 0, name: "" }, hist = [], cur = null, firstBday = true;
   var MAXY = new Date().getFullYear() - BY.MIN_AGE;
 
   /* ---------- tracking: plain event + via-<tag>-<event> (site.js only doubles its own funnel names) ---------- */
@@ -35,7 +35,7 @@
     return '<div class="say say--' + who + '"><span class="av av--' + who + '"><img src="/assets/img/av-' + who + '.webp" alt="" width="44" height="44"></span><p class="bubble"><b>' + (who === "yeon" ? "Yeon" : "Bom") + "</b>" + esc(text) + "</p></div>";
   }
   function frame(n, inner, noBack) {
-    var top = n ? '<div class="qz__top">' + (noBack ? "<span></span>" : '<button type="button" class="qz__back" data-back>\u2190 Back</button>') + '<span class="qz__step">' + n + " of " + TOTAL + '</span></div><div class="qz__bar"><i style="width:' + Math.round(n / TOTAL * 100) + '%"></i></div>' : "";
+    var top = n === "almost" ? '<div class="qz__top">' + (noBack ? "<span></span>" : '<button type="button" class="qz__back" data-back>\u2190 Back</button>') + '<span class="qz__step">Almost done</span></div>' : n ? '<div class="qz__top">' + (noBack ? "<span></span>" : '<button type="button" class="qz__back" data-back>\u2190 Back</button>') + '<span class="qz__step">' + n + " of " + TOTAL + '</span></div><div class="qz__bar"><i style="width:' + Math.round(n / TOTAL * 100) + '%"></i></div>' : "";
     root.innerHTML = top + inner;
     window.scrollTo(0, 0);
     var b = root.querySelector("[data-back]"); if (b) b.addEventListener("click", back);
@@ -63,21 +63,34 @@
     frame(i + 1, say(s[0], s[1]) + '<h1 class="qz__h">' + esc(q.question) + '</h1><div class="qz__opts">' + q.options.map(function (o) { return opt(o[0], o[1]); }).join("") + "</div>", i === 0);
     onPick(function (v) {
       st.ans[q.id] = v; ev("q" + (i + 1), q.id + " answered");
-      show(i + 1 < INTAKE.length ? function () { question(i + 1); } : month);
+      show(i + 1 < INTAKE.length ? function () { question(i + 1); } : sign);
     });
   }
   function bdayTouch() { if (firstBday) { firstBday = false; BY.trackOnce("form-started-" + SLUG, "Birthday picker first used: " + SLUG + " (quiz)"); } }
-  function month() {
-    frame(4, say("yeon", "Now the part that actually matters. Your birthday.") + '<h1 class="qz__h">What month were you born?</h1><div class="qz__grid">' +
-      MONTHS.map(function (m, k) { return opt(k + 1, m.slice(0, 3), ' aria-label="' + m + '"'); }).join("") + "</div>");
-    onPick(function (v) { bdayTouch(); st.m = +v; show(day); });
+  /* v3 (2026-11-08): star sign first, then only that sign's days grouped by month (MoonReading / SoulmateStory). One tap fixes month+day.
+   * Tropical ranges, end dates inclusive. Feb shows 29 until the year is known; the year step then disables non-leap years (BY.validDate). */
+  var ZOD = [["Aries", "\u2648", 3, 21, 4, 19], ["Taurus", "\u2649", 4, 20, 5, 20], ["Gemini", "\u264A", 5, 21, 6, 20], ["Cancer", "\u264B", 6, 21, 7, 22],
+    ["Leo", "\u264C", 7, 23, 8, 22], ["Virgo", "\u264D", 8, 23, 9, 22], ["Libra", "\u264E", 9, 23, 10, 22], ["Scorpio", "\u264F", 10, 23, 11, 21],
+    ["Sagittarius", "\u2650", 11, 22, 12, 21], ["Capricorn", "\u2651", 12, 22, 1, 19], ["Aquarius", "\u2652", 1, 20, 2, 18], ["Pisces", "\u2653", 2, 19, 3, 20]];
+  var signAt = 0, zi = -1;
+  function md(m, d) { return MONTHS[m - 1].slice(0, 3) + " " + d; }
+  function sign() {
+    signAt = hist.length;
+    frame(4, say("yeon", "Now the part that actually matters. Your birthday.") + '<h1 class="qz__h">What\u2019s your star sign?</h1><div class="qz__grid qz__grid--z">' +
+      ZOD.map(function (z, k) { return '<button type="button" class="qz__opt" data-v="' + k + '" aria-label="' + z[0] + ", " + md(z[2], z[3]) + " to " + md(z[4], z[5]) + '"><span class="g" aria-hidden="true">' + z[1] + '\uFE0E</span><b>' + z[0] + '</b><span class="r">' + md(z[2], z[3]) + " to " + md(z[4], z[5]) + "</span></button>"; }).join("") + "</div>");
+    onPick(function (v) { bdayTouch(); zi = +v; show(day); });
   }
   function dim(m, y) { return new Date(y || 2000, m, 0).getDate(); } // 2000 is a leap year: Feb shows 29 until the year is known
   function day() {
-    var n = dim(st.m), h = "";
-    for (var d = 1; d <= n; d++) h += opt(d, d);
-    frame(5, say("bom", "Your birthday stays in your browser. We don\u2019t keep it.") + '<h1 class="qz__h">What day in ' + MONTHS[st.m - 1] + "?</h1>" + '<div class="qz__grid qz__grid--d">' + h + "</div>");
-    onPick(function (v) { st.d = +v; show(decade); });
+    var z = ZOD[zi], h = "", grp = function (m, a, b) {
+      var g = '<p class="qz__mlabel">' + MONTHS[m - 1] + '</p><div class="qz__grid qz__grid--d">';
+      for (var d = a; d <= b; d++) g += opt(m + "-" + d, d, ' aria-label="' + MONTHS[m - 1] + " " + d + '"');
+      return g + "</div>";
+    };
+    h = grp(z[2], z[3], dim(z[2])) + grp(z[4], 1, z[5]);
+    frame(5, say("bom", "Your birthday stays in your browser. We don\u2019t keep it.") + '<h1 class="qz__h">What day were you born?</h1>' + h +
+      '<p class="qz__note">Day not here? Go back and pick the sign next to yours.</p>');
+    onPick(function (v) { var x = v.split("-"); st.m = +x[0]; st.d = +x[1]; show(decade); });
   }
   function decade() {
     var h = "";
@@ -101,21 +114,33 @@
       loader(b);
     });
   }
+  /* Loader (v2, MoonReading-style "Customizing your reading"): three short lines, one after another over ~3.5 s.
+   * Every line is computed from the birthday by the saju engine (season of the birth month by solar terms, day master). No progress numbers. */
+  var loadTok = 0;
   function loader(b) {
-    var s = null;
-    try { var R = BY.analyze(b); s = window.BY_DATA.SOULS[R.dayMaster]; } catch (e) { s = null; }
+    var s = null, R = null;
+    try { R = BY.analyze(b); s = window.BY_DATA.SOULS[R.dayMaster]; } catch (e) { s = null; }
     ev("loader", "loader shown");
-    frame(0, '<div class="qz__load" role="status"><p class="k">Your birthday type</p>' +
-      (s ? '<p class="dm">' + esc(s.nick) + '</p><p class="el">Korean saju calls it ' + esc(s.name) + ", your day master.</p>" : '<p class="dm">Reading your chart</p>') +
-      '<div data-say></div></div>');
-    var box = root.querySelector("[data-say]"), lines = [["bom", "Reading your chart\u2026"], ["yeon", "Oh. This explains a lot."]], i = 0, ms = BY.reduced ? 300 : 1200;
+    var lines = [];
+    if (R && R.season) lines.push(["Your birth season", (R.seasonKey === "earth" ? "late " : "") + R.season]);
+    if (s) lines.push(["Your day master", s.name + ", " + s.nick]);
+    lines.push(["", "Drawing your comic\u2026"]);
+    var tok = ++loadTok;
+    frame(0, '<p class="qz__conf">You entered: ' + MONTHS[st.m - 1] + " " + st.d + ", " + st.y + ' <button type="button" class="qz__change" data-change>Change</button></p>' +
+      '<div class="qz__load" role="status"><p class="dm">' + (st.name ? esc(st.name) + ", we\u2019re reading your chart" : "Reading your chart") + '</p>' +
+      '<ul class="qz__steps" data-steps></ul></div>');
+    root.querySelector("[data-change]").addEventListener("click", function () { loadTok++; hist = hist.slice(0, signAt); cur = sign; sign(); });
+    var box = root.querySelector("[data-steps]"), i = 0, ms = BY.reduced ? 300 : 1150;
     (function tick() {
-      if (i >= lines.length) { setTimeout(function () { cur = name; name(); }, BY.reduced ? 200 : 900); return; }
-      box.innerHTML = say(lines[i][0], lines[i][1]); i++; setTimeout(tick, ms);
+      if (tok !== loadTok) return;
+      if (i >= lines.length) { setTimeout(function () { if (tok === loadTok) { cur = name; name(); } }, BY.reduced ? 200 : 600); return; }
+      var li = document.createElement("li"), L = lines[i];
+      li.innerHTML = L[0] ? '<span class="k">' + esc(L[0]) + '</span><b>' + esc(L[1]) + "</b>" : "<b>" + esc(L[1]) + "</b>";
+      box.appendChild(li); i++; setTimeout(tick, ms);
     })();
   }
   function name() {
-    frame(8, say("bom", "So the comic can say your name. Optional.") + '<h1 class="qz__h">What\u2019s your first name?</h1>' +
+    frame("almost", say("bom", "So the comic can say your name. Optional.") + '<h1 class="qz__h">What\u2019s your first name?</h1>' +
       '<form data-f novalidate><label><span class="sr">First name</span><input class="input" name="n" autocomplete="given-name" autocapitalize="words" maxlength="24" placeholder="First name" enterkeyhint="next" value="' + esc(st.name) + '"></label>' +
       '<button class="btn btn--block qz__go" type="submit">Continue</button></form>', true);
     root.querySelector("[data-f]").addEventListener("submit", function (e) {
@@ -126,17 +151,16 @@
     });
   }
   function email() {
-    frame(9, say("yeon", "So you can find it again at 1am.") + '<h1 class="qz__h">Last question. Where should we send your reading?</h1>' +
-      '<form data-f novalidate><label><span class="sr">Email address</span><input class="input" type="email" name="e" inputmode="email" autocomplete="email" spellcheck="false" maxlength="254" placeholder="Your email" enterkeyhint="go"></label>' +
-      '<p class="qz__priv">Only for this link. No list, and we delete your address within 14 days. <a href="/privacy/#link-email">Privacy</a></p>' +
-      '<p class="qz__err" role="alert"></p><button class="btn btn--block qz__go" type="submit">Show my reading</button></form>' +
-      '<button type="button" class="qz__skip" data-skip>Skip, just show it</button>');
+    frame("almost", say("yeon", "So you can find it again at 1am.") + '<h1 class="qz__h">' + (st.name ? esc(st.name) + ", last question." : "Last question.") + ' Where should we send your reading?</h1>' +
+      '<p class="qz__sub">Your comic link, plus at most 2 reminders. Unsubscribe in one tap.</p>' +
+      '<form data-f novalidate><label><span class="sr">Email address</span><input class="input" type="email" name="e" inputmode="email" autocomplete="email" spellcheck="false" maxlength="254" placeholder="Your email" enterkeyhint="go" required></label>' +
+      '<p class="qz__err" role="alert"></p><button class="btn btn--block qz__go" type="submit">Send my reading</button>' +
+      '<p class="qz__priv">We send the link and at most 2 reminders, nothing else. No list, and we delete your address within 14 days. <a href="/privacy/#link-email">Privacy</a></p></form>');
     var f = root.querySelector("[data-f]");
-    root.querySelector("[data-skip]").addEventListener("click", function () { ev("skip-email", "email skipped"); done(); });
     f.addEventListener("submit", function (e) {
       e.preventDefault();
       var v = (f.e.value || "").trim(), err = f.querySelector(".qz__err"), btn = f.querySelector("button");
-      if (!v) { ev("skip-email", "email skipped"); done(); return; }
+      if (!v) { err.textContent = "Add your email so we can send your reading."; f.e.focus(); return; }
       if (!/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/.test(v) || v.length > 254) { err.textContent = "That email doesn\u2019t look right."; f.e.focus(); return; }
       btn.disabled = true; btn.textContent = "Opening your comic\u2026";
       var link = "https://bomandyeon.com/readings/" + SLUG + "/" + BY.urlState.query(urlObj(), true) + "#preview", left = false;
@@ -144,7 +168,7 @@
       setTimeout(go, 3000); // never hold the comic hostage to the mail worker
       try {
         fetch("https://bom-yeon-unlock.bomandyeon.workers.dev/save-link", { method: "POST", keepalive: true, headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ email: v, slug: SLUG, url: link, remind: false, t: "" }) })
+          body: JSON.stringify({ email: v, slug: SLUG, url: link, remind: true, t: "" }) })
           .then(function (r) { return r.json(); })
           .then(function (j) {
             if (j && j.ok) { BY.store("sl_" + SLUG, 1); BY.store("email_given", 1); ev("email", "email submitted"); BY.track("email-submit-" + SLUG, "Quiz email link: " + SLUG); }

@@ -45,22 +45,34 @@
 .qz__grid .qz__opt { text-align: center; padding: 0 4px; min-height: 52px; font-size: 16px; }
 .qz__grid--d .qz__opt { min-height: 48px; font-size: 16px; border-radius: 10px; }
 .qz__opt[disabled] { opacity: .3; cursor: default; }
+.qz__grid--z { grid-template-columns: repeat(2, 1fr); }
+.qz__grid--z .qz__opt { display: grid; grid-template-columns: 26px 1fr; column-gap: 8px; align-items: center; text-align: left; padding: 8px 12px; min-height: 58px; }
+.qz__grid--z .g { grid-row: span 2; font-size: 22px; line-height: 1; text-align: center; color: var(--mute); }
+.qz__grid--z b { font-weight: 600; font-size: 16px; }
+.qz__grid--z .r { font-size: 13px; color: var(--faint); }
+.qz__grid--z .qz__opt.is-on .g, .qz__grid--z .qz__opt.is-on .r { color: var(--cream-ink); }
+.qz__mlabel { color: var(--mute); font: 600 15px/1.2 var(--sans); margin: 12px 0 8px; }
+.qz__conf { color: var(--mute); font-size: 15px; text-align: center; margin: 4px 0 0; }
+.qz__change { background: none; border: 0; color: var(--moon); font: 500 15px/1 var(--sans); text-decoration: underline; text-underline-offset: 3px; padding: 6px 4px; cursor: pointer; }
 .qz__go { margin-top: 18px; }
 .qz__cover { display: block; width: 100%; max-width: 300px; height: auto; margin: 4px auto 16px; border-radius: 14px; }
 .qz__note { color: var(--faint); font-size: 14px; line-height: 1.45; text-align: center; margin: 12px 0 0; }
-.qz__skip { display: block; margin: 16px auto 0; background: none; border: 0; color: var(--mute); font: 500 16px/1.2 var(--sans); text-decoration: underline; text-underline-offset: 3px; padding: 12px 16px; cursor: pointer; }
 .qz__err { color: var(--rose); font-size: 15px; min-height: 0; margin: 8px 0 0; }
 .qz__err:empty { margin: 0; }
 .qz__load { text-align: center; padding-top: 18px; }
 .qz__load .k { color: var(--faint); font-size: 15px; margin: 0 0 6px; }
 .qz__load .dm { font: 700 30px/1.2 var(--serif); margin: 0 0 6px; }
 .qz__load .el { color: var(--mute); font-size: 16px; margin: 0 0 22px; }
-.qz__load .say { text-align: left; }
+.qz__steps { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; text-align: left; }
+.qz__steps li { padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--ink-1); font-size: 17px; line-height: 1.35; animation: qzIn .35s ease both; }
+.qz__steps .k { display: block; color: var(--faint); font-size: 14px; margin-bottom: 2px; }
+@keyframes qzIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .qz__steps li { animation: none; } }
 .qz .input { width: 100%; }
 .qz__priv { color: var(--faint); font-size: 13px; line-height: 1.45; margin: 10px 0 0; }
 .qz-foot { text-align: center; padding: 14px 20px 24px; color: var(--faint); font-size: 13px; }
 .qz-foot a { color: var(--faint); margin: 0 8px; }
-@media (max-height: 680px) { .qz__h { font-size: 24px; } .qz__sub { font-size: 16px; margin-bottom: 12px; } .qz__opt { min-height: 52px; } .qz__cover { max-width: 190px; } .qz .say { margin-bottom: 8px; } .qz__grid--d .qz__opt { min-height: 42px; } }
+@media (max-height: 680px) { .qz__grid--z .qz__opt { min-height: 50px; padding: 6px 10px; } .qz__h { font-size: 24px; } .qz__sub { font-size: 16px; margin-bottom: 12px; } .qz__opt { min-height: 52px; } .qz__cover { max-width: 190px; } .qz .say { margin-bottom: 8px; } .qz__grid--d .qz__opt { min-height: 42px; } }
 </style>
 </head>
 <body>
@@ -82,7 +94,7 @@
 <script src="/assets/js/saju-engine.js?v=f77dcdf7"></script>
 <script src="/assets/js/site.js?v=a8c73b5e"></script>
 <script src="/assets/js/consent.js?v=911557e2"></script>
-<script src="/assets/js/quiz-ex.js?v=08799962"></script>
+<script src="/assets/js/quiz-ex.js?v=0aaec1f8"></script>
 <script>if(/^(localhost|127\.|0\.0\.0\.0$|\[::1\]$)|\.local$/.test(location.hostname)||location.protocol==="file:")window.goatcounter={no_onload:true,no_events:true};</script>
 <script data-goatcounter="https://bomandyeon.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
