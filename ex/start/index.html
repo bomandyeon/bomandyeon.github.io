@@ -21,7 +21,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preload" href="/assets/fonts/plex-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/css/fonts.css?v=d7d04164">
-<link rel="stylesheet" href="/assets/css/site.css?v=836dc82b">
+<link rel="stylesheet" href="/assets/css/site.css?v=5e58af8c">
 <style>
 /* /ex/start/ quiz (2026-11-08). Flat, same tokens as the site; no gradients, no glow. */
 .qz { min-height: calc(100svh - 64px); display: flex; flex-direction: column; }
@@ -59,6 +59,11 @@
 .qz__note { color: var(--faint); font-size: 14px; line-height: 1.45; text-align: center; margin: 12px 0 0; }
 .qz__err { color: var(--rose); font-size: 15px; min-height: 0; margin: 8px 0 0; }
 .qz__err:empty { margin: 0; }
+.qz__opt--cov { display: grid; grid-template-columns: 44px 1fr; column-gap: 14px; align-items: center; min-height: 0; padding: 8px 16px 8px 8px; }
+.qz__opt--cov img { display: block; width: 44px; height: 55px; object-fit: cover; object-position: 50% 0; border-radius: 6px; }
+.qz__in > .qz__h + .say, #qz > .qz__h + .say { margin-top: 2px; }
+.qz__lead { color: var(--moon); font-size: 16px; line-height: 1.45; margin: 2px 0 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--ink-1); }
+.qz .bdate { margin-top: 4px; }
 .qz__load { text-align: center; padding-top: 18px; }
 .qz__load .k { color: var(--faint); font-size: 15px; margin: 0 0 6px; }
 .qz__load .dm { font: 700 30px/1.2 var(--serif); margin: 0 0 6px; }
@@ -94,7 +99,7 @@
 <script src="/assets/js/saju-engine.js?v=f77dcdf7"></script>
 <script src="/assets/js/site.js?v=f22ff0e6"></script>
 <script src="/assets/js/consent.js?v=911557e2"></script>
-<script src="/assets/js/quiz-ex.js?v=72c0bb9c"></script>
+<script src="/assets/js/quiz-ex.js?v=f97f0478"></script>
 <script>if(/^(localhost|127\.|0\.0\.0\.0$|\[::1\]$)|\.local$/.test(location.hostname)||location.protocol==="file:")window.goatcounter={no_onload:true,no_events:true};</script>
 <script data-goatcounter="https://bomandyeon.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>

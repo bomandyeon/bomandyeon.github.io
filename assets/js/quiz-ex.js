@@ -2,7 +2,7 @@
  * Hands over exactly what the /ex/ form would store: by_birth, by_btime (cleared for a new birthday), by_name, the product's
  * intake answers (by_ans_will-your-ex-come-back, same ids/values as content/products/will-your-ex-come-back.v4.json "intake"),
  * by_wiz_<slug>, and the link id ?s=<id> (BY.urlState), so no readable birthday or answer ever sits in an address.
- * Raw answers also in localStorage "quiz_ex". Email (v2, 2026-11-08): required, MoonReading-style; same /save-link worker as the paywall box, with remind: true (link + at most 2 reminders).
+ * Raw answers also in localStorage "quiz_ex". Email (v5, 2026-11-09, Rok approved): optional on the last screen, same /save-link worker as the paywall box; reminders only with the box ticked.
  * Keep INTAKE in sync with the v4.json intake if that ever changes. */
 (function () {
   "use strict";
@@ -19,7 +19,7 @@
     what_you_want: ["yeon", "Be honest. It changes the comic."]
   };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  var TOTAL = 7, OFF = 0, st = { ans: {}, m: 0, d: 0, dec: 0, y: 0, name: "" }, hist = [], cur = null, firstBday = true;
+  var TOTAL = 4, OFF = 0, st = { ans: {}, m: 0, d: 0, dec: 0, y: 0, name: "", who: "me", b: null, t: null }, hist = [], cur = null, firstBday = true;
   var MAXY = new Date().getFullYear() - BY.MIN_AGE;
 
   /* ---------- tracking: plain event + via-<tag>-<event> (site.js only doubles its own funnel names) ---------- */
@@ -27,8 +27,14 @@
     BY.trackOnce("quiz-ex-" + n, "Quiz ex: " + (title || n));
     var tag = BY.viaTag ? BY.viaTag() : "none";
     BY.trackOnce("via-" + tag + "-quiz-ex-" + n, "Quiz ex: " + (title || n) + " via " + tag);
+    BY.trackOnce("qv5-" + DEV + "-" + n, "Quiz v5 (" + DEV + "): " + (title || n));
   }
+  /* v5 measurement (2026-11-09 22:xx deploy): every quiz step also as qv5-<mob|desk>-<step>, so the new version and the device
+   * are counted apart from everything before. Funnel steps after the quiz (result-rendered, ch1-view, ch2-end-reached,
+   * paywall-view, checkout-click) keep their own names; split them by the deploy time. */
+  var DEV = (function () { try { return window.matchMedia("(pointer: coarse)").matches ? "mob" : "desk"; } catch (e) { return "na"; } })();
   if (BY.sessionSrc) BY.trackOnce("land-" + BY.sessionSrc() + "-quiz-ex", "Landed (" + BY.sessionSrc() + "): quiz ex /ex/start/");
+  BY.trackOnce("qv5-" + DEV + "-land", "Quiz v5 (" + DEV + "): landed");
 
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function say(who, text) {
@@ -54,78 +60,68 @@
   /* v4 (2026-11-09, Rok: everyone who taps the ad needs a reason to start): the first screen is the first question, "what's going on in your love life".
    * An ex runs the ex intake as before; every other answer skips straight to the birthday, then opens that reading (#go, or #preview where a second birthday is needed). */
   var PATHS = [
-    ["ex", "An ex I can\u2019t stop thinking about", null],
-    ["situationship", "A crush or a situationship", "situationship"],
-    ["together", "I\u2019m in a relationship", "couple-reading"],
-    ["single", "Single, and I keep picking the wrong people", "what-kind-of-lover"],
-    ["me", "None of these. Just tell me about me", "brutally-honest"]
+    ["ex", "An ex I can\u2019t stop thinking about", null, "ex"],
+    ["situationship", "A crush or a situationship", "situationship", "situationship"],
+    ["together", "I\u2019m in a relationship", "couple-reading", "couple"],
+    ["single", "Single, and I keep picking the wrong people", "what-kind-of-lover", "lover"],
+    ["me", "None of these. Just tell me about me", "brutally-honest", "brutal"]
   ], path = null;
   function hook() {
     frame(0, '<h1 class="qz__h">What\u2019s going on in your love life?</h1>' +
-      '<p class="qz__sub">Bom and Yeon read your Korean birthday chart and draw it as a comic about you. First 2 chapters free.</p>' +
-      '<div class="qz__opts">' + PATHS.map(function (x) { return opt(x[0], x[1]); }).join("") + '</div>' +
+      say("yeon", "Tap one. I read your Korean birthday chart and show you the pattern behind it. Bom draws it as your comic. First 2 chapters free.") +
+      '<div class="qz__opts">' + PATHS.map(function (x) { return '<button type="button" class="qz__opt qz__opt--cov" data-v="' + x[0] + '"><img src="/assets/img/cover-' + x[3] + '-360.webp" alt="" width="360" height="447"><span>' + esc(x[1]) + '</span></button>'; }).join("") + '</div>' +
       '<p class="qz__note">A few taps \u00b7 no sign-up \u00b7 your birthday stays in your browser</p>');
     onPick(function (v) {
       path = null; PATHS.forEach(function (x) { if (x[0] === v) path = x; });
       ev("start", "started"); ev("path-" + v, "path " + v);
-      if (!path[2]) { OFF = 0; TOTAL = 7; show(function () { question(0); }); }
-      else { OFF = 3; TOTAL = 4; BY.store("pick", { s: path[2], t: Date.now() }); show(sign); }
+      st.who = "me"; st.t = null;
+      st.b = null; st.t = null;
+      if (!path[2]) { TOTAL = 4; show(function () { question(0); }); }
+      else { TOTAL = isPair() ? 2 : 1; BY.store("pick", { s: path[2], t: Date.now() }); show(function () { bday("me"); }); }
     });
   }
   function question(i) {
     var q = INTAKE[i], s = SAYS[q.id];
-    frame(i + 1, say(s[0], s[1]) + '<h1 class="qz__h">' + esc(q.question) + '</h1><div class="qz__opts">' + q.options.map(function (o) { return opt(o[0], o[1]); }).join("") + "</div>");
+    frame(i + 1, (i === 0 && EXFIRST ? '<p class="qz__lead">A personal comic from your Korean birthday chart: the pattern that keeps pulling you back to them. Three questions and your birthday. First 2 chapters free, no sign-up.</p>' : "") + say(s[0], s[1]) + '<h1 class="qz__h">' + esc(q.question) + '</h1><div class="qz__opts">' + q.options.map(function (o) { return opt(o[0], o[1]); }).join("") + "</div>", !hist.length);
     onPick(function (v) {
+      if (i === 0 && EXFIRST) { ev("start", "started"); ev("path-ex", "path ex"); }
       st.ans[q.id] = v; ev("q" + (i + 1), q.id + " answered");
-      show(i + 1 < INTAKE.length ? function () { question(i + 1); } : sign);
+      show(i + 1 < INTAKE.length ? function () { question(i + 1); } : function () { bday("me"); });
     });
   }
   function bdayTouch() { if (firstBday) { firstBday = false; BY.trackOnce("form-started-" + SLUG, "Birthday picker first used: " + SLUG + " (quiz)"); } }
-  /* v3 (2026-11-08): star sign first, then only that sign's days grouped by month (MoonReading / SoulmateStory). One tap fixes month+day.
-   * Tropical ranges, end dates inclusive. Feb shows 29 until the year is known; the year step then disables non-leap years (BY.validDate). */
-  var ZOD = [["Aries", "\u2648", 3, 21, 4, 19], ["Taurus", "\u2649", 4, 20, 5, 20], ["Gemini", "\u264A", 5, 21, 6, 20], ["Cancer", "\u264B", 6, 21, 7, 22],
-    ["Leo", "\u264C", 7, 23, 8, 22], ["Virgo", "\u264D", 8, 23, 9, 22], ["Libra", "\u264E", 9, 23, 10, 22], ["Scorpio", "\u264F", 10, 23, 11, 21],
-    ["Sagittarius", "\u2650", 11, 22, 12, 21], ["Capricorn", "\u2651", 12, 22, 1, 19], ["Aquarius", "\u2652", 1, 20, 2, 18], ["Pisces", "\u2653", 2, 19, 3, 20]];
-  var signAt = 0, zi = -1;
-  function md(m, d) { return MONTHS[m - 1].slice(0, 3) + " " + d; }
-  function sign() {
-    signAt = hist.length;
-    frame(4, say("yeon", "Now the part that actually matters. Your birthday.") + '<h1 class="qz__h">What\u2019s your star sign?</h1><div class="qz__grid qz__grid--z">' +
-      ZOD.map(function (z, k) { return '<button type="button" class="qz__opt" data-v="' + k + '" aria-label="' + z[0] + ", " + md(z[2], z[3]) + " to " + md(z[4], z[5]) + '"><span class="g" aria-hidden="true">' + z[1] + '\uFE0E</span><b>' + z[0] + '</b><span class="r">' + md(z[2], z[3]) + " to " + md(z[4], z[5]) + "</span></button>"; }).join("") + "</div>");
-    onPick(function (v) { bdayTouch(); zi = +v; show(day); });
-  }
-  function dim(m, y) { return new Date(y || 2000, m, 0).getDate(); } // 2000 is a leap year: Feb shows 29 until the year is known
-  function day() {
-    var z = ZOD[zi], h = "", grp = function (m, a, b) {
-      var g = '<p class="qz__mlabel">' + MONTHS[m - 1] + '</p><div class="qz__grid qz__grid--d">';
-      for (var d = a; d <= b; d++) g += opt(m + "-" + d, d, ' aria-label="' + MONTHS[m - 1] + " " + d + '"');
-      return g + "</div>";
-    };
-    h = grp(z[2], z[3], dim(z[2])) + grp(z[4], 1, z[5]);
-    frame(5, say("bom", "Your birthday stays in your browser. We don\u2019t keep it.") + '<h1 class="qz__h">What day were you born?</h1>' + h +
-      '<p class="qz__note">Day not here? Go back and pick the sign next to yours.</p>');
-    onPick(function (v) { var x = v.split("-"); st.m = +x[0]; st.d = +x[1]; show(decade); });
-  }
-  function decade() {
-    var h = "";
-    [1960, 1970, 1980, 1990, 2000].forEach(function (x) { h += opt(x, x + "s"); });
-    frame(6, say("yeon", "Nobody\u2019s judging. Yet.") + '<h1 class="qz__h">What decade?</h1><div class="qz__opts">' + h + "</div>");
-    onPick(function (v) { st.dec = +v; show(year); });
-  }
-  function okYear(y) { return BY.validDate(y, st.m, st.d) && BY.ageOn({ year: y, month: st.m, day: st.d }) >= BY.MIN_AGE; }
-  function year() {
-    var h = "", any = false;
-    for (var y = st.dec; y < st.dec + 10 && y <= MAXY; y++) { var ok = okYear(y); any = any || ok; h += opt(y, y, ok ? "" : " disabled"); }
-    frame(7, say("bom", "Last bit of the date.") + '<h1 class="qz__h">What year?</h1><div class="qz__grid qz__grid--y">' + h + "</div>" +
-      (any ? "" : '<p class="qz__err">Readings here are for 18 and over.</p>'));
-    onPick(function (v) {
-      st.y = +v;
-      var b = { year: st.y, month: st.m, day: st.d }, old = BY.load("birth");
-      if (!old || BY.iso(old) !== BY.iso(b)) BY.store("btime", null); // a different birthday: an old birth time doesn't belong to it
-      BY.store("birth", b);
+  /* v5 (2026-11-09, Rok approved the package): the whole birthday on ONE screen, the site's own date input (month as a word,
+   * day and year typed: BY.dateHTML / BY.readDate), no star sign, no decade. Pair readings ask theirs on a second, identical screen. */
+  function isPair() { return !!(path && (path[2] === "situationship" || path[2] === "couple-reading")); }
+  var meScreen = null, meAt = 0;
+  function bday(who) {
+    st.who = who;
+    var th = who === "them", n = path && path[2] ? (th ? 2 : 1) : 4, step = path && path[2] && !isPair() ? "almost" : n;
+    if (!th) { meAt = hist.length; meScreen = cur; }
+    frame(step, (th ? say("yeon", "Now theirs. Their birthday is the other half of the chemistry.") : say("bom", "Your birthday stays in your browser. We don\u2019t keep it.")) +
+      '<h1 class="qz__h">' + (th ? "When were they born?" : "When were you born?") + '</h1>' +
+      '<form data-f novalidate>' + BY.dateHTML(th ? "t" : "b", th ? "Their birthday" : "Your birthday", !th) +
+      '<p class="qz__err" role="alert"></p><button class="btn btn--block qz__go" type="submit">Continue</button></form>', !hist.length);
+    var f = root.querySelector("[data-f]"), err = f.querySelector(".qz__err"), pre = th ? st.t : (st.b || BY.load("birth"));
+    BY.fillSelects(f);
+    if (pre) BY.setDate(f, th ? "t" : "b", pre);
+    ["pointerdown", "keydown", "input"].forEach(function (t) { f.addEventListener(t, bdayTouch, { once: true, capture: true }); });
+    f.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var r = BY.readDate(f, th ? "t" : "b");
+      if (r.error) { err.textContent = r.error; return; }
+      if (BY.ageOn(r) < BY.MIN_AGE) { err.textContent = "Readings here are for 18 and over."; return; }
+      err.textContent = "";
+      st.y = r.year; st.m = r.month; st.d = r.day;
+      if (th) { st.t = r; ev("bday-them", "their birthday given"); loader(st.b); return; }
+      var old = BY.load("birth");
+      if (!old || BY.iso(old) !== BY.iso(r)) BY.store("btime", null); // a different birthday: an old birth time doesn't belong to it
+      BY.store("birth", r);
       ev("bday", "birthday given");
       BY.trackOnce("birthday-submit-" + SLUG, "Birthday submitted: " + SLUG + " (quiz)");
-      loader(b);
+      st.b = r; st.t = null;
+      if (isPair()) { show(function () { bday("them"); }); return; }
+      loader(r);
     });
   }
   /* Loader (v2, MoonReading-style "Customizing your reading"): three short lines, one after another over ~3.5 s.
@@ -140,53 +136,49 @@
     if (s) lines.push(["Your day master", s.name + ", " + s.nick]);
     lines.push(["", "Drawing your comic\u2026"]);
     var tok = ++loadTok;
-    frame(0, '<p class="qz__conf">You entered: ' + MONTHS[st.m - 1] + " " + st.d + ", " + st.y + ' <button type="button" class="qz__change" data-change>Change</button></p>' +
+    frame(0, '<p class="qz__conf">You entered: ' + MONTHS[b.month - 1] + " " + b.day + ", " + b.year + (st.t ? " \u00b7 them: " + MONTHS[st.t.month - 1] + " " + st.t.day + ", " + st.t.year : "") + ' <button type="button" class="qz__change" data-change>Change</button></p>' +
       '<div class="qz__load" role="status"><p class="dm">' + (st.name ? esc(st.name) + ", we\u2019re reading your chart" : "Reading your chart") + '</p>' +
       '<ul class="qz__steps" data-steps></ul></div>');
-    root.querySelector("[data-change]").addEventListener("click", function () { loadTok++; hist = hist.slice(0, signAt); cur = sign; sign(); });
+    root.querySelector("[data-change]").addEventListener("click", function () { loadTok++; hist = hist.slice(0, meAt); st.t = null; cur = function () { bday("me"); }; cur(); });
     var box = root.querySelector("[data-steps]"), i = 0, ms = BY.reduced ? 300 : 1150;
     (function tick() {
       if (tok !== loadTok) return;
-      if (i >= lines.length) { setTimeout(function () { if (tok === loadTok) { cur = name; name(); } }, BY.reduced ? 200 : 600); return; }
+      if (i >= lines.length) { setTimeout(function () { if (tok === loadTok) { cur = fin; fin(); } }, BY.reduced ? 200 : 600); return; }
       var li = document.createElement("li"), L = lines[i];
       li.innerHTML = L[0] ? '<span class="k">' + esc(L[0]) + '</span><b>' + esc(L[1]) + "</b>" : "<b>" + esc(L[1]) + "</b>";
       box.appendChild(li); i++; setTimeout(tick, ms);
     })();
   }
-  function name() {
-    frame("almost", say("bom", "So the comic can say your name. Optional.") + '<h1 class="qz__h">What\u2019s your first name?</h1>' +
-      '<form data-f novalidate><label><span class="sr">First name</span><input class="input" name="n" autocomplete="given-name" autocapitalize="words" maxlength="24" placeholder="First name" enterkeyhint="next" value="' + esc(st.name) + '"></label>' +
-      '<button class="btn btn--block qz__go" type="submit">Continue</button></form>', true);
-    root.querySelector("[data-f]").addEventListener("submit", function (e) {
-      e.preventDefault();
-      var v = (this.n.value || "").replace(/[<>]/g, "").trim().slice(0, 24);
-      st.name = v; BY.store("name", v || null);
-      if (path && path[2]) { toReading(); return; }
-      show(email);
-    });
-  }
-  function email() {
-    frame("almost", say("yeon", "So you can find it again at 1am.") + '<h1 class="qz__h">' + (st.name ? esc(st.name) + ", last question." : "Last question.") + ' Where should we send your reading?</h1>' +
-      '<p class="qz__sub">Your comic link, plus at most 2 reminders. Unsubscribe in one tap.</p>' +
-      '<form data-f novalidate><label><span class="sr">Email address</span><input class="input" type="email" name="e" inputmode="email" autocomplete="email" spellcheck="false" maxlength="254" placeholder="Your email" enterkeyhint="go" required></label>' +
-      '<p class="qz__err" role="alert"></p><button class="btn btn--block qz__go" type="submit">Send my reading</button>' +
-      '<p class="qz__priv">We send the link and at most 2 reminders, nothing else. No list, and we delete your address within 14 days. <a href="/privacy/#link-email">Privacy</a></p></form>');
+  /* v5 final screen: name and email both optional, one button straight into the comic. Email only sends the link;
+   * reminders only with the box ticked (same rule as the paywall mail box). Never waits on the mail worker for long. */
+  function fin() {
+    var ex = !(path && path[2]);
+    frame("almost", say("bom", "Your comic is ready. Both boxes are optional.") + '<h1 class="qz__h">Read your comic</h1>' +
+      '<form data-f novalidate><label><span class="field-label">First name, so the comic can say it (optional)</span><input class="input" name="n" autocomplete="given-name" autocapitalize="words" maxlength="24" placeholder="First name" enterkeyhint="' + (ex ? "next" : "go") + '" value="' + esc(st.name) + '"></label>' +
+      (ex ? '<label style="display:block;margin-top:12px"><span class="field-label">Email, if you want the link for later (optional)</span><input class="input" type="email" name="e" inputmode="email" autocomplete="email" spellcheck="false" maxlength="254" placeholder="Your email" enterkeyhint="go"></label>' +
+        '<label class="qz__priv" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="rem"> <span>Also remind me, at most twice in the next 3 days</span></label>' : "") +
+      '<p class="qz__err" role="alert"></p><button class="btn btn--block qz__go" type="submit">Read my comic now</button>' +
+      (ex ? '<p class="qz__priv">The email only gets the link (and the reminders if you tick the box). No list, and we delete your address within 14 days. <a href="/privacy/#link-email">Privacy</a></p>' : "") + '</form>', true);
     var f = root.querySelector("[data-f]");
     f.addEventListener("submit", function (e) {
       e.preventDefault();
-      var v = (f.e.value || "").trim(), err = f.querySelector(".qz__err"), btn = f.querySelector("button");
-      if (!v) { err.textContent = "Add your email so we can send your reading."; f.e.focus(); return; }
-      if (!/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/.test(v) || v.length > 254) { err.textContent = "That email doesn\u2019t look right."; f.e.focus(); return; }
+      var nm = (f.n.value || "").replace(/[<>]/g, "").trim().slice(0, 24), err = f.querySelector(".qz__err"), btn = f.querySelector("button[type=submit]");
+      st.name = nm; BY.store("name", nm || null);
+      if (!ex) { ev("fin", "final screen done"); toReading(); return; }
+      var v = f.e ? (f.e.value || "").trim() : "";
+      if (v && (!/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/.test(v) || v.length > 254)) { err.textContent = "That email doesn\u2019t look right. Fix it, or clear the box to read now."; f.e.focus(); return; }
+      ev("fin", "final screen done"); if (!v) ev("noemail", "read without email");
       btn.disabled = true; btn.textContent = "Opening your comic\u2026";
-      var link = "https://bomandyeon.com/readings/" + SLUG + "/" + BY.urlState.query(urlObj(), true) + "#preview", left = false;
+      if (!v) { done(); return; }
+      var link = "https://bomandyeon.com/readings/" + SLUG + "/" + BY.urlState.query(urlObj(), true) + "#preview", left = false, rem = !!(f.rem && f.rem.checked);
       var go = function () { if (!left) { left = true; done(); } };
-      setTimeout(go, 3000); // never hold the comic hostage to the mail worker
+      setTimeout(go, 1500); // never hold the comic hostage to the mail worker
       try {
         fetch("https://bom-yeon-unlock.bomandyeon.workers.dev/save-link", { method: "POST", keepalive: true, headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ email: v, slug: SLUG, url: link, remind: true, t: "" }) })
+          body: JSON.stringify({ email: v, slug: SLUG, url: link, remind: rem, t: "" }) })
           .then(function (r) { return r.json(); })
           .then(function (j) {
-            if (j && j.ok) { BY.store("sl_" + SLUG, 1); BY.store("email_given", 1); ev("email", "email submitted"); BY.track("email-submit-" + SLUG, "Quiz email link: " + SLUG); }
+            if (j && j.ok) { BY.store("sl_" + SLUG, 1); BY.store("email_given", 1); ev("email", "email submitted"); if (rem) ev("remind", "reminders ticked"); BY.track("email-submit-" + SLUG, "Quiz email link: " + SLUG); }
             go();
           }).catch(go);
       } catch (x) { go(); }
@@ -212,7 +204,16 @@
     ev("done-" + path[0], "handed to /readings/" + slug + "/");
     var keep = "";
     try { var p = new URLSearchParams(location.search); ["s", "x", "b", "t", "a", "r"].forEach(function (k) { p.delete(k); }); keep = p.toString(); } catch (e) { keep = ""; }
+    if (pair && st.b && st.t) {
+      var q = BY.urlState.query({ b: st.b, t: st.t }, false);
+      location.href = "/readings/" + slug + "/" + q + (keep ? (q ? "&" : "?") + keep : "") + "#preview";
+      return;
+    }
     location.href = "/readings/" + slug + "/" + (keep ? "?" + keep : "") + (pair ? "#preview" : "#go");
   }
-  cur = hook; hook();
+  /* v5: a visitor from a Meta ad (the ex ads) starts on the first ex question, no chooser screen in between (?p=ex does the same).
+   * Everyone else gets the chooser. */
+  var EXFIRST = (function () { try { return BY.sessionSrc() === "meta" || new URLSearchParams(location.search).get("p") === "ex"; } catch (e) { return false; } })();
+  if (EXFIRST) { path = PATHS[0]; TOTAL = 4; cur = function () { question(0); }; cur(); }
+  else { cur = hook; hook(); }
 })();
