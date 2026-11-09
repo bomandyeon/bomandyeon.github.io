@@ -19,7 +19,7 @@
     what_you_want: ["yeon", "Be honest. It changes the comic."]
   };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  var TOTAL = 7, st = { ans: {}, m: 0, d: 0, dec: 0, y: 0, name: "" }, hist = [], cur = null, firstBday = true;
+  var TOTAL = 7, OFF = 0, st = { ans: {}, m: 0, d: 0, dec: 0, y: 0, name: "" }, hist = [], cur = null, firstBday = true;
   var MAXY = new Date().getFullYear() - BY.MIN_AGE;
 
   /* ---------- tracking: plain event + via-<tag>-<event> (site.js only doubles its own funnel names) ---------- */
@@ -35,6 +35,7 @@
     return '<div class="say say--' + who + '"><span class="av av--' + who + '"><img src="/assets/img/av-' + who + '.webp" alt="" width="44" height="44"></span><p class="bubble"><b>' + (who === "yeon" ? "Yeon" : "Bom") + "</b>" + esc(text) + "</p></div>";
   }
   function frame(n, inner, noBack) {
+    if (typeof n === "number" && n > 0) n -= OFF;
     var top = n === "almost" ? '<div class="qz__top">' + (noBack ? "<span></span>" : '<button type="button" class="qz__back" data-back>\u2190 Back</button>') + '<span class="qz__step">Almost done</span></div>' : n ? '<div class="qz__top">' + (noBack ? "<span></span>" : '<button type="button" class="qz__back" data-back>\u2190 Back</button>') + '<span class="qz__step">' + n + " of " + TOTAL + '</span></div><div class="qz__bar"><i style="width:' + Math.round(n / TOTAL * 100) + '%"></i></div>' : "";
     root.innerHTML = top + inner;
     window.scrollTo(0, 0);
@@ -50,17 +51,30 @@
   function back() { if (!hist.length) return; cur = hist.pop(); cur(); }
 
   /* ---------- screens ---------- */
+  /* v4 (2026-11-09, Rok: everyone who taps the ad needs a reason to start): the first screen is the first question, "what's going on in your love life".
+   * An ex runs the ex intake as before; every other answer skips straight to the birthday, then opens that reading (#go, or #preview where a second birthday is needed). */
+  var PATHS = [
+    ["ex", "An ex I can\u2019t stop thinking about", null],
+    ["situationship", "A crush or a situationship", "situationship"],
+    ["together", "I\u2019m in a relationship", "couple-reading"],
+    ["single", "Single, and I keep picking the wrong people", "what-kind-of-lover"],
+    ["me", "None of these. Just tell me about me", "brutally-honest"]
+  ], path = null;
   function hook() {
-    frame(0, '<img class="qz__cover" src="/assets/img/cover-ex.webp" srcset="/assets/img/cover-ex-360.webp 360w, /assets/img/cover-ex.webp 720w" sizes="300px" width="720" height="894" alt="Yeon holds a glowing red thread that leads to a figure walking away over a moonlit bridge" fetchpriority="high">' +
-      '<h1 class="qz__h">Why can\u2019t you let them go?</h1>' +
-      '<p class="qz__sub">Your Korean birthday chart, drawn as a comic by Bom and Yeon: why it really ended, what still pulls you back, and what to do if their name lights up your phone. First 2 chapters free.</p>' +
-      '<button type="button" class="btn btn--block" data-start>Start my reading</button>' +
+    frame(0, '<h1 class="qz__h">What\u2019s going on in your love life?</h1>' +
+      '<p class="qz__sub">Bom and Yeon read your Korean birthday chart and draw it as a comic about you. First 2 chapters free.</p>' +
+      '<div class="qz__opts">' + PATHS.map(function (x) { return opt(x[0], x[1]); }).join("") + '</div>' +
       '<p class="qz__note">A few taps \u00b7 no sign-up \u00b7 your birthday stays in your browser</p>');
-    root.querySelector("[data-start]").addEventListener("click", function () { ev("start", "started"); show(function () { question(0); }); });
+    onPick(function (v) {
+      path = null; PATHS.forEach(function (x) { if (x[0] === v) path = x; });
+      ev("start", "started"); ev("path-" + v, "path " + v);
+      if (!path[2]) { OFF = 0; TOTAL = 7; show(function () { question(0); }); }
+      else { OFF = 3; TOTAL = 4; BY.store("pick", { s: path[2], t: Date.now() }); show(sign); }
+    });
   }
   function question(i) {
     var q = INTAKE[i], s = SAYS[q.id];
-    frame(i + 1, say(s[0], s[1]) + '<h1 class="qz__h">' + esc(q.question) + '</h1><div class="qz__opts">' + q.options.map(function (o) { return opt(o[0], o[1]); }).join("") + "</div>", i === 0);
+    frame(i + 1, say(s[0], s[1]) + '<h1 class="qz__h">' + esc(q.question) + '</h1><div class="qz__opts">' + q.options.map(function (o) { return opt(o[0], o[1]); }).join("") + "</div>");
     onPick(function (v) {
       st.ans[q.id] = v; ev("q" + (i + 1), q.id + " answered");
       show(i + 1 < INTAKE.length ? function () { question(i + 1); } : sign);
@@ -147,6 +161,7 @@
       e.preventDefault();
       var v = (this.n.value || "").replace(/[<>]/g, "").trim().slice(0, 24);
       st.name = v; BY.store("name", v || null);
+      if (path && path[2]) { toReading(); return; }
       show(email);
     });
   }
@@ -191,6 +206,13 @@
       keep = p.toString();
     } catch (e) { keep = ""; }
     location.href = "/ex/" + q + (keep ? (q ? "&" : "?") + keep : "");
+  }
+  function toReading() {
+    var slug = path[2], pair = slug === "situationship" || slug === "couple-reading";
+    ev("done-" + path[0], "handed to /readings/" + slug + "/");
+    var keep = "";
+    try { var p = new URLSearchParams(location.search); ["s", "x", "b", "t", "a", "r"].forEach(function (k) { p.delete(k); }); keep = p.toString(); } catch (e) { keep = ""; }
+    location.href = "/readings/" + slug + "/" + (keep ? "?" + keep : "") + (pair ? "#preview" : "#go");
   }
   cur = hook; hook();
 })();
