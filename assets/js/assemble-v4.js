@@ -72,7 +72,13 @@
       day_animal: k.dayBranch == null ? "" : ANIMALS[k.dayBranch], day_branch: k.dayBranch == null ? "" : BRANCH_HZ.charAt(k.dayBranch) };
     if (R.partner && R.partner.dayMaster != null) { map.them = NAMES[R.partner.dayMaster] + " " + EL[R.partner.dayMaster >> 1]; map.them_short = NAMES[R.partner.dayMaster]; map.them_el = EL[R.partner.dayMaster >> 1]; }
     var T = TERMS && TERMS[s]; if (T) for (var tk in T) if (T.hasOwnProperty(tk)) map[tk] = T[tk];
-    return String(t || "").replace(/\{(\w+)\}/g, function (m, n) { return map.hasOwnProperty(n) ? map[n] : m; });
+    var sub = function (x) { return String(x).replace(/\{(\w+)\}/g, function (m, n) { return map.hasOwnProperty(n) ? map[n] : m; }); };
+    // ex v6 2026-11-08: answer-keyed wording inside any text, {{qid:val=text|val2,val3=text|*=fallback}}. The reader's answer to
+    // intake question qid picks the branch (skipped or not asked = the question's skip_value, which falls to "*"). Placeholders
+    // inside a branch are filled after the pick, and a picked branch may itself carry {placeholders} from TERMS (one level).
+    var pick = function (x) { return x.replace(ANS_RE, function (m, q, body) { return ansPick(q, body); }); };
+    var r = sub(pick(String(t || "")));
+    return r.indexOf("{{") >= 0 ? sub(pick(r)) : r; // a TERMS value (e.g. {free_end}) may carry its own answer-keyed wording
   }
 
   function seasonLabel(R) {
@@ -96,7 +102,24 @@
     return "";
   }
 
+  var ANS_RE = /\{\{(\w+):((?:[^{}]|\{\w+\})*)\}\}/g;
+  function ansValue(q) {
+    var Q = ((CURV && CURV.intake) || []).filter(function (z) { return z.id === q; })[0], v = ANS[q];
+    if (!Q) return v || "unsaid";
+    return !v || v === "unsaid" || !Q.options.some(function (o) { return o.value === v; }) ? Q.skip_value : v;
+  }
+  function ansPick(q, body) {
+    var v = ansValue(q), def = "", hit = null;
+    body.split("|").forEach(function (o) {
+      var i = o.indexOf("="); if (i < 0) return;
+      var keys = o.slice(0, i).split(","), val = o.slice(i + 1);
+      if (hit === null && keys.indexOf(v) >= 0) hit = val;
+      if (keys.indexOf("*") >= 0) def = val;
+    });
+    return hit === null ? def : hit;
+  }
   var CUR = null; // fill function for the reading being assembled
+  var ANS = {}, CURV = null; // ex v5 2026-11-08: answers + content of the reading being assembled (for "ans_<qid>" part keys)
   var TERMS = null; // V.terms: per-Day-Master placeholder words ({pos} etc.), set during assemble()
   /* keys for "mix" chapter parts (new products, 2026-10-20): partner / pair keys need R.partner (a full chart when available) */
   var BR_SIX = [1, 0, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2];
@@ -140,6 +163,12 @@
       case "partner_season": return P && P.seasonKey ? P.seasonKey : null;
       case "partner_el": return P ? EL[P.dayMaster >> 1].toLowerCase() : null;
     }
+    // ex v5 2026-11-08: "ans_<qid>" = the reader's answer to intake question <qid> (its skip_value when skipped or not asked)
+    if (key.indexOf("ans_") === 0) {
+      var qid = key.slice(4), Q = ((CURV && CURV.intake) || []).filter(function (z) { return z.id === qid; })[0], v = ANS[qid];
+      if (!Q) return null;
+      return !v || v === "unsaid" || !Q.options.some(function (o) { return o.value === v; }) ? Q.skip_value : v;
+    }
     return null;
   }
   var MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -155,12 +184,52 @@
     }
     return out;
   }
+  /* ex v5 2026-11-08 (Rok): an illustration every ~150 words. The copy marks break points with a paragraph "<!-- IMG -->";
+     here they are taken out of ch.text and returned as ch.img_before = indexes of the paragraphs (ch.text split on blank lines)
+     an image goes in front of. The chapter's own scene is the image before paragraph 0, and the chapter's panels render
+     first, so they count toward the first beat. A marked break closer than BR_MIN words to the last one is dropped; where a
+     beat would run past BR_MAX words without a mark, a break is added in front of the next paragraph that isn't right after a
+     "### " label. ch.beat_words = words per beat (QA). A reading without markers still gets the automatic breaks. */
+  var IMG_RE = /^<!--\s*IMG\s*-->$/, BR_MIN = 90, BR_MAX = 165, BR_AUTO_MIN = 100;
+  function imageBreaks(ch) {
+    var raw = String(ch.text || "").split(/\n\s*\n/), paras = [], at = [], seg = 0, segs = [];
+    ch.panels.forEach(function (p) { seg += wc(p.text); });
+    raw.forEach(function (x) {
+      var t = x.trim(); if (!t) return;
+      if (IMG_RE.test(t)) { if (seg >= BR_MIN && paras.length && at[at.length - 1] !== paras.length) { at.push(paras.length); segs.push(seg); seg = 0; } return; }
+      var w = wc(t.replace(/^### .*$/gm, "")), prevLabel = paras.length && /^### /.test(paras[paras.length - 1]) && !/\n/.test(paras[paras.length - 1]);
+      var isLabel = /^### /.test(t) && !/\n/.test(t); // a "### " label alone opens a new section: a natural place for a picture
+      if (isLabel && seg >= BR_AUTO_MIN && paras.length && at[at.length - 1] !== paras.length) { at.push(paras.length); segs.push(seg); seg = 0; }
+      else if (((seg + w > BR_MAX && seg >= BR_AUTO_MIN) || (seg + w > 180 && seg >= 55)) && paras.length && !prevLabel && at[at.length - 1] !== paras.length) { at.push(paras.length); segs.push(seg); seg = 0; }
+      paras.push(t); seg += w;
+    });
+    if (at.length && seg < 45 && seg + segs[segs.length - 1] <= 180) { seg += segs.pop(); at.pop(); }
+    segs.push(seg);
+    ch.text = paras.join("\n\n"); ch.img_before = at; ch.beat_words = segs;
+  }
   function join(parts) { return parts.filter(function (x) { return x && String(x).trim(); }).join("\n\n"); }
+
+  /* ex v7 2026-11-09: the pair chapter gets a real comparison, built from per-Day-Master communication notes (PC.dm) and the
+     relation between the two Day Masters (PC.rel: same_stem, combo, or the element relation peer/output/wealth/power/resource).
+     Order: PC.lead, the pair text (its last "Next page" line held back), the comparison, PC.close, then the held-back line.
+     Habits carry %S (subject), %R (reflexive); the reader's side reads "you", their side "they". */
+  function pairComm(text, R, PC, F) {
+    var me = SLUGS[R.dayMaster], th = SLUGS[R.partner.dayMaster], A = PC.dm[me], B = PC.dm[th];
+    if (!A || !B) return text;
+    var pron = function (s, who) { return String(s).replace(/%S/g, who === "you" ? "you" : who === "both" ? "you" : "they").replace(/%R/g, who === "you" ? "yourself" : who === "both" ? "yourselves" : "themselves"); };
+    var same = R.dayMaster === R.partner.dayMaster, d = R.dayMaster - R.partner.dayMaster;
+    var rk = same ? "same_stem" : (d === 5 || d === -5) ? "combo" : REL[rel(R.dayMaster >> 1, R.partner.dayMaster >> 1)];
+    var paras = String(text || "").split(/\n\s*\n/), last = paras.length > 1 && /next page|Next page|Next\.$/.test(paras[paras.length - 1]) ? paras.pop() : "";
+    var T = same ? PC.same : PC.two, v = { a_fav: A.favors, b_fav: B.favors, a_habit_you: pron(A.habit, "you"), a_habit_both: pron(A.habit, "both"), b_habit_them: pron(B.habit, "them"),
+      a_hope: A.hope, b_hope: B.hope, b_offer: B.offer, a_offer: A.offer, b_heard: B.heard, b_nick: B.a_nick, rel: PC.rel[rk] || "" };
+    var put = function (s) { return F(String(s).replace(/\[(\w+)\]/g, function (m, n) { return v.hasOwnProperty(n) ? v[n] : m; })); };
+    return join([put(PC.lead), paras.join("\n\n")].concat(T.map(put), [put(PC.close), last]));
+  }
 
   function assemble(R, V, opts) {
     opts = opts || {};
     var answers = opts.answers || {}, k = keysFor(R), dm = k.dm, dmName = NAMES[R.dayMaster] + " " + EL[R.dayMasterEl];
-    TERMS = V.terms || null;
+    TERMS = V.terms || null; ANS = answers; CURV = V;
     var F = function (t) { return fill(t, R, k); }; CUR = F;
     var base = V.base[dm], bp = V.base_panels[dm] || [], used = 0, out = [];
     function nextBase() { return used < bp.length ? P(bp[used++]) : null; }
@@ -229,14 +298,17 @@
           if (!b) { a = Q.skip_value; b = S[a + "_" + k.strength] || S[a]; }
           txt.push(F(b.text)); if (b.panel) ch.panels.push(P(b.panel));
         });
+        // round 6 2026-11-07: a title that claims answers ("What your answers gave away") gets c.title_skipped when every question was skipped
+        if (c.title_skipped && c.questions.every(function (q) { var Q = V.intake.filter(function (z) { return z.id === q; })[0]; return !answers[q] || answers[q] === "unsaid" || (Q && answers[q] === Q.skip_value); })) ch.title = F(c.title_skipped);
         ch.text = join([c.lead_base ? F(base[c.lead_base]) : "", txt.join("\n\n")]);
         if (c.with_ext) { var e2 = (V.ext[c.with_ext] || {})[k.strength]; if (e2) { ch.text = join([F(base[c.with_ext]), F(e2.text), txt.join("\n\n")]); if (e2.panel) ch.panels.unshift(P(e2.panel)); } }
       } else if (c.type === "balance") {
         var blocks = [];
         if (k.bridge) {
-          blocks.push({ h: "Plenty of " + EL[k.heavyEl] + " on paper, not much root", t: bridgeText(R, k.heavyEl) + "\n\n" + F(V.heavy.rooted_on_paper.text) });
+          blocks.push({ h: "Plenty of " + EL[k.heavyEl] + " on paper, not much root", t: (c.bridge ? F(c.bridge[R.seasonInCommand ? "season" : "other"]) : bridgeText(R, k.heavyEl)) + "\n\n" + F(V.heavy.rooted_on_paper.text) });
           ch.panels.push(P(V.heavy.rooted_on_paper.panel, "Plenty of " + EL[k.heavyEl] + " on paper."));
-          if (k.pressKey) { blocks.push({ h: "Where the rest of your weight sits: " + EL[k.pressEl], t: F(V.heavy[k.pressKey].text.replace(/\{heavy_el\}/g, "{press_el}")) }); ch.panels.push(P({ speaker: V.heavy[k.pressKey].panel.speaker, text: V.heavy[k.pressKey].panel.text.replace(/\{heavy_el\}/g, "{press_el}") })); }
+          // ex v7 2026-11-09: a short press text (V.press) when the plan carries the supporting element, no press panel then
+          if (k.pressKey) { var PRS = c.helper && V.press ? V.press[k.pressKey] : null; blocks.push({ h: "Where the rest of your weight sits: " + EL[k.pressEl], t: F(PRS || V.heavy[k.pressKey].text.replace(/\{heavy_el\}/g, "{press_el}")) }); if (!c.helper) ch.panels.push(P({ speaker: V.heavy[k.pressKey].panel.speaker, text: V.heavy[k.pressKey].panel.text.replace(/\{heavy_el\}/g, "{press_el}") })); }
         } else {
           var H = V.heavy[k.heavyKey];
           blocks.push({ h: "Heavy on " + EL[k.heavyEl] + (k.heavyEl === R.dayMasterEl ? ", your own element" : ""), t: F(H.text) });
@@ -245,13 +317,23 @@
         var M = V.missing[k.missKey];
         blocks.push({ h: k.missEl == null ? "All five elements turn up" : "No " + EL[k.missEl] + " in the pillars we can see", t: F(M.text),
           note: k.missEl != null && !R.hasHour ? "Your birth hour would add two more characters, and " + EL[k.missEl] + " could be hiding there." : "" });
-        ch.panels.push(P(M.panel, k.missEl == null ? "All five elements turn up." : "No " + EL[k.missEl] + " in the pillars we can see."));
-        ch.kicker = "Too much of one thing, none of another"; ch.title = c.title || "What you have plenty of, and what you lack";
+        if (!c.helper) ch.panels.push(P(M.panel, k.missEl == null ? "All five elements turn up." : "No " + EL[k.missEl] + " in the pillars we can see."));
+        // ex v7 2026-11-09: c.helper = the supporting element (moved here from the strength chapter) closes the balance chapter
+        if (c.helper && V.helper) {
+          var hr7 = V.helper.roles[k.helperRole], he7 = V.helper.elements[EL[k.helperEl].toLowerCase()];
+          if (hr7) { blocks.push({ h: F(hr7.title), t: join([F(hr7.text), he7 && F(he7.text)]) }); ch.panels.push(P(hr7.panel)); if (he7 && he7.panel) ch.panels.push(P(he7.panel)); }
+        }
+        // ex v6: the kicker no longer repeats the title, and a chart with all five elements gets c.title_none (no "none of another")
+        ch.kicker = c.kicker ? F(c.kicker) : "Too much of one thing, none of another";
+        ch.title = (k.missEl == null && c.title_none ? F(c.title_none) : "") || (c.title ? F(c.title) : "") || "What you have plenty of, and what you lack";
         ch.blocks = blocks; ch.text = blocks.map(function (b) { return "### " + b.h + "\n\n" + b.t + (b.note ? "\n\n" + b.note : ""); }).join("\n\n");
+        if (c.end) ch.text = join([ch.text, F(c.end)]);
       } else if (c.type === "strength") {
-        var hr = V.helper ? V.helper.roles[k.helperRole] : null, he = V.helper ? V.helper.elements[EL[k.helperEl].toLowerCase()] : null;
+        var hr = V.helper && !c.no_helper ? V.helper.roles[k.helperRole] : null, he = V.helper && !c.no_helper ? V.helper.elements[EL[k.helperEl].toLowerCase()] : null;
         ch.kicker = R.dmStrength === "strong" ? "Built strong \u00B7 plenty backing your " + EL[R.dayMasterEl] : "Built soft \u00B7 not much backing your " + EL[R.dayMasterEl]; // round 3: no "N of 8"
-        ch.title = (V.strength_titles || {})[R.dmStrength] || (R.dmStrength === "strong" ? "Your blind spot: you push" : "Your blind spot: you give too much");
+        // ex v7 2026-11-09: one blind-spot title per Day Master (strength_titles[dm], a string or {strong, weak}), the shared one as fallback
+        var stt = (V.strength_titles || {})[dm]; if (stt && typeof stt === "object") stt = stt[R.dmStrength];
+        ch.title = (stt ? F(stt) : "") || (V.strength_titles || {})[R.dmStrength] || (R.dmStrength === "strong" ? "Your blind spot: you push" : "Your blind spot: you give too much");
         ch.text = join([strengthBridge(R), F(V.strength[dm][k.strength]), hr && "### " + F(hr.title), hr && F(hr.text), he && F(he.text)]);
         var sp = (V.strength_panels || {})[dm]; if (sp && sp[k.strength]) ch.panels.push(P(sp[k.strength]));
         if (hr) ch.panels.push(P(hr.panel)); if (he && he.panel) ch.panels.push(P(he.panel));
@@ -288,7 +370,9 @@
         var X = opts.pairs[pk], ov = (V.pair_overrides || {})[pk], side = R.dayMaster <= R.partner.dayMaster ? "you_are_a" : "you_are_b";
         var alt = (ov && ov.panels_alt) || X.panels_alt || {};
         ch.kicker = "You " + HANJA.charAt(R.dayMaster) + " " + dmName + " + them " + HANJA.charAt(R.partner.dayMaster) + " " + NAMES[R.partner.dayMaster] + " " + EL[R.partner.dayMaster >> 1];
-        ch.title = X.title; ch.text = ov && ov[side] ? ov[side] : X[side];
+        // ex v6: a title written as "You ... They ..." from one side gets a per-side version (pair_overrides[pk]["title_" + side])
+        ch.title = (ov && ov["title_" + side]) || X["title_" + side] || X.title; ch.text = ov && ov[side] ? ov[side] : X[side];
+        if (V.pair_comm) ch.text = pairComm(ch.text, R, V.pair_comm, F);
         (ov && ov.panels ? ov.panels : X.panels).slice(0, 3).forEach(function (q, n) { var z = alt[String(n)] && alt[String(n)].reader === dm ? alt[String(n)] : q; ch.panels.push(P(z, n === 0 ? HANJA.charAt(R.dayMaster) + " + " + HANJA.charAt(R.partner.dayMaster) + " · you and them." : null)); });
       }
       if (c.parts && c.type !== "pair") { // keyed parts, any chapter type (new products)
@@ -299,17 +383,20 @@
           var hd = X.heading || pt.heading;
           mp.push((hd ? "### " + F(hd) + "\n\n" : "") + F(X.text));
           if (X.panel) ch.panels.push(P(X.panel));
+          (X.panels || []).forEach(function (q) { ch.panels.push(P(q)); });
         });
         ch.text = join(mp);
       }
       if (c.type !== "season" && c.echo) { var tmp = { panels: [] }; echoPanels(c, tmp); ch.panels.splice.apply(ch.panels, [Math.min(1, ch.panels.length), 0].concat(tmp.panels)); }
+      if (ch.title && ch.title.indexOf("{") >= 0) ch.title = F(ch.title); // ex v7: answer-keyed / placeholder titles
       var ci = out.length; // copy rewrite 2026-10-21: the paywall cliffhanger is the real opening line of the first locked chapter
       if (V.cliff && V.cliff[dm] && ci === 2) ch.text = join([F(V.cliff[dm]).replace(" | ", " "), ch.text]);
       if (V.sample && V.sample[dm] && V.sample[dm].id === c.id) ch.panels.unshift(P(V.sample[dm]));
       ch.panels = alternate(ch.panels.filter(Boolean));
+      imageBreaks(ch);
       out.push(ch);
     });
-    CUR = null; TERMS = null;
+    CUR = null; TERMS = null; ANS = {}; CURV = null;
     var words = 0, panels = 0;
     out.forEach(function (c) { words += wc(c.text.replace(/^### .*$/gm, "")); c.panels.forEach(function (p) { words += wc(p.text); panels++; }); });
     return { chapters: out, words: words, panels: panels, keys: k };

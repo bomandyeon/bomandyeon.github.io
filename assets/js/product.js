@@ -159,11 +159,50 @@
   var ART_AVOID = { "will-your-ex-come-back/why-it-ended": 1, "what-kind-of-lover/how-you-fall": 1, "what-kind-of-lover/red-flag": 1, "what-kind-of-lover/what-you-need": 1 };
   function sceneKey(k) { return SC[k] ? { src: "/assets/img/scenes/" + k + ".webp", w: SC[k][0], h: SC[k][1] } : null; }
   function landerScene(ci) { var a = (LANDER_ART[P.slug] || [])[ci]; return a ? sceneKey(P.slug + "/" + a) : null; }
+  /* ex art v5 2026-11-08 (Rok): the ex reading shows one illustration about every 150 words (no text stretch over ~180).
+     Each chapter keeps its lead scene and gets its own extra scenes (scenes/will-your-ex-come-back/x/) spread by word count
+     between the beats. Season and why-it-ended lead with new scenes (the shared season art and the old why-it-ended scene
+     were off-model). Only this reading; every other reading renders exactly as before. */
+  var EXA = P.slug === "will-your-ex-come-back" ? {
+    "season": ["season-1", "season-2", "season-3", "season-4"], "why-it-ended": ["why-it-ended-2", "why-it-ended-3", "why-it-ended-4"],
+    "your-breakup-pattern": ["your-breakup-pattern-2", "your-breakup-pattern-3", "your-breakup-pattern-4"], "your-story": ["your-story-2", "your-story-3", "your-story-4"],
+    "the-pull": ["the-pull-2", "the-pull-3", "the-pull-4", "the-pull-5", "the-pull-6"], "balance": ["balance-2", "balance-3"], "the-honest-answer": ["the-honest-answer-2", "the-honest-answer-3"],
+    "strength": ["strength-1", "strength-2"], "pair": ["pair-2", "pair-3", "pair-4"], "if-they-reach-out": ["if-they-reach-out-2", "if-they-reach-out-3", "if-they-reach-out-4"],
+    "what-you-do-now": ["what-you-do-now-2", "what-you-do-now-3", "what-you-do-now-4"]
+  } : null;
+  var EXA_LEADS_NEW = { "season": 1, "why-it-ended": 1 };
+  function exList(id) { return ((EXA && EXA[id]) || []).map(function (n) { return sceneKey(P.slug + "/x/" + n); }).filter(Boolean); }
+  /* -> {lead, art} for a chapter of the ex reading (null elsewhere); a missing file just drops out */
+  function exArt(id, R) {
+    if (!EXA) return null;
+    var l = exList(id), lead = EXA_LEADS_NEW[id] ? (l.shift() || sceneFor(id, R)) : (sceneFor(id, R) || l.shift() || null);
+    return { lead: lead, art: l };
+  }
+  /* spare scenes when a long chapter outruns its own: this reading's scenes not shown yet in this render, least used first */
+  function exSpare(used) {
+    var all = Object.keys(SC).filter(function (k) { return k.indexOf(P.slug + "/") === 0 && !ART_AVOID[k]; }).map(sceneKey), last = {}, tick = 0;
+    var f = function (avoid) {
+      var ok = function (x) { return !avoid || avoid.indexOf(x.src) < 0; };
+      var c = all.filter(function (x) { return used[x.src] === 0 && ok(x); }).concat(all.filter(function (x) { return used[x.src] === undefined && ok(x); }));
+      if (!c.length) { c = all.filter(ok).sort(function (a, b) { return (used[a.src] || 0) - (used[b.src] || 0) || (last[a.src] || -1) - (last[b.src] || -1); }); }
+      var x = c[0]; if (x) { used[x.src] = (used[x.src] || 0) + 1; last[x.src] = ++tick; } return x || null;
+    };
+    /* a scene a chapter did not place goes back to the spare pool (a short chapter leaves its extras to a long one) */
+    f.release = function (x) { if (x && used[x.src]) used[x.src]--; };
+    return f;
+  }
+  function wordsOf(x) { return String(x || "").replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length; }
   /* text -> beats: paragraphs, long ones split at a sentence near the middle; "### X" becomes the beat's label */
   function beats(t) {
-    var out = [];
+    var out = [], pi = -1, n0 = 0;
     String(t || "").split(/\n\s*\n/).forEach(function (b) {
       b = b.trim(); if (!b) return;
+      pi++; n0 = out.length; // ex v7: every beat carries the index of its paragraph (ch.img_before counts paragraphs)
+      beat1(b);
+      for (var q = n0; q < out.length; q++) out[q].pi = pi;
+    });
+    return out;
+    function beat1(b) {
       var lab = null, m = /^### (.+?)(?:\n([\s\S]*))?$/.exec(b);
       if (m) { lab = m[1].trim(); b = (m[2] || "").trim(); if (!b) { out.push({ label: lab, text: "" }); return; } }
       var sy = SAY_RE.exec(b); if (sy) { if (lab) out.push({ label: lab, text: "" }); out.push({ say: sy[1].toLowerCase(), text: sy[2].trim() }); return; }
@@ -174,8 +213,7 @@
         if (a.length && c.length) { out.push({ label: lab, text: a.join("").trim() }); out.push({ label: null, text: c.join("").trim() }); return; }
       }
       out.push({ label: lab, text: b });
-    });
-    return out;
+    }
   }
   var EL_TINT = { Wood: "#3E8E5A", Fire: "#C8443C", Earth: "#B08A4A", Metal: "#B9BCC8", Water: "#3B6FB0" };
   /* v4 2026-11-06: the strip reads as a vertical webtoon, not a chat log.
@@ -196,7 +234,7 @@
   function comicChapter(ch, R, artAt, opts) {
     opts = opts || {};
     var sc = opts.scene || sceneFor(ch.id, R), s = D.SOULS[R.dayMaster], sec = document.createElement("section");
-    var ci = artAt ? artAt() : 0, crop = CROPS[ci % CROPS.length];
+    var ci = artAt ? artAt() : 0, crop = opts.crop || CROPS[ci % CROPS.length];
     sec.className = "comic comic--" + crop + (sc ? "" : " comic--plain");
     var sub = subline(ch.kicker, s);
     var head = '<header class="comic__title"><h3>' + esc(ch.title || "") + "</h3>" + (sub ? '<p class="comic__sub">' + esc(sub) + "</p>" : "") + "</header>";
@@ -209,15 +247,75 @@
       items.push({ k: "say", w: who(p.speaker).toLowerCase(), text: p.text });
     });
     if (opts.pre) items.push({ k: "note", html: opts.pre });
+    /* ex v7 2026-11-09 (Rok): images go exactly at the copy's beat breaks (ch.img_before = paragraph indexes from assemble-v4's
+       "<!-- IMG -->" markers, beats ~125 words, max ~180). A chapter with breaks renders from ch.text (marker-free) even when it
+       has blocks (balance): a "### " label alone is joined to the beat after it, and block notes keep their note style. */
+    var AT = opts.art && Array.isArray(ch.img_before) ? ch.img_before : null;
+    if (AT && opts.blocks) {
+      var notes = {}; opts.blocks.forEach(function (b) { if (b.note) notes[String(b.note).trim()] = 1; });
+      opts = Object.assign({}, opts, { blocks: null, notes: notes });
+    }
     var list = opts.blocks ? [] : beats(ch.text);
+    if (AT) {
+      var l2 = [];
+      list.forEach(function (b) {
+        var pv = l2[l2.length - 1];
+        if (pv && !pv.say && pv.label && !pv.text && !b.say && !b.label) { pv.text = b.text; return; } // label + its first beat
+        l2.push(b);
+      });
+      list = l2.map(function (b) { if (opts.notes && notes[String(b.text).trim()]) b.note = true; return b; });
+    }
     if (opts.blocks) opts.blocks.forEach(function (b) { beats(b.t).forEach(function (x, i) { list.push({ label: i ? x.label : b.h, text: x.text }); }); if (b.note) list.push({ label: null, text: b.note, note: true }); });
-    list.forEach(function (b) { items.push(b.say ? { k: "say", w: b.say, text: b.text } : { k: "cap", label: b.label, text: b.text, note: b.note }); });
+    list.forEach(function (b) { items.push(b.say ? { k: "say", w: b.say, text: b.text, pi: b.pi } : { k: "cap", label: b.label, text: b.text, note: b.note, pi: b.pi }); });
     // v5 2026-11-06: one panel per image (no second "detail" cut of the same scene), bubbles after the panel, never over it.
     // Every bubble sits on the left like a webtoon column, offset by speaker (Bom a little in, Yeon further in); consecutive
     // lines of one speaker are one group (tail and face only on the group's first line). On /read/ (opts.silent) a silent
     // full-width panel of another scene from this reading comes in every ~5 beats. Every line, its order and speaker unchanged.
     var seen = {}, html2 = head + stage + '<div class="comic__beats">', prev = null, since = 0, n = 0;
-    items.forEach(function (it) {
+    // ex art v5: opts.art = this chapter's extra scenes. Inserts go at beat boundaries nearest to even word marks, about one per
+    // 150 words; if a stretch would still run past 180 words, a spare scene (opts.more) is added. Never splits a speaker's run
+    // unless that is the only way to keep the gap.
+    var ins = {};
+    if (AT) {
+      // one image in front of the first beat of each break paragraph: the chapter's own scenes first, then spares; never the
+      // same picture twice in a row (lead scene, previous insert, the next chapter's lead)
+      var own = opts.art.slice(), lastSrc = sc ? sc.src : null, at2 = [];
+      AT.forEach(function (p) { for (var q = 0; q < items.length; q++) if (items[q].pi === p) { if (q > 0 && at2.indexOf(q) < 0) at2.push(q); return; } });
+      at2.forEach(function (q, j) {
+        var avoid = [lastSrc]; if (j === at2.length - 1 && opts.nextSrc) avoid.push(opts.nextSrc);
+        var x = null;
+        for (var o = 0; o < own.length; o++) if (avoid.indexOf(own[o].src) < 0) { x = own.splice(o, 1)[0]; break; }
+        if (!x && opts.more) x = opts.more(avoid);
+        if (x) { ins[q] = x; lastSrc = x.src; }
+      });
+      if (opts.more && opts.more.release) own.forEach(opts.more.release);
+    } else if (opts.art) {
+      var ws = items.map(function (it) { return it.k === "note" ? wordsOf(it.html) : wordsOf(it.text); }), T = 0, cum = [0];
+      ws.forEach(function (w) { T += w; cum.push(T); });
+      var arts = opts.art.slice(), nb = items.length, k = Math.max(0, Math.ceil(T / 150) - 1);
+      var okB = function (b) { var a = items[b - 1], c = items[b]; return !(a && c && a.k === "say" && c.k === "say" && a.w === c.w); };
+      var plan = function (k) {
+        var pos = [], last = 0;
+        for (var j = 1; j <= k; j++) {
+          var tgt = j * T / (k + 1), best = -1, bd = 1e9;
+          for (var b = last + 1; b < nb; b++) { var d = Math.abs(cum[b] - tgt) + (okB(b) ? 0 : 40); if (d < bd) { bd = d; best = b; } }
+          if (best < 0) break; pos.push(best); last = best;
+        }
+        return pos;
+      };
+      var gapOf = function (pos) { var g = 0, p0 = 0; pos.concat([nb]).forEach(function (b) { g = Math.max(g, cum[b] - cum[p0]); p0 = b; }); return g; };
+      var pos = [];
+      for (var tries = 0; tries < 12; tries++) {
+        while (arts.length < k && opts.more) { var m = opts.more(); if (!m) break; arts.push(m); }
+        pos = plan(Math.min(k, arts.length));
+        if (gapOf(pos) <= 180 || k >= nb - 1 || (arts.length < k + 1 && !opts.more)) break;
+        k++;
+      }
+      pos.forEach(function (b, j) { ins[b] = arts[j]; });
+      if (opts.more && opts.more.release) arts.slice(pos.length).forEach(opts.more.release);
+    }
+    items.forEach(function (it, ii) {
+      if (ins[ii]) { html2 += '<div class="comic__stage comic__stage--scene" aria-hidden="true"><img src="' + ins[ii].src + '" alt="" width="720" height="1290" loading="lazy" decoding="async"></div>'; prev = null; since = 0; }
       if (opts.silent && sc && since >= 5 && !(it.k === "say" && prev === it.w)) {
         var a = opts.silent();
         if (a) { html2 += '<div class="comic__stage comic__stage--silent" aria-hidden="true"><div class="comic__img" style="background-image:url(' + a.src + ');background-position:' + a.pos + '"></div></div>'; since = 0; prev = null; }
@@ -425,8 +523,27 @@
       if (!INTAKE.length || !answers) return [];
       return INTAKE.map(function (q) { var o = q.options.filter(function (x) { return x.value === answers[q.id]; })[0]; return answers[q.id] === q.skip_value || !o ? null : o.label; }).filter(Boolean);
     }
+    /* ex v7 2026-11-09: a plan title may carry answer-keyed wording ({{qid:val=text|*=fallback}}) and {term} placeholders that
+       assemble-v4.js fills on the reading itself; the locked list and the hook fill them the same way from this reader's answers
+       and Day Master terms (LOCK_TERMS = the free data's terms), so no raw markup ever shows. */
+    function lockFill(t) {
+      t = String(t || ""); if (t.indexOf("{") < 0) return t;
+      var a = ansFor(), T = LOCK_TERMS || {};
+      var pick = function (x) {
+        return x.replace(/\{\{(\w+):((?:[^{}]|\{\w+\})*)\}\}/g, function (m, q, body) {
+          var Q = INTAKE.filter(function (z) { return z.id === q; })[0], v = a[q];
+          if (!v || v === "unsaid" || (Q && !Q.options.some(function (o) { return o.value === v; }))) v = Q ? Q.skip_value : "unsaid";
+          var hit = null, def = "";
+          body.split("|").forEach(function (o) { var i = o.indexOf("="); if (i < 0) return; var ks = o.slice(0, i).split(","), val = o.slice(i + 1); if (hit === null && ks.indexOf(v) >= 0) hit = val; if (ks.indexOf("*") >= 0) def = val; });
+          return hit === null ? def : hit;
+        });
+      };
+      var sub = function (x) { return x.replace(/\{(\w+)\}/g, function (m, n) { return T.hasOwnProperty(n) ? T[n] : m; }); };
+      var r = sub(pick(t)); if (r.indexOf("{{") >= 0) r = sub(pick(r));
+      return r.indexOf("{") < 0 ? r : (r.replace(/\{\{[^}]*\}\}|\{\w+\}/g, "").replace(/\s+/g, " ").trim() || "Your next chapter");
+    }
     function lockTitle(c, R, s, them) {
-      var t = planTitle(c), hl;
+      var t = lockFill(planTitle(c)), hl;
       if (c.type === "strength") return "Your blind spot (Yeon has notes)";
       if (c.type === "balance") return c.title || "Too much of one thing, none of another";
       if (c.type === "pair") return them ? "You (" + s.nick + ") and them (" + them.nick + ")" : "You and them (add their birthday for this one)";
@@ -497,6 +614,7 @@
         '<div class="pw3-buy">' +
         '<p class="pw3-amt">' + BY.moneyHTML(P.price) + '<em class="pw3-per"> \u00B7 one time \u00B7 all ' + allN + ' chapters</em></p>' +
         '<ul class="pw3-get">' + (sample && sample.answer ? '<li class="pw3-ans">' + esc(sample.answer) + "</li>" : "") +
+        (PW_SIZE[P.slug] ? "<li>" + esc(PW_SIZE[P.slug]) + "</li>" : "") +
         '<li>Opens right here after paying, plus an email link to open it on any phone</li><li>' + esc(PW_EXTRA[P.slug] || PW_EXTRA._) + '</li></ul>' +
         (plus ? (PAIR === "required" ? '<p class="pw3-plus pw3-plus--note">Add their birthday before you unlock if you want the chapter on the two of you. You can also add it later on your comic page.</p>'
           : '<p class="pw3-plus">+1 chapter if you add their birthday</p>') : "") +
@@ -512,10 +630,14 @@
     }
     /* faza 2 (2026-11-05): optional "send me the link" under the buy button. Never blocks checkout; reminders only with the
        separate unticked box. The worker sends one mail (plus at most 2 reminders on opt-in) and deletes the address within 14 days. */
-    var HAS_PAIR = false;
+    var HAS_PAIR = false, LOCK_TERMS = null;
     /* round 2 2026-11-07: the third paywall line says what every buyer of this reading really gets on the read page (bonusBox +
        print view): a PDF, phone and desktop wallpapers of their type, and the per-type chart "You and every birthday type"
        (a love-match chart of their type with all 10 types; it needs no second birthday). */
+    /* ex v7 2026-11-09: what the locked part holds, as a floor that is true for every reader without their birthday (measured
+       over real charts x all answer sets with assemble-v4.js: chapters 3+ min 4,518 words, min 36 picture slots of which 33 are scenes not shown in the free part, so "30+ new";
+       work/qa/ex-v7-deploy/paidsize.js). Re-measure before changing the copy. */
+    var PW_SIZE = { "will-your-ex-come-back": "Over 4,500 more words and 30+ new illustrations, written for your chart and answers" };
     var PW_EXTRA = {
       _: "PDF to keep, plus phone and desktop wallpapers of your type and a bonus love chart: your type with all 10 types",
       "will-your-ex-come-back": "PDF to keep, plus phone and desktop wallpapers of your type and a chart of how your type matches all 10 types",
@@ -579,7 +701,7 @@
     function openQHTML(hk, J) {
       var t = String(hk.text), sp = "", sy = SAY_RE.exec(t); if (sy) { sp = sy[1]; t = sy[2]; }
       var cut = t.indexOf(" | "), head = (cut > 0 ? t.slice(0, cut) : t.split(/[.!?]/)[0]).replace(/[,;:\s]+$/, "");
-      var n = 0, title = ""; J.plan.forEach(function (c, i) { if (c.id === hk.id) { n = i + 1; title = planTitle(c); } });
+      var n = 0, title = ""; J.plan.forEach(function (c, i) { if (c.id === hk.id) { n = i + 1; title = lockFill(planTitle(c)); } });
       return '<div class="cliff cliff--open rise"><p class="cliff__h">Still open \u00B7 answered in chapter ' + n + (title ? ": " + esc(title) : "") + '</p><p class="cliff__t">' + (sp ? "<b>" + sp + "</b> " : "") + esc(head) + "\u2026</p></div>";
     }
     /* funnel fix 2026-11-07 (situationship): when their birthday is in, one short honest beat from the two Day Master elements
@@ -686,14 +808,23 @@
         V.base[s.slug] = d.base; V.base_panels[s.slug] = d.base_panels; V.season[s.slug] = d.season; V.extra[s.slug] = d.extra || {};
         if (d.open) { V.open = {}; V.open[s.slug] = d.open; } V.echo = J.echo || {};
         if (d.terms) { V.terms = {}; V.terms[s.slug] = d.terms; }
+        LOCK_TERMS = d.terms || null; // ex v7: the locked list fills answer-keyed titles with this reader's terms
         var asm = A4.assemble(R, V, { answers: ansFor(), echoSkipped: false }), art = counter(), usedArt = []; // funnel fix 2026-11-07: no echo of unasked questions in the free part
+        var exUsedF = {}, exMoreF = EXA ? exSpare(exUsedF) : null;
+        if (EXA) asm.chapters.forEach(function (ch) { var e = exArt(ch.id, R); if (e) { if (e.lead) exUsedF[e.lead.src] = 1; e.art.forEach(function (x) { exUsedF[x.src] = 1; }); } });
         asm.chapters.forEach(function (ch, ci) {
           // funnel fix 2026-11-07 (Rok): the two free chapters show whole, never cut mid-thought. A chapter that is too long or ends
           // weakly is fixed in the copy, not here. The old ~110-word / 8-paragraph / 3-4-panel trim is gone.
-          var paras = String(ch.text || "").split(/\n\s*\n/).filter(function (x) { return x.trim() && !/^(?:(?:Yeon|Bom):\s*)?You skipped\b/.test(x.trim()); });
-          var t = Object.assign({}, ch, { panels: (ch.panels || []).filter(function (q) { return !/^You skipped\b/.test(q.text || ""); }), text: paras.join("\n\n") });
-          var own1 = landerScene(ci) || sceneFor(ch.id, R); if (own1) usedArt.push(own1.src);
-          var sec = comicChapter(t, R, art, { scene: own1 }); sec.classList.add("comic--teaser"); out.appendChild(sec);
+          // ex v7: the kept paragraphs' new indexes, so ch.img_before still points at the same beats
+          var paras = [], remap = {}, pk = 0;
+          String(ch.text || "").split(/\n\s*\n/).forEach(function (x) { if (!x.trim()) return; var i0 = pk++; if (/^(?:(?:Yeon|Bom):\s*)?You skipped\b/.test(x.trim())) return; remap[i0] = paras.length; paras.push(x); });
+          var ib = Array.isArray(ch.img_before) ? ch.img_before.map(function (i) { return remap[i]; }).filter(function (i) { return i != null; }) : ch.img_before;
+          var t = Object.assign({}, ch, { panels: (ch.panels || []).filter(function (q) { return !/^You skipped\b/.test(q.text || ""); }), text: paras.join("\n\n"), img_before: ib });
+          var ex1 = exArt(ch.id, R), own1 = ex1 ? ex1.lead : (landerScene(ci) || sceneFor(ch.id, R)); if (own1) usedArt.push(own1.src);
+          if (ex1) ex1.art.forEach(function (x) { usedArt.push(x.src); });
+          var nx1 = asm.chapters[ci + 1] && exArt(asm.chapters[ci + 1].id, R);
+          var sec = comicChapter(t, R, art, ex1 ? { scene: own1, art: ex1.art, more: exMoreF, crop: "tall", nextSrc: nx1 && nx1.lead ? nx1.lead.src : null } : { scene: own1 }); sec.classList.add("comic--teaser"); out.appendChild(sec);
+          [].forEach.call(sec.querySelectorAll(".comic__stage--scene img"), function (im) { usedArt.push(im.getAttribute("src")); });
           /* 2026-11-06 Rok: no optional questions in the free part (they come after purchase) */
         });
         if (PAIR === "required" && !R.partner) out.appendChild(addTheirCard());
@@ -708,7 +839,7 @@
         var restLine = shown.length + " more chapters";
         // v6: a locked row never repeats a picture already shown in the free chapters; it borrows an unused scene of this reading
         var rowOwn = shown.slice(0, 3).map(function (c) { var x = sceneFor(c.id, R); return x ? x.src : ""; });
-        var spare = Object.keys(SC).filter(function (k) { return k.indexOf(P.slug + "/") === 0 && !ART_AVOID[k]; }).map(function (k) { return "/assets/img/scenes/" + k + ".webp"; })
+        var spare = Object.keys(SC).filter(function (k) { return k.indexOf(P.slug + "/") === 0 && k.indexOf("/x/") < 0 && !ART_AVOID[k]; }).map(function (k) { return "/assets/img/scenes/" + k + ".webp"; })
           .filter(function (x) { return usedArt.indexOf(x) < 0 && rowOwn.indexOf(x) < 0; }).reverse();
         var row = function (c, i) {
           var sc = sceneFor(c.id, R);
@@ -1111,7 +1242,7 @@
         // v5 2026-11-06: silent panels between the beats use this reading's other scenes; never the chapter's own scene, never the
         // scene of the chapter right before or after, never the same picture twice in a row, top and bottom bands in turn.
         var own = asm.chapters.map(function (c) { var x = sceneFor(c.id, R); return x ? x.src : ""; });
-        var pool = Object.keys(SC).filter(function (k) { return k.indexOf(P.slug + "/") === 0; }).map(function (k) { return "/assets/img/scenes/" + k + ".webp"; });
+        var pool = Object.keys(SC).filter(function (k) { return k.indexOf(P.slug + "/") === 0 && k.indexOf("/x/") < 0; }).map(function (k) { return "/assets/img/scenes/" + k + ".webp"; });
         own.forEach(function (x) { if (x && pool.indexOf(x) < 0) pool.push(x); });
         var useN = {}, lastS = "", band = 0;
         var silentFor = function (ci) {
@@ -1123,10 +1254,14 @@
             return { src: src, pos: (band++ % 2 ? "50% 96%" : "50% 6%") };
           };
         };
+        var exUsed = {}, exMore = EXA ? exSpare(exUsed) : null;
+        if (EXA) asm.chapters.forEach(function (ch) { var e = exArt(ch.id, R); if (e) { if (e.lead) exUsed[e.lead.src] = 1; e.art.forEach(function (x) { exUsed[x.src] = 1; }); } });
         asm.chapters.forEach(function (ch, ci) {
-          if (ch.id === "balance" && ch.blocks) out.appendChild(comicChapter(ch, R, art, { blocks: ch.blocks, silent: silentFor(ci) }));
-          else if (ch.id === "strength") out.appendChild(comicChapter(ch, R, art, { pre: esc(strengthHow(R)), silent: silentFor(ci) }));
-          else out.appendChild(comicChapter(ch, R, art, { silent: silentFor(ci) }));
+          var ex = exArt(ch.id, R), nx = asm.chapters[ci + 1] && exArt(asm.chapters[ci + 1].id, R);
+          var xo = ex ? { scene: ex.lead, art: ex.art, more: exMore, crop: "tall", nextSrc: nx && nx.lead ? nx.lead.src : null } : { silent: silentFor(ci) };
+          if (ch.id === "balance" && ch.blocks) out.appendChild(comicChapter(ch, R, art, Object.assign({ blocks: ch.blocks }, xo)));
+          else if (ch.id === "strength") out.appendChild(comicChapter(ch, R, art, Object.assign({ pre: esc(strengthHow(R)) }, xo)));
+          else out.appendChild(comicChapter(ch, R, art, xo));
           if (afterId && ch.id === afterId) {
             out.appendChild(html('<div class="card rise no-print add-their"><p>Add their birthday and Bom and Yeon write a chapter on how your two patterns meet.</p>' +
               '<form id="addTheir" class="form-stack" novalidate>' + document.querySelector("#rdForm .selects[aria-label^='Their']").outerHTML + '<p class="err" id="atErr" role="alert"></p><button class="btn" type="submit">Add the chapter</button></form></div>'));
