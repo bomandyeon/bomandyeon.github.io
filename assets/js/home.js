@@ -195,7 +195,7 @@
       card.hidden = true;
       $("nextTrioList").innerHTML = TRIO.map(function (x) {
         var r = READS[x[0]]; if (!r) return "";
-        return '<a class="next-mini" href="/readings/' + x[0] + "/" + stQuery(x[0]) + '#preview" data-next="' + x[0] + '">' +
+        return '<a class="next-mini" href="' + (x[0] === "will-your-ex-come-back" ? "/ex/start/?src=home-next" : "/readings/" + x[0] + "/" + stQuery(x[0]) + "#preview") + '" data-next="' + x[0] + '">' +
           '<img src="/assets/img/cover-' + r.c + '-360.webp" alt="" width="360" height="447" loading="lazy" decoding="async">' +
           '<span class="next-mini__b"><b>' + esc(x[1]) + '</b><span class="small muted">' + esc(r.h) + '</span><span class="next-mini__p">$' + r.p + " · 2 chapters free</span></span></a>";
       }).join("");
@@ -205,7 +205,7 @@
     }
     var n = NEXT[slug] || {}, r = READS[slug] || {}, their = state.crush || BY.load("their"), two = slug === "situationship" || slug === "couple-reading";
     card.hidden = false; trio.hidden = true;
-    card.href = "/readings/" + slug + "/" + stQuery(slug) + "#preview";
+    card.href = slug === "will-your-ex-come-back" ? "/ex/start/?src=home-next" : "/readings/" + slug + "/" + stQuery(slug) + "#preview";
     $("nextImg").src = "/assets/img/cover-" + (r.c || "ex") + ".webp";
     $("nextTitle").textContent = n.title || r.t || "";
     $("nextWho").textContent = n.tab != null ? "Yeon" : (r.v === "yeon" ? "Yeon" : "Bom");
