@@ -2480,3 +2480,21 @@ body.has-strip .phero--flow .phero__cover { display: none; }
 .comic__beats > .comic__stage--scene + * { margin-top: 40px; }
 @media (max-width: 599px) { .comic__beats > .comic__stage--scene, .comic--teaser .comic__beats > .comic__stage--scene { margin-left: -20px; margin-right: -20px; width: calc(100% + 40px); align-self: auto; border-radius: 0; } }
 @media (min-width: 600px) { .comic__beats > .comic__stage--scene { border-radius: 4px; } }
+
+/* paywall CRO 2026-11-09 (Rok): ex offer card first, then the chapter list; one personal line, three goal lines, one size line */
+.pw3-h { margin: 0 0 10px; font: 600 20px/1.3 var(--serif); color: var(--moon); }
+.pw3-me { margin: 0 0 12px; font: 400 14.5px/1.45 var(--sans); color: var(--mute); }
+.pw3 .pw3-me + .pw3-get { margin-bottom: 12px; }
+.pw3-size { margin: 0 0 18px; font: 400 13.5px/1.45 var(--sans); color: var(--faint); }
+.lock-list--offer-first .paywall { margin-top: 18px; }
+.lock-list--offer-first .paywall + .pw3-alt + .lock-head, .lock-list--offer-first .paywall + .lock-head { margin-top: 36px; }
+/* cookie sheet on phones: one compact row (text left, two buttons right) so the offer stays in view; body padding unchanged */
+@media (max-width: 699px) {
+  .cc { display: flex; align-items: center; gap: 10px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
+  .cc__t { flex: 1 1 auto; margin: 0; font-size: 12px; line-height: 1.35; }
+  .cc__now { display: none; }
+  .cc__b { flex: 0 0 auto; grid-template-columns: auto auto; gap: 6px; }
+  .cc__btn { min-height: 40px; padding: 0 12px; font-size: 13px; }
+}
+.lock-list--offer-first .pw3-h { margin-bottom: 14px; }
+.lock-list--offer-first .pw3-amt { flex-direction: column; align-items: flex-start; gap: 8px; }

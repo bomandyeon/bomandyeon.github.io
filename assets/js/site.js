@@ -422,7 +422,7 @@
       if (!tag) { var ft = BY.load("ft") || {}; tag = ft.utm_campaign ? ft.utm_campaign + (ft.utm_content ? "-" + ft.utm_content : "") : (ft.src || ""); }
     } catch (e) { /* private mode */ }
     tag = String(tag).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "none";
-    var base = BY.track, FUNNEL = /^(form-started|birthday-submit|result-rendered|ch1-view|teaser-ch2|ch2-end-reached|paywall-view|paywall-dwell|checkout-click|checkout|purchase)-/;
+    var base = BY.track, FUNNEL = /^(form-started|birthday-submit|result-rendered|ch1-view|teaser-ch2|ch2-end-reached|paywall-view|paywall-cta-view|paywall-dwell|checkout-click|checkout|purchase)-/;
     BY.track = function (name, title) {
       base(name, title);
       var n = String(name || "").toLowerCase();

@@ -544,8 +544,12 @@
     }
     function lockTitle(c, R, s, them) {
       var t = lockFill(planTitle(c)), hl;
-      if (c.type === "strength") return "Your blind spot (Yeon has notes)";
-      if (c.type === "balance") return c.title || "Too much of one thing, none of another";
+      // paywall CRO 2026-11-09 (Rok): the locked list names the title this reader really gets (same rules as assemble-v4.js)
+      if (c.type === "strength") {
+        var st = LOCK_ST && LOCK_ST[D.SLUGS[R.dayMaster]]; if (st && typeof st === "object") st = st[R.dmStrength];
+        st = st || (LOCK_ST && LOCK_ST[R.dmStrength]); t = st ? lockFill(st) : "Your blind spot (Yeon has notes)";
+      }
+      if (c.type === "balance") return lockFill(!(R.missing || []).length && c.title_none ? c.title_none : c.title) || "Too much of one thing, none of another";
       if (c.type === "pair") return them ? "You (" + s.nick + ") and them (" + them.nick + ")" : "You and them (add their birthday for this one)";
       if (name && /^Your\s/.test(t)) t = name + "'s " + t.slice(5);
       return t;
@@ -611,15 +615,18 @@
         '<div class="pw-pending" role="status"><p class="pw-pend-h"><span class="pw-dot" aria-hidden="true"></span>Opening your comic\u2026</p>' +
         '<p class="pw3-pend-s">Finish paying in the Gumroad tab. Your comic opens here by itself.</p>' +
         '<p class="pw3-pend-s"><a href="#" data-pay-cancel="' + both + '">Not paid yet? Back to the price</a></p></div>' +
-        '<div class="pw3-buy">' +
-        '<p class="pw3-amt">' + BY.moneyHTML(P.price) + '<em class="pw3-per"> \u00B7 one time \u00B7 all ' + allN + ' chapters</em></p>' +
+        '<div class="pw3-buy">' + (sample && sample.goals ? '<h3 class="pw3-h">Continue your personal reading</h3>' : "") +
+        '<p class="pw3-amt">' + BY.moneyHTML(P.price) + '<em class="pw3-per">' + (sample && sample.goals ? "" : " \u00B7 ") + 'one time \u00B7 all ' + allN + ' chapters</em></p>' +
+        (sample && sample.goals ? '<p class="pw3-me">' + esc(sample.personal) + "</p>" +
+          '<ul class="pw3-get">' + sample.goals.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" +
+          '<p class="pw3-size">' + esc(PW_SIZE_SHORT[P.slug] || PW_SIZE[P.slug] || "") + "</p>" :
         '<ul class="pw3-get">' + (sample && sample.answer ? '<li class="pw3-ans">' + esc(sample.answer) + "</li>" : "") +
         (PW_SIZE[P.slug] ? "<li>" + esc(PW_SIZE[P.slug]) + "</li>" : "") +
-        '<li>Opens right here after paying, plus an email link to open it on any phone</li><li>' + esc(PW_EXTRA[P.slug] || PW_EXTRA._) + '</li></ul>' +
+        '<li>Opens right here after paying, plus an email link to open it on any phone</li><li>' + esc(PW_EXTRA[P.slug] || PW_EXTRA._) + '</li></ul>') +
         (plus ? (PAIR === "required" ? '<p class="pw3-plus pw3-plus--note">Add their birthday before you unlock if you want the chapter on the two of you. You can also add it later on your comic page.</p>'
           : '<p class="pw3-plus">+1 chapter if you add their birthday</p>') : "") +
         '<div class="pw-btn">' + PAY.buyLink(P.slug, "Read the rest", "btn--block pw3-cta") + "</div>" +
-        '<p class="pw3-fine">Secure checkout by Gumroad \u00B7 30-day refund</p>' +
+        '<p class="pw3-fine">' + (sample && sample.goals ? "Opens here right after paying \u00B7 " : "") + 'Secure checkout by Gumroad \u00B7 30-day refund</p>' +
         "</div>" +
         PAY.statusEl(P.slug) + (SHELF ? PAY.statusEl("all-readings") : "") +
         '<div class="pw3-folds">' +
@@ -630,7 +637,7 @@
     }
     /* faza 2 (2026-11-05): optional "send me the link" under the buy button. Never blocks checkout; reminders only with the
        separate unticked box. The worker sends one mail (plus at most 2 reminders on opt-in) and deletes the address within 14 days. */
-    var HAS_PAIR = false, LOCK_TERMS = null;
+    var HAS_PAIR = false, LOCK_TERMS = null, LOCK_ST = null;
     /* round 2 2026-11-07: the third paywall line says what every buyer of this reading really gets on the read page (bonusBox +
        print view): a PDF, phone and desktop wallpapers of their type, and the per-type chart "You and every birthday type"
        (a love-match chart of their type with all 10 types; it needs no second birthday). */
@@ -638,6 +645,8 @@
        over real charts x all answer sets with assemble-v4.js: chapters 3+ min 4,518 words, min 36 picture slots of which 33 are scenes not shown in the free part, so "30+ new";
        work/qa/ex-v7-deploy/paidsize.js). Re-measure before changing the copy. */
     var PW_SIZE = { "will-your-ex-come-back": "Over 4,500 more words and 30+ new illustrations, written for your chart and answers" };
+    /* CRO 2026-11-09: the same measured floor, one muted line under the three benefits (PDF + wallpapers = bonusBox on the read page) */
+    var PW_SIZE_SHORT = { "will-your-ex-come-back": "Over 4,500 more words and 30+ new illustrations, plus a PDF and wallpapers of your type" };
     var PW_EXTRA = {
       _: "PDF to keep, plus phone and desktop wallpapers of your type and a bonus love chart: your type with all 10 types",
       "will-your-ex-come-back": "PDF to keep, plus phone and desktop wallpapers of your type and a chart of how your type matches all 10 types",
@@ -651,6 +660,33 @@
       "what-kind-of-lover": { id: "flirting", line: "your flirting style, rated" },
       "couple-reading": { id: "who-they-are", line: "who they are, then what your two types make together", n2: true }
     };
+    /* paywall CRO 2026-11-09 (Rok 11:42): three benefits in the order of the reader's own goal from the quiz (what_you_want),
+       each naming the chapter that delivers it (numbers from this reader's real list). Skipped = "unsure". Lines say only what
+       those chapters hold for every chart: honest-answer by goal, the-pull 1am section, reach_want scripts, seven-day plan + signs. */
+    var PW_GOALS = { "will-your-ex-come-back": {
+      back: [["the-honest-answer", "what would need to change before trying again"], ["if-they-reach-out", "ready-to-use replies if they text, and what not to send"],
+        ["the-pull", "what-you-do-now", "how to handle the urge to check, and a seven-day plan"]],
+      move: [["the-honest-answer", "@title"], ["the-pull", "why checking keeps pulling you back, and what to do at 1am"], ["what-you-do-now", "your seven-day plan and the signs it\u2019s working"]],
+      closure: [["the-honest-answer", "@title"], ["the-pull", "why checking keeps pulling you back, and what to do at 1am"], ["what-you-do-now", "your seven-day plan and the signs it\u2019s working"]],
+      unsure: [["the-honest-answer", { weak: "ten unfinished sentences to help you find out what you want", strong: "how to find out what you want: a month of honest evidence, not a fast decision" }], ["the-pull", "why you keep checking, and what to do when the urge hits"],
+        ["what-you-do-now", "a seven-day plan for some distance and clarity"]] } };
+    function pwGoalLines(rest, R, s, them) {
+      var G = PW_GOALS[P.slug]; if (!G) return null;
+      var a = ansFor(), g = G[a.what_you_want] || G.unsure, out = [];
+      var at = function (id) { for (var i = 0; i < rest.length; i++) if (rest[i].id === id) return { n: i + 3, c: rest[i] }; return null; };
+      g.forEach(function (row) {
+        var ids = row.slice(0, -1), line = row[row.length - 1], hits = ids.map(at).filter(Boolean);
+        if (hits.length !== ids.length) return;
+        if (line && typeof line === "object") line = line[R.dmStrength] || line.weak; // chapter 7 "unsure" differs by chart strength
+        if (line === "@title") { var t = lockTitle(hits[0].c, R, s, them); line = t.charAt(0).toLowerCase() + t.slice(1); }
+        out.push((hits.length > 1 ? "Chapters " + hits.map(function (h) { return h.n; }).join(" and ") : "Chapter " + hits[0].n) + ": " + line);
+      });
+      return out.length === g.length ? out : null;
+    }
+    function pwPersonal(s) {
+      var w = String(s.nick || "").replace(/^the\s+/i, ""), any = ansLabels().length;
+      return "Your illustrated " + w + " reading, written from your birth date, your Day Master" + (any ? " and your breakup answers" : "") + ".";
+    }
     var mbN = 0;
     function mailBox() {
       if (BY.load("sl_" + P.slug)) return "";
@@ -808,7 +844,7 @@
         V.base[s.slug] = d.base; V.base_panels[s.slug] = d.base_panels; V.season[s.slug] = d.season; V.extra[s.slug] = d.extra || {};
         if (d.open) { V.open = {}; V.open[s.slug] = d.open; } V.echo = J.echo || {};
         if (d.terms) { V.terms = {}; V.terms[s.slug] = d.terms; }
-        LOCK_TERMS = d.terms || null; // ex v7: the locked list fills answer-keyed titles with this reader's terms
+        LOCK_TERMS = d.terms || null; LOCK_ST = J.strength_titles || null; // CRO 2026-11-09: the real blind-spot title on the locked list // ex v7: the locked list fills answer-keyed titles with this reader's terms
         var asm = A4.assemble(R, V, { answers: ansFor(), echoSkipped: false }), art = counter(), usedArt = []; // funnel fix 2026-11-07: no echo of unasked questions in the free part
         var exUsedF = {}, exMoreF = EXA ? exSpare(exUsedF) : null;
         if (EXA) asm.chapters.forEach(function (ch) { var e = exArt(ch.id, R); if (e) { if (e.lead) exUsedF[e.lead.src] = 1; e.art.forEach(function (x) { exUsedF[x.src] = 1; }); } });
@@ -857,11 +893,15 @@
           if (!hit) return "";
           return (want && want.n2 ? "Chapters " + hit.n + " and " + (hit.n + 1) : "Chapter " + hit.n) + ": " + (want && want.line ? want.line : lockTitle(hit.c, R, s, them));
         }
-        lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") +
-          '<div class="lock-head"><h3 class="lock-h">The rest of your comic, ' + esc(name || s.nick) + '</h3><p class="lock-sub">' + esc(restLine) + ', locked</p></div>' +
+        var goals = pwGoalLines(shown, R, s, them); // numbers as the reader sees them on the list (the optional pair chapter is the +1 note)
+        var listHTML = '<div class="lock-head"><h3 class="lock-h">' + (goals ? "What\u2019s inside your reading" : "The rest of your comic, " + esc(name || s.nick)) + '</h3><p class="lock-sub">' + esc(restLine) + ', locked</p></div>' +
           '<ol class="lock-ol lock-ol--v2">' + shown.slice(0, SHOW).map(row).join("") + "</ol>" +
-          (shown.length > SHOW ? '<details class="lock-more"><summary>See the other ' + (shown.length - SHOW) + "</summary>" + '<ol class="lock-ol lock-ol--v2" start="' + (SHOW + 3) + '">' + shown.slice(SHOW).map(function (c, i) { return row(c, i + SHOW); }).join("") + "</ol></details>" : "") +
-          paywallHTML(rest.length, Object.assign(sm ? { text: hook.sample.text, who: hook.sample.who, n: sm.n, title: sm.title } : {}, { answer: pwAnswer(rest, R, s, them) }), !!R.partner);
+          (shown.length > SHOW ? '<details class="lock-more"><summary>See the other ' + (shown.length - SHOW) + "</summary>" + '<ol class="lock-ol lock-ol--v2" start="' + (SHOW + 3) + '">' + shown.slice(SHOW).map(function (c, i) { return row(c, i + SHOW); }).join("") + "</ol></details>" : "");
+        var cardHTML = paywallHTML(rest.length, Object.assign(sm ? { text: hook.sample.text, who: hook.sample.who, n: sm.n, title: sm.title } : {}, { answer: pwAnswer(rest, R, s, them) },
+          goals ? { goals: goals, personal: pwPersonal(s) } : {}), !!R.partner);
+        // paywall CRO 2026-11-09 (Rok): with goal lines the offer comes right after Yeon's last line, the chapter list after it
+        lock.innerHTML = (cl ? cliffHTML(hook.cliff.text, cl) : "") + (goals ? cardHTML + listHTML : listHTML + cardHTML);
+        if (goals) lock.classList.add("lock-list--offer-first");
         out.appendChild(lock);
         document.body.classList.add("has-strip");
         BY.watch(out);
@@ -875,6 +915,8 @@
         seenOnce(chs[0] && (chs[0].querySelector(".comic__beats > :last-child") || chs[0]), "ch1-view-" + P.slug, "Chapter 1 read: " + P.slug);
         seenOnce(chs[1], "teaser-ch2-" + P.slug, "Teaser chapter 2 reached: " + P.slug);
         seenOnce(out.querySelector(".paywall"), "paywall-view-" + P.slug, "Paywall seen: " + P.slug);
+        // CRO 2026-11-09: the buy button itself in the upper 65 % of the screen, once per session (paywall-view stays as it was)
+        seenOnce(out.querySelector(".paywall .pw3-cta"), "paywall-cta-view-" + P.slug, "Paywall buy button seen: " + P.slug);
         // funnel fix 2026-11-07: chapter 2 read to its last beat, and the paywall on screen for 5 s or more (one per session each)
         // round 2: renamed ch2-end-reached-<slug> (the last beat of chapter 2 reached the reading zone of the screen)
         seenOnce(chs[1] && (chs[1].querySelector(".comic__beats > :last-child") || chs[1]), "ch2-end-reached-" + P.slug, "Chapter 2 end reached: " + P.slug);
